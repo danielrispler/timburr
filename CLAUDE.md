@@ -27,4 +27,5 @@ Work follows the four stages in the brief.
 ## Gotchas
 
 - Build and install with `flutter` commands only (`flutter build apk`, `flutter install`, `flutter run`). Flutter finds Android Studio's Java by itself. Do not `export JAVA_HOME` and do not call Gradle directly.
+- To put a build on the phone, run `adb install -r build/app/outputs/flutter-apk/app-release.apk`. Never use `flutter install`: it uninstalls first, which wipes the phone's local data and anything not yet synced.
 - The migration tests run in PGlite (Postgres in WASM). Docker is not needed, and the daemon is usually off.
