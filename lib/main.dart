@@ -10,6 +10,7 @@ import 'data/db.dart';
 import 'data/supabase_remote.dart';
 import 'data/sync.dart';
 import 'data/routines.dart';
+import 'data/workouts.dart';
 import 'ui/core/app_shell.dart';
 import 'ui/sync/sync_ui.dart';
 
@@ -25,14 +26,17 @@ Future<void> main() async {
       isOnline: () async => !(await Connectivity().checkConnectivity()).contains(ConnectivityResult.none),
     );
   }
-  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), sync: sync));
+  // Finishing a workout triggers sync (no-op without a Supabase project).
+  final workouts = WorkoutStore(db, onFinished: sync?.sync);
+  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, sync: sync));
 }
 
 class TimburrApp extends StatelessWidget {
-  const TimburrApp({super.key, required this.catalog, required this.routines, this.sync});
+  const TimburrApp({super.key, required this.catalog, required this.routines, required this.workouts, this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
+  final WorkoutStore workouts;
   final SyncEngine? sync;
 
   @override
@@ -44,18 +48,19 @@ class TimburrApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange, brightness: Brightness.dark),
       ),
       home: sync == null
-          ? AppShell(catalog: catalog, routines: routines)
-          : _AuthGate(catalog: catalog, routines: routines, sync: sync!),
+          ? AppShell(catalog: catalog, routines: routines, workouts: workouts)
+          : _AuthGate(catalog: catalog, routines: routines, workouts: workouts, sync: sync!),
     );
   }
 }
 
 /// Login on a fresh install; afterwards the app, syncing on start, resume, every 5 minutes and when back online.
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({required this.catalog, required this.routines, required this.sync});
+  const _AuthGate({required this.catalog, required this.routines, required this.workouts, required this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
+  final WorkoutStore workouts;
   final SyncEngine sync;
 
   @override
@@ -101,5 +106,5 @@ class _AuthGateState extends State<_AuthGate> {
 
   @override
   Widget build(BuildContext context) =>
-      _signedIn ? AppShell(catalog: widget.catalog, routines: widget.routines, sync: widget.sync) : const LoginScreen();
+      _signedIn ? AppShell(catalog: widget.catalog, routines: widget.routines, workouts: widget.workouts, sync: widget.sync) : const LoginScreen();
 }

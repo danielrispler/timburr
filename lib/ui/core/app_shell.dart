@@ -6,6 +6,7 @@ import '../../data/sync.dart';
 import '../exercises/exercise_detail.dart';
 import '../exercises/exercise_picker.dart';
 import '../../data/routines.dart';
+import '../../data/workouts.dart';
 import '../routines/routines_home.dart';
 import '../sync/sync_ui.dart';
 
@@ -21,10 +22,11 @@ const _tabs = <_Tab>[
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
 /// pops that stack, then returns to Home, then leaves the app.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.catalog, required this.routines, this.sync});
+  const AppShell({super.key, required this.catalog, required this.routines, required this.workouts, this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
+  final WorkoutStore workouts;
   final SyncEngine? sync; // null when no Supabase project is configured
 
   @override
@@ -91,7 +93,7 @@ class _AppShellState extends State<AppShell> {
           ),
         )
       : i == 0
-          ? RoutinesHome(store: widget.routines, catalog: widget.catalog)
+          ? RoutinesHome(store: widget.routines, catalog: widget.catalog, workouts: widget.workouts)
           : _tabs[i].label == 'More' && widget.sync != null
               ? MoreScreen(engine: widget.sync!)
           : _Placeholder(_tabs[i].label);
