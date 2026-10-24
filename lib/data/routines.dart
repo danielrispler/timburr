@@ -8,10 +8,6 @@ import 'db.dart';
 
 const _uuid = Uuid();
 
-/// Deterministic `exercises.id` for a library exercise (design.md), so offline devices agree.
-// shortcut: minimal copy of the helper #7 adds; keep #7's version on merge.
-String libraryExerciseId(String libraryId) => _uuid.v5(Namespace.url.value, 'timburr:library:$libraryId');
-
 /// Routines and their ordered exercise lists. Every write goes through [AppDb.save].
 class RoutineStore {
   RoutineStore(this._db);
@@ -47,11 +43,11 @@ class RoutineStore {
     return q.map((r) => r.readTable(_db.routineExercises)).watch();
   }
 
-  /// Appends [entry]; a library entry without a row gets one with id [libraryExerciseId].
+  /// Appends [entry]; a library entry without a row gets one with id [libraryRowId].
   Future<void> add(String routineId, CatalogEntry entry) => _db.transaction(() async {
         var exerciseId = entry.rowId;
         if (exerciseId == null) {
-          exerciseId = libraryExerciseId(entry.libraryId!);
+          exerciseId = libraryRowId(entry.libraryId!);
           final existing = await (_db.select(_db.exercises)..where((e) => e.id.equals(exerciseId!))).getSingleOrNull();
           if (existing == null) await _db.save(_db.exercises, {'id': exerciseId, 'library_id': entry.libraryId});
         }

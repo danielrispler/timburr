@@ -33,7 +33,7 @@ void main() {
     await store.add(r, lib('Pushups'));
     final rows = await db.select(db.exercises).get();
     expect(rows, hasLength(1));
-    expect(rows.single.id, libraryExerciseId('Pushups'));
+    expect(rows.single.id, libraryRowId('Pushups'));
     expect(rows.single.libraryId, 'Pushups');
     expect([for (final i in await store.watchExercises(r).first) i.position], [0, 1]);
   });
@@ -51,7 +51,7 @@ void main() {
     for (final id in ['A', 'B', 'C']) {
       await store.add(r, lib(id));
     }
-    final [a, b, c] = [for (final id in ['A', 'B', 'C']) libraryExerciseId(id)];
+    final [a, b, c] = [for (final id in ['A', 'B', 'C']) libraryRowId(id)];
 
     var items = await store.watchExercises(r).first;
     await store.move(items[2].id, -1);
