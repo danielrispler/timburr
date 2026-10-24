@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
+import '../cardio/cardio_form.dart';
 import '../workouts/workout_screen.dart';
 import 'routine_editor.dart';
 
 /// Home tab: the routines list (reads the local store, so it works offline) plus "New routine".
 class RoutinesHome extends StatelessWidget {
-  const RoutinesHome({super.key, required this.store, required this.catalog, required this.workouts});
+  const RoutinesHome({super.key, required this.store, required this.catalog, required this.workouts, required this.cardio});
 
   final RoutineStore store;
   final Catalog catalog;
   final WorkoutStore workouts;
+  final CardioStore cardio;
 
   void _open(BuildContext context, String id) => Navigator.of(context)
       .push(MaterialPageRoute(builder: (_) => RoutineEditor(store: store, catalog: catalog, routineId: id)));
@@ -67,6 +70,12 @@ class RoutinesHome extends StatelessWidget {
                                 ),
                               );
                       },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.directions_run),
+                      title: const Text('Log cardio'),
+                      onTap: () => Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => CardioForm(store: cardio))),
                     ),
                     const Divider(),
                     if (routines.isEmpty) const ListTile(title: Text('No routines yet')),
