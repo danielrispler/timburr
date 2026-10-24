@@ -1,11 +1,11 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import 'cardio.dart';
 import 'catalog.dart';
 import 'db.dart';
 
 const _uuid = Uuid();
-const cardioTypes = ['run', 'walk', 'treadmill', 'bike'];
 
 /// Short v1 description for the chat assistant; see docs/import-format.md.
 const importFormat = '''
@@ -32,7 +32,7 @@ Turn my workout screenshot into JSON in this exact format (version 1). Output on
       "avgHr": 158, "inclinePct": null, "rpe": 7, "notes": "" }
   ]
 }
-Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is one of run, walk, treadmill, bike; rpe is 1-10. Use my exercise names below when they match.''';
+Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball; distanceKm is left out for padel, tennis, soccer and basketball; rpe is 1-10. Use my exercise names below when they match.''';
 
 /// Every problem in [data] as `path: message`; empty means valid v1.
 List<String> validateImport(Object? data) {
@@ -131,7 +131,7 @@ List<String> validateImport(Object? data) {
     fields(c, p, {'type', 'date', 'distanceKm', 'durationSec', 'avgHr', 'inclinePct', 'rpe', 'notes'});
     if (!cardioTypes.contains(c['type'])) err('$p.type', 'must be one of ${cardioTypes.join(', ')}');
     date(c, p);
-    number(c, p, 'distanceKm', positive: true, required: true);
+    number(c, p, 'distanceKm', positive: true, required: hasDistance(c['type']));
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
     if (c['inclinePct'] != null && c['inclinePct'] is! num) err('$p.inclinePct', 'must be a number');
@@ -243,7 +243,7 @@ class Importer {
           'id': _uuid.v4(),
           'type': c['type'],
           'started_at': DateTime.parse(c['date'] as String),
-          'distance_km': (c['distanceKm'] as num).toDouble(),
+          'distance_km': (c['distanceKm'] as num?)?.toDouble(),
           'duration_sec': c['durationSec'],
           'avg_hr': c['avgHr'],
           'incline_pct': (c['inclinePct'] as num?)?.toDouble(),

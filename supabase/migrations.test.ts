@@ -35,7 +35,9 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  await db.exec(readFileSync(new URL('./migrations/001_init.sql', import.meta.url), 'utf8'))
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql']) {
+    await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
+  }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
 })
 
@@ -74,5 +76,27 @@ describe('001_init.sql', () => {
       as(me, () => rows(`insert into exercises (id, library_id) values (gen_random_uuid(), 'Pushups')`)),
     ).rejects.toThrow(/unique/)
     expect((await as(me, () => rows('select user_id from exercises')))[0].user_id).toBe(me)
+  })
+})
+
+describe('002_routine_sets_and_sports.sql', () => {
+  it('stores planned sets under RLS', async () => {
+    const [ex] = await as(me, () => rows(`insert into exercises (id, library_id) values (gen_random_uuid(), 'Squat') returning id`))
+    const [r] = await as(me, () => rows(`insert into routines (id, name) values (gen_random_uuid(), 'Legs') returning id`))
+    const [re] = await as(me, () =>
+      rows(`insert into routine_exercises (id, routine_id, exercise_id, position) values (gen_random_uuid(), $1, $2, 0) returning id`, [r.id, ex.id]),
+    )
+    await as(me, () => rows(`insert into routine_sets (id, routine_exercise_id, set_number, reps) values (gen_random_uuid(), $1, 1, 5)`, [re.id]))
+    expect(await as(me, () => rows('select reps from routine_sets'))).toEqual([{ reps: 5 }])
+    expect(await as(other, () => rows('select * from routine_sets'))).toHaveLength(0)
+  })
+
+  it('allows sports without distance, but not distance types', async () => {
+    const add = (type: string, km: number | null) =>
+      as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), $1, now(), $2, 3600)`, [type, km]))
+    await add('padel', null)
+    await add('swim', 1.5)
+    await expect(add('run', null)).rejects.toThrow(/cardio_distance_check/)
+    await expect(add('golf', 5)).rejects.toThrow(/cardio_type_check/)
   })
 })

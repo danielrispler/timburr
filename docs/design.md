@@ -23,10 +23,11 @@ Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `dele
 | `exercises` | `library_id` (null = custom), `name` (custom only), `load_type`, `muscles[]`, `equipment`, `sticky_note`, `last_rest_sec` |
 | `routines` | `name`, `sticky_note` |
 | `routine_exercises` | `routine_id`, `exercise_id`, `position` |
+| `routine_sets` | `routine_exercise_id`, `set_number`, `weight_kg` (null = last session's), `reps`, `duration_sec` |
 | `workouts` | `routine_id` (nullable), `started_at`, `finished_at` (null = in progress), `notes` |
 | `workout_exercises` | `workout_id`, `exercise_id`, `position`, `notes`, `superset_with_next` |
 | `sets` | `workout_exercise_id`, `set_number`, `weight_kg`, `reps`, `duration_sec`, `done` |
-| `cardio` | `type`, `started_at`, `distance_km`, `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
+| `cardio` | `type` (run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball), `started_at`, `distance_km` (null for sports), `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
 
 Changes from the brief:
 
@@ -41,7 +42,7 @@ Changes from the brief:
 - Every local write goes through one `save(table, row)` helper. It sets `updated_at = now()` and `dirty = 1`. `dirty` is an integer.
 - Every sync runs `push`, then `pull`. Only one sync runs at a time.
 - Triggers: app start, resume, finishing a workout, every 5 minutes while open, going back online, and "Sync now".
-- **Push.** For each table in dependency order (exercises, routines, routine_exercises, workouts, workout_exercises, sets, cardio), upsert the dirty rows in chunks. Clear `dirty` only on rows whose `updated_at` didn't change during the push, so an edit made mid-sync stays dirty.
+- **Push.** For each table in dependency order (exercises, routines, routine_exercises, routine_sets, workouts, workout_exercises, sets, cardio), upsert the dirty rows in chunks. Clear `dirty` only on rows whose `updated_at` didn't change during the push, so an edit made mid-sync stays dirty.
 - **Pull.** For each table in the same order, read rows where `server_updated_at` is after the table's cursor, minus a 5-second overlap. Page through them, ordered by `server_updated_at`. Apply a row only if it is new locally or its `updated_at` is newer than the local copy. Re-applying an overlapping row is a no-op.
 - **Last write wins** by client `updated_at`, enforced on both sides. The server trigger ignores an update older than the stored row. The client pull ignores a remote row older than the local one. Unsynced local edits are never overwritten.
 - **Deletes are soft** (`deleted_at`), so they sync like any other change.
@@ -53,10 +54,10 @@ Changes from the brief:
 
 ## Screens
 
-Header on every screen: title and sync status. Bottom tabs: Home, History, Exercises, More.
+Header on every screen: title and sync status. Bottom tabs: Home, History, Workouts, More. Saved routines are called "workouts" in the UI.
 
 1. **Login.** Shown once on a fresh install. Email and password.
-2. **Home.** Resume-workout banner, Start empty, routines (start, edit, new), Log cardio, and the backup reminder (dismissible, shown when the last export is older than 14 days).
+2. **Home.** Resume-workout banner, the backup reminder (dismissible, shown when the last export is older than 14 days), and "Start workout". That opens a list of saved workouts, Empty workout and the activities. Each asks **Start now** (live workout, or a timer for activities) or **I did it** (logged at a picked time, all sets done).
 3. **Workout (active or past).** Editable date and time and a workout note. For each exercise card:
    - sticky note, "Last time" set list, and the one-off session note;
    - set rows with −/+ steppers (2.5 kg / 1 rep / 5 s) and tap-to-type;
@@ -64,12 +65,12 @@ Header on every screen: title and sync status. Bottom tabs: Home, History, Exerc
    - link-with-next (superset), up/down reorder, remove.
 
    Below the cards: add exercise, then finish or discard. A non-blocking rest bar appears at the bottom after a set is marked done.
-4. **Exercise picker.** Search by name, filter by muscle and equipment. Used by the workout and routine screens.
-5. **Routine editor.** Name, sticky note, and an ordered exercise list.
+4. **Exercise picker.** Search by name, filter by muscle and equipment, thumbnails, optional multi-select. Used by the workout and routine screens.
+5. **Workout builder (routine editor).** Exercise cards with photo and planned sets ("3 sets • 10 reps"), swipe to delete, long-press to reorder, tap to edit sets. Bookmark names and saves it; a new one never named is deleted on leaving. Add exercises (multi-select), Start workout, I have done this workout. Finishing a workout that differs from its routine asks whether to update the routine.
 6. **History.** Workouts and cardio by date, with a type filter. Opens the workout or cardio detail.
 7. **Cardio form.** New or edit: type, date, distance, duration, average HR, incline, RPE, notes. Pace is computed.
-8. **Exercises.** Library and custom exercises with search and filters. The detail page shows instructions, load type, sticky note, last session, PRs and charts. Custom exercises can be created, edited and deleted.
-9. **More.** Cardio stats, Import, Backup / Restore, Sync now, Sign out.
+8. **Exercises** (under More). Photos: the two free-exercise-db frames, downloaded on first view into the cache dir (not synced or backed up), shown as a slow flip; plus a YouTube search link. Library and custom exercises with search and filters. The detail page shows instructions, load type, sticky note, last session, PRs and charts. Custom exercises can be created, edited and deleted.
+9. **More.** Exercises, Cardio stats (sports: time and sessions per week), Import, Backup / Restore, Sync now, Sign out.
 
 ## Defaults decided during planning
 

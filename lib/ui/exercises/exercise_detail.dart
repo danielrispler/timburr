@@ -1,11 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
+import 'exercise_image.dart';
 
 const loadTypes = ['weighted', 'bodyweight', 'timed'];
 
@@ -100,6 +102,15 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
+              ExerciseHero(entry),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.smart_display),
+                  label: const Text('Watch on YouTube'),
+                  onPressed: () => launchUrl(youtubeSearchUrl(entry.name), mode: LaunchMode.externalApplication),
+                ),
+              ),
               TileGroup(children: [
               row('Category', entry.category),
               ListTile(

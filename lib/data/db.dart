@@ -49,6 +49,16 @@ class RoutineExercises extends Table with Synced {
   IntColumn get position => integer()();
 }
 
+/// Planned sets of a routine exercise; starting the routine copies them into `sets`.
+@DataClassName('RoutineSet')
+class RoutineSets extends Table with Synced {
+  TextColumn get routineExerciseId => text().references(RoutineExercises, #id)();
+  IntColumn get setNumber => integer()();
+  RealColumn get weightKg => real().nullable()();
+  IntColumn get reps => integer().nullable()();
+  IntColumn get durationSec => integer().nullable()();
+}
+
 class Workouts extends Table with Synced {
   TextColumn get routineId => text().nullable().references(Routines, #id)();
   DateTimeColumn get startedAt => dateTime()();
@@ -80,7 +90,7 @@ class WorkoutSets extends Table with Synced {
 class Cardio extends Table with Synced {
   TextColumn get type => text()();
   DateTimeColumn get startedAt => dateTime()();
-  RealColumn get distanceKm => real()();
+  RealColumn get distanceKm => real().nullable()(); // null for sports
   IntColumn get durationSec => integer()();
   IntColumn get avgHr => integer().nullable()();
   RealColumn get inclinePct => real().nullable()();
@@ -97,20 +107,26 @@ class SyncCursors extends Table {
   Set<Column> get primaryKey => {syncedTable};
 }
 
-@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, Workouts, WorkoutExercises, WorkoutSets, Cardio, SyncCursors])
+@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, SyncCursors])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(routineSets);
+            await m.alterTable(TableMigration(cardio)); // distance_km becomes nullable
+          }
+        },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
 
   /// Synced tables in dependency order, parents first.
-  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, workouts, workoutExercises, workoutSets, cardio];
+  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, cardio];
 
   /// The one local write path: upserts [row] (SQL column name to value), stamping `updated_at` and `dirty = 1`.
   /// On conflict only the columns in [row] are updated; omitted columns keep their stored values.

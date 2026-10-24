@@ -4,10 +4,16 @@ import 'package:uuid/uuid.dart';
 import 'db.dart';
 import 'records.dart' show Series;
 
-const cardioTypes = ['run', 'walk', 'treadmill', 'bike'];
+const distanceTypes = ['run', 'walk', 'treadmill', 'bike', 'swim'];
+const sportTypes = ['padel', 'tennis', 'soccer', 'basketball'];
+const cardioTypes = [...distanceTypes, ...sportTypes];
+
+/// Sports log time only; the rest log a distance too.
+bool hasDistance(Object? type) => !sportTypes.contains(type);
 
 /// Seconds per km, or null when there is no distance.
-double? paceSecPerKm(double distanceKm, int durationSec) => distanceKm > 0 ? durationSec / distanceKm : null;
+double? paceSecPerKm(double? distanceKm, int durationSec) =>
+    distanceKm != null && distanceKm > 0 ? durationSec / distanceKm : null;
 
 /// Pace as m:ss per km.
 String formatPace(double secPerKm) {
@@ -41,7 +47,7 @@ Map<String, String> validateCardio({
   final e = <String, String>{};
   if (!cardioTypes.contains(type)) e['type'] = 'Pick a type';
   final km = parseNum(distance);
-  if (km == null || km <= 0) e['distance'] = 'Enter a distance above 0';
+  if (hasDistance(type) && (km == null || km <= 0)) e['distance'] = 'Enter a distance above 0';
   final sec = parseDuration(duration);
   if (sec == null || sec <= 0) e['duration'] = 'Enter a duration like 27:30';
   if (avgHr.trim().isNotEmpty && ((int.tryParse(avgHr.trim()) ?? 0) <= 0)) e['avgHr'] = 'Enter a whole number above 0';
@@ -66,7 +72,7 @@ class CardioStore {
     String? id,
     required String type,
     required DateTime startedAt,
-    required double distanceKm,
+    required double? distanceKm,
     required int durationSec,
     int? avgHr,
     double? inclinePct,
@@ -116,7 +122,8 @@ List<Object> mergeHistory(List<Workout> workouts, List<CardioData> sessions, {bo
 const distanceBuckets = [5, 10];
 
 /// 5 or 10 when [km] is within 5% of it (GPS and treadmill drift), else null.
-int? distanceBucket(double km) {
+int? distanceBucket(double? km) {
+  if (km == null) return null;
   for (final b in distanceBuckets) {
     if ((km - b).abs() <= b * 0.05 + 1e-9) return b;
   }
@@ -143,3 +150,15 @@ Series paceSeries(List<CardioData> sessions) => [
       for (final s in [...sessions]..sort((a, b) => a.startedAt.compareTo(b.startedAt)))
         if (paceSecPerKm(s.distanceKm, s.durationSec) case final p?) (s.startedAt, p),
     ];
+
+/// (Monday of the week, total seconds, session count), oldest first, for sports stats.
+List<(DateTime, int, int)> weeklyTotals(List<CardioData> sessions) {
+  final weeks = <DateTime, (int, int)>{};
+  for (final s in sessions) {
+    final d = s.startedAt;
+    final monday = DateTime(d.year, d.month, d.day - (d.weekday - 1));
+    final (sec, n) = weeks[monday] ?? (0, 0);
+    weeks[monday] = (sec + s.durationSec, n + 1);
+  }
+  return [for (final k in weeks.keys.toList()..sort()) (k, weeks[k]!.$1, weeks[k]!.$2)];
+}

@@ -57,7 +57,7 @@ void main() {
     w['exercises'][0]['sets'][0]['reps'] = -1;
     w['exercises'][0]['sets'][1]['durationSec'] = 30; // both reps and durationSec
     w['exercises'][1]['sets'] = [];
-    d['cardio'][0]['type'] = 'swim';
+    d['cardio'][0]['type'] = 'golf';
     d['cardio'][0]['rpe'] = 11;
     d['cardio'][0]['distanceKm'] = '5';
     expect(validateImport(d), [
@@ -68,11 +68,19 @@ void main() {
       'workouts[0].exercises[0].sets[0].reps: must be a whole number >= 0',
       'workouts[0].exercises[0].sets[1]: give reps or durationSec, not both',
       'workouts[0].exercises[1].sets: must be a non-empty list',
-      'cardio[0].type: must be one of run, walk, treadmill, bike',
+      'cardio[0].type: must be one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball',
       'cardio[0].distanceKm: must be a number > 0',
       'cardio[0].rpe: must be a whole number 1-10',
     ]);
     expect(validateImport('nope'), ['root: must be an object']);
+  });
+
+  test('sports need no distanceKm', () {
+    final d = _doc();
+    d['cardio'][0]
+      ..['type'] = 'padel'
+      ..remove('distanceKm');
+    expect(validateImport(d), isEmpty);
   });
 
   test('names match library and custom exercises case-insensitively; the rest are unknown', () async {

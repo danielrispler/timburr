@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:uuid/uuid.dart';
 
 import 'catalog.dart';
@@ -17,6 +18,9 @@ num stepped(num? value, num delta) {
   final v = (value ?? 0) + delta;
   return v < 0 ? 0 : v;
 }
+
+/// Rough length of a logged-after-the-fact workout: 3 min per set, at least 10 min.
+Duration estimateDuration(int sets) => Duration(minutes: sets * 3 < 10 ? 10 : sets * 3);
 
 /// Ordered cards split into supersets: a card with `supersetWithNext` joins the card after it. The last card's flag is ignored.
 List<List<WorkoutExercise>> supersetGroups(List<WorkoutExercise> items) {
@@ -39,18 +43,62 @@ class WorkoutStore {
   /// Called after [finish]; main wires it to sync.
   final Future<void> Function()? onFinished;
 
-  /// Starts a workout now; from [routineId], its exercises are copied in order. Returns its id.
-  Future<String> start({String? routineId}) => _db.transaction(() async {
+  /// Starts a workout at [at] (default now). From [routineId], its exercises and planned sets are copied in order;
+  /// a planned set without weight takes last session's. With [done], every set is done and the workout is
+  /// finished after [estimateDuration], for logging one after the fact. Returns its id.
+  Future<String> start({String? routineId, DateTime? at, bool done = false}) => _db.transaction(() async {
         final id = _uuid.v4();
-        await _db.save(_db.workouts, {'id': id, 'routine_id': routineId, 'started_at': DateTime.now()});
-        if (routineId != null) {
-          for (final (i, e) in (await RoutineStore(_db).watchExercises(routineId).first).indexed) {
-            await _db.save(_db.workoutExercises,
-                {'id': _uuid.v4(), 'workout_id': id, 'exercise_id': e.exerciseId, 'position': i});
+        final startedAt = at ?? DateTime.now();
+        await _db.save(_db.workouts, {'id': id, 'routine_id': routineId, 'started_at': startedAt});
+        var count = 0;
+        for (final (i, p) in (routineId == null ? const <Never>[] : await RoutineStore(_db).plan(routineId)).indexed) {
+          final weId = _uuid.v4();
+          await _db.save(_db.workoutExercises, {'id': weId, 'workout_id': id, 'exercise_id': p.exerciseId, 'position': i});
+          final last = await lastTime(p.exerciseId, excludeWorkoutId: id);
+          for (final (n, s) in p.sets.indexed) {
+            await _db.save(_db.workoutSets, {
+              'id': _uuid.v4(),
+              'workout_exercise_id': weId,
+              'set_number': n + 1,
+              'weight_kg': s.weightKg ?? (n < last.length ? last[n] : last.lastOrNull)?.weightKg,
+              'reps': s.reps,
+              'duration_sec': s.durationSec,
+              'done': done,
+            });
           }
+          count += p.sets.length;
         }
+        if (done) await _saveWorkout(id, (w) => w.copyWith(finishedAt: Value(startedAt.add(estimateDuration(count)))));
         return id;
       });
+
+  /// True when the workout came from a live routine and its exercises or sets now differ from that routine's plan.
+  Future<bool> templateChanged(String workoutId) async {
+    final routineId = (await watchWorkout(workoutId).first).routineId;
+    if (routineId == null || !await _routineLive(routineId)) return false;
+    final a = await RoutineStore(_db).plan(routineId), b = await _plan(workoutId);
+    return a.length != b.length ||
+        [for (final (i, x) in a.indexed) x.exerciseId != b[i].exerciseId || !listEquals(x.sets, b[i].sets)].any((d) => d);
+  }
+
+  /// Overwrites the workout's routine with what was done in this workout.
+  Future<void> updateTemplate(String workoutId) async {
+    final routineId = (await watchWorkout(workoutId).first).routineId;
+    if (routineId != null) await RoutineStore(_db).replacePlan(routineId, await _plan(workoutId));
+  }
+
+  Future<bool> _routineLive(String id) async =>
+      await (_db.select(_db.routines)..where((r) => r.id.equals(id) & r.deletedAt.isNull())).getSingleOrNull() != null;
+
+  Future<Plan> _plan(String workoutId) async => [
+        for (final e in await watchExercises(workoutId).first)
+          (
+            exerciseId: e.exerciseId,
+            sets: [
+              for (final s in await watchSets(e.id).first) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
+            ],
+          ),
+      ];
 
   /// The in-progress workout to resume, if any (latest started wins).
   Future<Workout?> active() => watchActive().first;
