@@ -26,5 +26,5 @@ Work follows the four stages in the brief.
 
 ## Gotchas
 
-- Daniel's Mac has no system Java. Before running Gradle, run `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
+- Build and install with `flutter` commands only (`flutter build apk`, `flutter install`, `flutter run`). Flutter finds Android Studio's Java by itself. Do not `export JAVA_HOME` and do not call Gradle directly.
 - The migration tests run in PGlite (Postgres in WASM). Docker is not needed, and the daemon is usually off.

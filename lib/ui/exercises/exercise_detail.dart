@@ -34,7 +34,7 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
     final c = widget.catalog;
     final id = _custom
         ? entry.rowId!
-        : await c.configureLibrary(entry.libraryId!, loadType: loadType, stickyNote: stickyNote);
+        : await c.configureLibrary(entry.libraryId!, rowId: entry.rowId, loadType: loadType, stickyNote: stickyNote);
     if (_custom) {
       if (loadType != null) {
         await c.saveCustom(
@@ -90,7 +90,7 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
   Widget build(BuildContext context) {
     Widget row(String label, String? value) => ListTile(dense: true, title: Text(label), trailing: Text(value ?? '-'));
     return Scaffold(
-      appBar: AppBar(title: Text(entry.name), actions: [
+      appBar: AppBar(title: Text(entry.label), actions: [
         if (_custom) ...[
           IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit), onPressed: _edit),
           IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete), onPressed: _delete),

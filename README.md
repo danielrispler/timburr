@@ -80,4 +80,4 @@ Pushing a `v*` tag (for example `git tag v0.2.0 && git push origin v0.2.0`) runs
 
 ## Exercise library
 
-The bundled library is [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (Unlicense), pinned to one commit and trimmed (no images) by `node scripts/build-exercises.mjs`, which writes `assets/exercises.json`.
+The bundled library is [exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset) (data and text MIT), pinned to one commit and trimmed by `node scripts/build-exercises.mjs`, which writes `assets/exercises.json`. Its animations are © Gym visual (https://gymvisual.com/) and are not covered by the MIT licence: the app downloads them on demand and shows the credit. Exercises logged under the earlier free-exercise-db ids map to the new ids through `legacyIds`.
