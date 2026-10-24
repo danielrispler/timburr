@@ -65,4 +65,23 @@ void main() {
     expect((await catalog.byId(custom))!.lastRestSec, 150);
     expect({for (final e in await catalog.list()) e.name: e.lastRestSec}, {'Pushups': 120, 'Sled': 150});
   });
+
+  test('picking a library exercise creates its row once and never re-dirties it', () async {
+    final entry = (await catalog.list()).single;
+    final id = await catalog.rowIdFor(entry);
+    expect(id, libraryRowId('Pushups'));
+    await catalog.configureLibrary('Pushups', stickyNote: 'elbows in');
+    await db.customStatement('UPDATE exercises SET dirty = 0');
+    expect(await catalog.rowIdFor((await catalog.list()).single), id);
+    final row = (await db.select(db.exercises).get()).single;
+    expect(row.dirty, 0);
+    expect(row.stickyNote, 'elbows in');
+  });
+
+  test('save updates only the given columns of an existing row', () async {
+    await catalog.configureLibrary('Pushups', loadType: 'timed', stickyNote: 'a');
+    await db.save(db.exercises, {'id': libraryRowId('Pushups'), 'last_rest_sec': 60});
+    final row = (await db.select(db.exercises).get()).single;
+    expect((row.loadType, row.stickyNote, row.lastRestSec), ('timed', 'a', 60));
+  });
 }

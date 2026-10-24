@@ -59,9 +59,18 @@ class Catalog {
     ];
   }
 
+  /// Row id for [entry]. A library entry without a row gets one with id [libraryRowId];
+  /// an existing row is left untouched, so picking it does not re-dirty it.
+  Future<String> rowIdFor(CatalogEntry entry) async => entry.rowId ?? await configureLibrary(entry.libraryId!);
+
   /// Get-or-create the row for a library exercise, applying any given overrides. Returns its id.
+  /// With no overrides, an existing row is not rewritten.
   Future<String> configureLibrary(String libraryId, {String? loadType, String? stickyNote}) async {
     final id = libraryRowId(libraryId);
+    if (loadType == null && stickyNote == null &&
+        await (_db.select(_db.exercises)..where((e) => e.id.equals(id))).getSingleOrNull() != null) {
+      return id;
+    }
     await _db.save(_db.exercises, {
       'id': id,
       'library_id': libraryId,

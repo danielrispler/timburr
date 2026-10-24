@@ -111,7 +111,7 @@ class WorkoutStore {
       .watch();
 
   Future<void> addExercise(String workoutId, CatalogEntry entry) => _db.transaction(() async {
-        final exerciseId = await exerciseRowId(_db, entry);
+        final exerciseId = await Catalog(_db).rowIdFor(entry);
         final items = await watchExercises(workoutId).first;
         await _db.save(_db.workoutExercises,
             {'id': _uuid.v4(), 'workout_id': workoutId, 'exercise_id': exerciseId, 'position': items.length});

@@ -113,6 +113,7 @@ class AppDb extends _$AppDb {
   List<TableInfo> get syncedTables => [exercises, routines, routineExercises, workouts, workoutExercises, workoutSets, cardio];
 
   /// The one local write path: upserts [row] (SQL column name to value), stamping `updated_at` and `dirty = 1`.
+  /// On conflict only the columns in [row] are updated; omitted columns keep their stored values.
   Future<void> save<D>(TableInfo<Table, D> table, Map<String, Object?> row) {
     final values = {...row, 'updated_at': DateTime.now(), 'dirty': 1};
     return into(table).insertOnConflictUpdate(RawValuesInsertable<D>({
