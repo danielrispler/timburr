@@ -142,4 +142,37 @@ void main() {
     expect(stepped(null, 5), 5);
     expect(stepped(60, 2.5), 62.5);
   });
+
+  test('history lists finished, non-deleted workouts newest first', () async {
+    Future<String> at(int day, {bool finish = true}) async {
+      final w = await store.start();
+      await store.setStartedAt(w, DateTime(2026, 1, day));
+      if (finish) await store.finish(w);
+      return w;
+    }
+
+    final old = await at(1), newest = await at(3), mid = await at(2);
+    await at(4, finish: false); // in progress
+    await store.discard(await at(5));
+    expect([for (final w in await store.watchHistory().first) w.id], [newest, mid, old]);
+  });
+
+  test('discard soft-deletes the workout exercises and sets too', () async {
+    final w = await store.start();
+    await store.addExercise(w, lib('A'));
+    final we = (await store.watchExercises(w).first).single;
+    await store.addSet(we.id);
+    await store.discard(w);
+    expect(await (db.select(db.workoutExercises)..where((e) => e.deletedAt.isNull())).get(), isEmpty);
+    expect(await (db.select(db.workoutSets)..where((s) => s.deletedAt.isNull())).get(), isEmpty);
+    expect((await db.select(db.workoutSets).getSingle()).dirty, 1);
+  });
+
+  test('edits to a finished workout mark it dirty for sync', () async {
+    final w = await store.start();
+    await store.finish(w);
+    await db.update(db.workouts).write(const WorkoutsCompanion(dirty: Value(0)));
+    await store.setNotes(w, 'later');
+    expect((await store.watchWorkout(w).first).dirty, 1);
+  });
 }

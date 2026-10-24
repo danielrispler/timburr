@@ -59,8 +59,23 @@ class WorkoutStore {
     await onFinished?.call();
   }
 
-  /// Soft-deletes the workout; its children stay but are unreachable.
-  Future<void> discard(String id) => _saveWorkout(id, (w) => w.copyWith(deletedAt: Value(DateTime.now())));
+  /// Soft-deletes the workout with its exercises and sets, so each delete syncs.
+  Future<void> discard(String id) => _db.transaction(() async {
+        final now = DateTime.now();
+        for (final e in await watchExercises(id).first) {
+          for (final s in await watchSets(e.id).first) {
+            await updateSet(s.copyWith(deletedAt: Value(now)));
+          }
+          await saveExercise(e.copyWith(deletedAt: Value(now)));
+        }
+        await _saveWorkout(id, (w) => w.copyWith(deletedAt: Value(now)));
+      });
+
+  /// Finished, non-deleted workouts, newest first.
+  Stream<List<Workout>> watchHistory() => (_db.select(_db.workouts)
+        ..where((w) => w.finishedAt.isNotNull() & w.deletedAt.isNull())
+        ..orderBy([(w) => OrderingTerm.desc(w.startedAt)]))
+      .watch();
 
   Future<void> _saveWorkout(String id, Workout Function(Workout) change) async {
     final w = change(await (_db.select(_db.workouts)..where((w) => w.id.equals(id))).getSingle());
