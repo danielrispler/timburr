@@ -101,4 +101,44 @@ void main() {
       expect(mergeHistory(workouts, cardio, strength: false).map(id), [r3, r1]);
     });
   });
+
+  group('stats', () {
+    CardioData c(String id, String type, double km, int sec, int day) => CardioData(
+        id: id, createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+        type: type, startedAt: DateTime(2026, 1, day), distanceKm: km, durationSec: sec);
+
+    test('bucket is 5 or 10 km within 5%', () {
+      expect(distanceBucket(5), 5);
+      expect(distanceBucket(4.75), 5);
+      expect(distanceBucket(5.25), 5);
+      expect(distanceBucket(4.7), isNull);
+      expect(distanceBucket(9.6), 10);
+      expect(distanceBucket(10.6), isNull);
+      expect(distanceBucket(7), isNull);
+    });
+
+    final all = [
+      c('a', 'run', 10.1, 3000, 4),
+      c('b', 'run', 5.1, 1560, 3),
+      c('c', 'walk', 5, 3000, 2),
+      c('d', 'run', 4.9, 1500, 1),
+    ];
+
+    test('filter by type and bucket keeps order', () {
+      expect(filterCardio(all, type: 'run').map((s) => s.id), ['a', 'b', 'd']);
+      expect(filterCardio(all, bucket: 5).map((s) => s.id), ['b', 'c', 'd']);
+      expect(filterCardio(all, type: 'run', bucket: 5).map((s) => s.id), ['b', 'd']);
+    });
+
+    test('best time is the shortest duration in the bucket', () {
+      expect(bestTime(filterCardio(all, type: 'run'), 5)?.id, 'd');
+      expect(bestTime(all, 10)?.id, 'a');
+      expect(bestTime(filterCardio(all, type: 'walk'), 10), isNull);
+    });
+
+    test('pace series is oldest first in sec/km', () {
+      final s = paceSeries([c('x', 'run', 5, 1500, 2), c('y', 'run', 10, 3600, 1)]);
+      expect(s, [(DateTime(2026, 1, 1), 360.0), (DateTime(2026, 1, 2), 300.0)]);
+    });
+  });
 }
