@@ -169,19 +169,24 @@ class WorkoutStore {
       });
 
   /// Sets of [exerciseId] in the latest live workout started before [excludeWorkoutId].
-  Future<List<WorkoutSet>> lastTime(String exerciseId, {required String excludeWorkoutId}) async {
+  Future<List<WorkoutSet>> lastTime(String exerciseId, {required String excludeWorkoutId}) async =>
+      (await previousSessions(exerciseId, excludeWorkoutId: excludeWorkoutId, limit: 1)).firstOrNull ?? [];
+
+  /// [exerciseId]'s sets per live workout started before [excludeWorkoutId], newest first.
+  Future<List<List<WorkoutSet>>> previousSessions(String exerciseId,
+      {required String excludeWorkoutId, int? limit}) async {
     final current = await (_db.select(_db.workouts)..where((w) => w.id.equals(excludeWorkoutId))).getSingle();
     final we = _db.workoutExercises, w = _db.workouts;
-    final latest = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
+    final rows = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
           ..where(we.exerciseId.equals(exerciseId) &
               we.deletedAt.isNull() &
               w.deletedAt.isNull() &
               w.id.equals(excludeWorkoutId).not() &
               w.startedAt.isSmallerThanValue(current.startedAt))
           ..orderBy([OrderingTerm.desc(w.startedAt)])
-          ..limit(1))
+          ..limit(limit ?? -1))
         .map((r) => r.readTable(we))
-        .getSingleOrNull();
-    return latest == null ? [] : watchSets(latest.id).first;
+        .get();
+    return [for (final e in rows) await watchSets(e.id).first];
   }
 }

@@ -101,6 +101,11 @@ void main() {
 
     final last = await store.lastTime(libraryRowId('A'), excludeWorkoutId: current);
     expect([for (final s in last) s.weightKg], [50.0]);
+
+    await session(DateTime(2026, 1, 9), 120); // later than current: not "previous"
+    await session(DateTime(2026, 1, 2), 60);
+    final prev = await store.previousSessions(libraryRowId('A'), excludeWorkoutId: current);
+    expect([for (final sets in prev) sets.single.weightKg], [60.0, 50.0]);
   });
 
   test('finish stamps finished_at, triggers sync, and ends the active workout', () async {
