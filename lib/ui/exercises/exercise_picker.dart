@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
 
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
 class ExercisePicker extends StatefulWidget {
-  const ExercisePicker({super.key, required this.catalog, required this.onSelected});
+  const ExercisePicker({super.key, required this.catalog, required this.onSelected, this.onCreate});
 
   final Catalog catalog;
-  final ValueChanged<CatalogEntry> onSelected;
+  /// Awaited, then the list reloads, so edits made on a pushed page show up.
+  final FutureOr<void> Function(CatalogEntry) onSelected;
+  final Future<void> Function()? onCreate;
 
   @override
   State<ExercisePicker> createState() => _ExercisePickerState();
@@ -72,6 +76,18 @@ class _ExercisePickerState extends State<ExercisePicker> {
                 _filter('Equipment', _equipment, widget.catalog.equipment, (v) => _equipment = v),
               ]),
             ),
+            if (widget.onCreate case final create?)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('New custom exercise'),
+                  onPressed: () async {
+                    await create();
+                    _reload();
+                  },
+                ),
+              ),
             Expanded(
               child: entries == null
                   ? const Center(child: CircularProgressIndicator())
@@ -84,7 +100,10 @@ class _ExercisePickerState extends State<ExercisePicker> {
                             return ListTile(
                               title: Text(e.name),
                               subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
-                              onTap: () => widget.onSelected(e),
+                              onTap: () async {
+                                await widget.onSelected(e);
+                                _reload();
+                              },
                             );
                           },
                         ),

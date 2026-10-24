@@ -3,12 +3,8 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 
 import 'db.dart';
-
-/// Row id of a library exercise: the same on every device, so two offline devices configuring it end with one row.
-String libraryRowId(String libraryId) => const Uuid().v5(Namespace.url.value, 'timburr:library:$libraryId');
 
 /// The narrow slice of Supabase sync needs. Rows are JSON maps keyed by SQL column name.
 abstract class Remote {

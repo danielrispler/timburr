@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timburr/data/catalog.dart' show libraryRowId;
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/sync.dart';
 
