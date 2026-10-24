@@ -1,0 +1,75 @@
+/* Dark only. Large tap targets for one-handed use mid-workout. */
+:root {
+  --bg: #111315;
+  --surface: #1c1f23;
+  --text: #eceff1;
+  --muted: #8a939b;
+  --accent: #f0a23b;
+  --tap: 52px;
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  font-size: 17px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+button {
+  min-height: var(--tap);
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 0;
+  border-radius: 10px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.sync,
+.muted {
+  color: var(--muted);
+}
+
+.screen {
+  flex: 1;
+  padding: 16px;
+}
+
+.tabs {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+
+.tabs .active {
+  color: var(--accent);
+}
