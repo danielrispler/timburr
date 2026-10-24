@@ -220,4 +220,14 @@ class WorkoutStore {
         .get();
     return [for (final e in rows) await watchSets(e.id).first];
   }
+
+  /// [exerciseId]'s sets per finished, live workout with its start time, oldest first.
+  Future<List<(DateTime, List<WorkoutSet>)>> finishedSessions(String exerciseId) async {
+    final we = _db.workoutExercises, w = _db.workouts;
+    final rows = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
+          ..where(we.exerciseId.equals(exerciseId) & we.deletedAt.isNull() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
+          ..orderBy([OrderingTerm.asc(w.startedAt)]))
+        .get();
+    return [for (final r in rows) (r.readTable(w).startedAt, await watchSets(r.readTable(we).id).first)];
+  }
 }

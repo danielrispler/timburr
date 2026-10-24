@@ -80,4 +80,17 @@ void main() {
       ], [s(sec: 60), x]), {x.id});
     });
   });
+
+  test('chart series: one point per session with done sets', () {
+    final a = DateTime(2026, 1, 1), b = DateTime(2026, 1, 2), c = DateTime(2026, 1, 3);
+    final series = chartSeries([
+      (a, [s(kg: 100, reps: 5), s(kg: 110, reps: 1), s(kg: 200, reps: 5, done: false)]),
+      (b, [s(kg: 120, reps: 5, done: false)]),
+      (c, [s(kg: 90, reps: 10)]),
+    ]);
+    expect(series.maxWeight, [(a, 110.0), (c, 90.0)]);
+    expect([for (final (_, v) in series.e1rm) v.round()], [117, 120]);
+    expect(series.volume, [(a, 610.0), (c, 900.0)]);
+    expect(chartSeries([]).volume, isEmpty);
+  });
 }
