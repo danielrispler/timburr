@@ -1,0 +1,7 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # ISO-8601 text, same shape as Supabase timestamptz over the wire.
+          store_date_time_values_as_text: true

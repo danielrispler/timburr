@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/catalog.dart';
+import '../exercises/exercise_detail.dart';
+import '../exercises/exercise_picker.dart';
+
 typedef _Tab = ({String label, IconData icon});
 
 const _tabs = <_Tab>[
@@ -13,7 +17,9 @@ const _tabs = <_Tab>[
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
 /// pops that stack, then returns to Home, then leaves the app.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, required this.catalog});
+
+  final Catalog catalog;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -53,7 +59,7 @@ class _AppShellState extends State<AppShell> {
             for (var i = 0; i < _tabs.length; i++)
               Navigator(
                 key: _keys[i],
-                onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => _Placeholder(_tabs[i].label)),
+                onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => _tabRoot(i)),
               ),
           ],
         ),
@@ -65,6 +71,16 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
+
+  Widget _tabRoot(int i) => _tabs[i].label == 'Exercises'
+      ? Builder(
+          builder: (context) => ExercisePicker(
+            catalog: widget.catalog,
+            onSelected: (e) =>
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExerciseDetail(entry: e))),
+          ),
+        )
+      : _Placeholder(_tabs[i].label);
 }
 
 class _Placeholder extends StatelessWidget {
