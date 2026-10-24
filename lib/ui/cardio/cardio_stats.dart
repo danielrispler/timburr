@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
 import '../../data/cardio.dart';
 import '../../data/db.dart';
 
@@ -52,16 +53,19 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                         ChoiceChip(label: Text('~$b km'), selected: _bucket == b, onSelected: (_) => setState(() => _bucket = b)),
                     ]),
                   ),
+                  TileGroup(title: 'Best times', children: [
                   for (final b in distanceBuckets)
                     ListTile(
-                      leading: const Icon(Icons.emoji_events),
+                      leading: const IconTile(Icons.emoji_events),
                       title: Text('Best ~$b km'),
                       trailing: Text(switch (bestTime(ofType, b)) {
                         final s? => '${_time(s.durationSec)} (${s.startedAt.day}/${s.startedAt.month})',
                         null => '-',
                       }),
                     ),
+                  ]),
                   if (pace.length >= 2) _PaceChart(pace),
+                  TileGroup(title: 'Sessions', children: [
                   if (shown.isEmpty) const ListTile(title: Text('No sessions')),
                   for (final s in shown)
                     ListTile(
@@ -72,6 +76,7 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                         null => '',
                       }),
                     ),
+                  ]),
                 ]),
               ),
             );

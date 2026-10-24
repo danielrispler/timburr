@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
 import '../../data/catalog.dart';
 
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
@@ -37,7 +38,7 @@ class _ExercisePickerState extends State<ExercisePicker> {
         child: DropdownButtonFormField<String?>(
           initialValue: value,
           isExpanded: true,
-          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+          decoration: InputDecoration(labelText: label, isDense: true),
           items: [
             const DropdownMenuItem(value: null, child: Text('Any')),
             for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
@@ -59,9 +60,9 @@ class _ExercisePickerState extends State<ExercisePicker> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search), hintText: 'Search exercises', border: OutlineInputBorder()),
+              child: SearchBar(
+                leading: const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.search)),
+                hintText: 'Search exercises',
                 onChanged: (v) {
                   _query = v;
                   _reload();
@@ -97,13 +98,25 @@ class _ExercisePickerState extends State<ExercisePicker> {
                           itemCount: entries.length,
                           itemBuilder: (_, i) {
                             final e = entries[i];
-                            return ListTile(
+                            const big = Radius.circular(28), small = Radius.circular(4);
+                            // Same look as TileGroup, kept per item so the list stays lazy.
+                            return Padding(
+                              padding: EdgeInsets.fromLTRB(16, i == 0 ? 8 : 2, 16, 0),
+                              child: Material(
+                                color: Theme.of(context).colorScheme.surfaceContainer,
+                                clipBehavior: Clip.antiAlias,
+                                borderRadius: BorderRadius.vertical(
+                                    top: i == 0 ? big : small, bottom: i == entries.length - 1 ? big : small),
+                                child: ListTile(
+                              leading: IconTile(muscleIcon(e.muscles.firstOrNull)),
                               title: Text(e.name),
                               subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
                               onTap: () async {
                                 await widget.onSelected(e);
                                 _reload();
                               },
+                                ),
+                              ),
                             );
                           },
                         ),

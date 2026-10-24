@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
@@ -20,6 +21,7 @@ class RoutineEditor extends StatefulWidget {
 class _RoutineEditorState extends State<RoutineEditor> {
   final _name = TextEditingController(), _note = TextEditingController();
   Map<String, String> _names = {};
+  Map<String, String?> _muscles = {};
   bool _loaded = false;
 
   @override
@@ -39,7 +41,12 @@ class _RoutineEditorState extends State<RoutineEditor> {
 
   Future<void> _loadNames() async {
     final all = await widget.catalog.list();
-    if (mounted) setState(() => _names = {for (final e in all) if (e.rowId != null) e.rowId!: e.name});
+    if (mounted) {
+      setState(() {
+        _names = {for (final e in all) if (e.rowId != null) e.rowId!: e.name};
+        _muscles = {for (final e in all) if (e.rowId != null) e.rowId!: e.muscles.firstOrNull};
+      });
+    }
   }
 
   @override
@@ -116,9 +123,11 @@ class _RoutineEditorState extends State<RoutineEditor> {
                             onChanged: (_) => _saveFields(),
                           ),
                           const SizedBox(height: 12),
+                          if (items.isNotEmpty)
+                            TileGroup(title: 'Exercises', children: [
                           for (final (i, e) in items.indexed)
                             ListTile(
-                              contentPadding: EdgeInsets.zero,
+                              leading: IconTile(muscleIcon(_muscles[e.exerciseId])),
                               title: Text(_names[e.exerciseId] ?? '…'),
                               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                                 IconButton(
@@ -135,6 +144,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
                                     onPressed: () => widget.store.remove(e.id)),
                               ]),
                             ),
+                            ]),
                         ],
                       );
                     },

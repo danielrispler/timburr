@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/theme.dart';
 import '../../data/backup.dart';
 import '../../data/db.dart';
 import '../../data/sync.dart';
@@ -94,20 +95,22 @@ class _BackupScreenState extends State<BackupScreen> {
             child: ListView(
               children: [
                 if (_busy) const LinearProgressIndicator(),
+                TileGroup(children: [
                 ListTile(
-                  leading: const Icon(Icons.upload_file),
+                  leading: const IconTile(Icons.upload_file),
                   title: const Text('Export backup'),
                   subtitle: const Text('All data as one JSON file, via the share sheet'),
                   enabled: !_busy,
                   onTap: _export,
                 ),
                 ListTile(
-                  leading: const Icon(Icons.restore),
+                  leading: const IconTile(Icons.restore),
                   title: const Text('Restore backup'),
                   subtitle: const Text('Pick a backup file, then replace or merge'),
                   enabled: !_busy,
                   onTap: _restore,
                 ),
+                ]),
               ],
             ),
           ),
@@ -134,10 +137,9 @@ class _BackupReminderCardState extends State<BackupReminderCard> {
         future: _due,
         builder: (context, snap) => snap.data != true || _dismissed
             ? const SizedBox.shrink()
-            : Card(
-                margin: const EdgeInsets.all(12),
-                child: ListTile(
-                  leading: const Icon(Icons.backup),
+            : TileGroup(children: [
+                ListTile(
+                  leading: const IconTile(Icons.backup),
                   title: const Text('Back up your data'),
                   subtitle: const Text('No export in the last 14 days'),
                   onTap: widget.onOpen,
@@ -150,6 +152,6 @@ class _BackupReminderCardState extends State<BackupReminderCard> {
                     },
                   ),
                 ),
-              ),
+              ]),
       );
 }

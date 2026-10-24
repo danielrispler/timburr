@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
@@ -85,7 +86,6 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     Widget row(String label, String? value) => ListTile(dense: true, title: Text(label), trailing: Text(value ?? '-'));
     return Scaffold(
       appBar: AppBar(title: Text(entry.name), actions: [
@@ -100,6 +100,7 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
+              TileGroup(children: [
               row('Category', entry.category),
               ListTile(
                 dense: true,
@@ -119,6 +120,7 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
                 trailing: const Icon(Icons.edit_note),
                 onTap: _editNote,
               ),
+              ]),
               if (_sessions case final sessions?)
                 FutureBuilder(
                   future: sessions,
@@ -127,12 +129,10 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
                       : const SizedBox.shrink(),
                 ),
               if (entry.instructions.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('Instructions', style: text.titleMedium),
-                ),
-                for (final (i, step) in entry.instructions.indexed)
-                  ListTile(leading: Text('${i + 1}.'), title: Text(step)),
+                TileGroup(title: 'Instructions', children: [
+                  for (final (i, step) in entry.instructions.indexed)
+                    ListTile(leading: Text('${i + 1}.'), title: Text(step)),
+                ]),
               ],
             ],
           ),
@@ -154,9 +154,6 @@ class _Stats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    Widget heading(String s) =>
-        Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text(s, style: text.titleMedium));
     final last = sessions.lastWhere((s) => s.$2.any((x) => x.done), orElse: () => (DateTime(0), []));
     if (last.$2.isEmpty) {
       return const ListTile(leading: Icon(Icons.show_chart), title: Text('No history yet'));
@@ -164,7 +161,7 @@ class _Stats extends StatelessWidget {
     final rec = records(loadType, [for (final (_, sets) in sessions) sets]);
     final series = chartSeries(sessions);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      heading('Last session · ${_date(last.$1)}'),
+      TileGroup(title: 'Last session · ${_date(last.$1)}', children: [
       for (final s in last.$2.where((s) => s.done))
         ListTile(
           dense: true,
@@ -174,9 +171,11 @@ class _Stats extends StatelessWidget {
             _ => '${_num(s.weightKg ?? 0)} kg × ${s.reps ?? 0}',
           }),
         ),
-      heading('Records'),
-      for (final MapEntry(:key, :value) in rec.entries)
-        ListTile(dense: true, title: Text(key), trailing: Text(_num(value))),
+      ]),
+      TileGroup(title: 'Records', children: [
+        for (final MapEntry(:key, :value) in rec.entries)
+          ListTile(dense: true, title: Text(key), trailing: Text(_num(value))),
+      ]),
       if (loadType == 'weighted') ...[
         _Chart('Max weight (kg)', series.maxWeight),
         _Chart('e1RM (kg)', series.e1rm),

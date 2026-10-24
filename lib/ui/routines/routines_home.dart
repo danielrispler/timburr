@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme.dart';
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
@@ -60,42 +61,42 @@ class RoutinesHome extends StatelessWidget {
                       stream: workouts.watchActive(),
                       builder: (context, snap) {
                         final w = snap.data;
-                        return w == null
-                            ? ListTile(
-                                leading: const Icon(Icons.play_arrow),
-                                title: const Text('Start empty workout'),
-                                onTap: () => _start(context),
-                              )
-                            : Card(
-                                margin: const EdgeInsets.all(12),
-                                child: ListTile(
-                                  leading: const Icon(Icons.timer),
+                        return TileGroup(title: 'Today', children: [
+                          w == null
+                              ? ListTile(
+                                  leading: const IconTile(Icons.play_arrow),
+                                  title: const Text('Start empty workout'),
+                                  onTap: () => _start(context),
+                                )
+                              : ListTile(
+                                  leading: const IconTile(Icons.timer),
                                   title: const Text('Workout in progress'),
                                   subtitle: const Text('Tap to resume'),
                                   onTap: () => _workout(context, w.id),
                                 ),
-                              );
+                          ListTile(
+                            leading: const IconTile(Icons.directions_run),
+                            title: const Text('Log cardio'),
+                            onTap: () => Navigator.of(context)
+                                .push(MaterialPageRoute(builder: (_) => CardioForm(store: cardio))),
+                          ),
+                        ]);
                       },
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.directions_run),
-                      title: const Text('Log cardio'),
-                      onTap: () => Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => CardioForm(store: cardio))),
-                    ),
-                    const Divider(),
-                    if (routines.isEmpty) const ListTile(title: Text('No routines yet')),
-                    for (final r in routines)
-                      ListTile(
-                        title: Text(r.name),
-                        subtitle: r.stickyNote == null || r.stickyNote!.isEmpty ? null : Text(r.stickyNote!),
-                        leading: IconButton(
-                            icon: const Icon(Icons.play_circle),
-                            tooltip: 'Start ${r.name}',
-                            onPressed: () => _start(context, routineId: r.id)),
-                        trailing: const Icon(Icons.edit),
-                        onTap: () => _open(context, r.id),
-                      ),
+                    TileGroup(title: 'Routines', children: [
+                      if (routines.isEmpty) const ListTile(title: Text('No routines yet')),
+                      for (final r in routines)
+                        ListTile(
+                          title: Text(r.name),
+                          subtitle: r.stickyNote == null || r.stickyNote!.isEmpty ? null : Text(r.stickyNote!),
+                          leading: const IconTile(Icons.fitness_center),
+                          trailing: IconButton.filledTonal(
+                              icon: const Icon(Icons.play_arrow),
+                              tooltip: 'Start ${r.name}',
+                              onPressed: () => _start(context, routineId: r.id)),
+                          onTap: () => _open(context, r.id),
+                        ),
+                    ]),
                   ],
                 ),
               ),
