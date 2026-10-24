@@ -31,6 +31,7 @@ class Catalog {
     : _loadLibrary = loadLibrary ?? (() => rootBundle.loadString('assets/exercises.json'));
 
   final AppDb _db;
+  AppDb get db => _db;
   final Future<String> Function() _loadLibrary;
   Map<String, CatalogEntry>? _library;
 

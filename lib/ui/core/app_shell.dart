@@ -94,8 +94,8 @@ class _AppShellState extends State<AppShell> {
         )
       : i == 0
           ? RoutinesHome(store: widget.routines, catalog: widget.catalog, workouts: widget.workouts)
-          : _tabs[i].label == 'More' && widget.sync != null
-              ? MoreScreen(engine: widget.sync!)
+          : _tabs[i].label == 'More'
+              ? MoreScreen(engine: widget.sync, catalog: widget.catalog)
           : _Placeholder(_tabs[i].label);
 }
 
