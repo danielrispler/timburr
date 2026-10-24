@@ -10,16 +10,26 @@ import '../cardio/cardio_stats.dart';
 import '../import/import_screen.dart';
 
 /// Header status: `synced`, `N pending`, `offline` or `error` (tap for the message).
-class SyncBadge extends StatelessWidget {
+class SyncBadge extends StatefulWidget {
   const SyncBadge({super.key, required this.engine});
 
   final SyncEngine engine;
 
   @override
+  State<SyncBadge> createState() => _SyncBadgeState();
+}
+
+class _SyncBadgeState extends State<SyncBadge> {
+  // Created once: a new stream per status change would resubscribe the query.
+  late final Stream<int> _pending = widget.engine.watchPending();
+
+  SyncEngine get engine => widget.engine;
+
+  @override
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: Listenable.merge([engine.error, engine.offline]),
         builder: (context, _) => StreamBuilder<int>(
-          stream: engine.watchPending(),
+          stream: _pending,
           builder: (context, snap) {
             final error = engine.error.value;
             final pending = snap.data ?? 0;

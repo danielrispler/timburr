@@ -193,7 +193,7 @@ class Importer {
       Future<String> exerciseId(Map e) async {
         final name = (e['name'] as String).trim(), key = name.toLowerCase();
         if ((mapping[key] ?? known[key]) case final entry?) {
-          return entry.rowId ?? await _catalog.configureLibrary(entry.libraryId!);
+          return _catalog.rowIdFor(entry);
         }
         final sets = (e['sets'] as List).cast<Map>();
         return created[key] ??= await _catalog.saveCustom(

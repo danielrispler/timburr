@@ -45,7 +45,7 @@ class RoutineStore {
 
   /// Appends [entry]; a library entry without a row gets one with id [libraryRowId].
   Future<void> add(String routineId, CatalogEntry entry) => _db.transaction(() async {
-        final exerciseId = await exerciseRowId(_db, entry);
+        final exerciseId = await Catalog(_db).rowIdFor(entry);
         final items = await watchExercises(routineId).first;
         await _db.save(_db.routineExercises,
             {'id': _uuid.v4(), 'routine_id': routineId, 'exercise_id': exerciseId, 'position': items.length});
@@ -81,13 +81,4 @@ class RoutineStore {
         'position': position,
         if (deleted) 'deleted_at': DateTime.now(),
       });
-}
-
-/// Row id for [entry]; a library entry without a row gets one with id [libraryRowId].
-Future<String> exerciseRowId(AppDb db, CatalogEntry entry) async {
-  if (entry.rowId != null) return entry.rowId!;
-  final id = libraryRowId(entry.libraryId!);
-  final existing = await (db.select(db.exercises)..where((e) => e.id.equals(id))).getSingleOrNull();
-  if (existing == null) await db.save(db.exercises, {'id': id, 'library_id': entry.libraryId});
-  return id;
 }

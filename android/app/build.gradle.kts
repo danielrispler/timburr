@@ -51,7 +51,10 @@ android {
     buildTypes {
         release {
             // No keystore configured: fall back to debug keys so `flutter run --release` still works.
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // On CI that would publish a debug-signed APK, so fail instead.
+            signingConfig = signingConfigs.findByName("release")
+                ?: if (System.getenv("CI").isNullOrEmpty()) signingConfigs.getByName("debug")
+                else throw GradleException("CI release build has no keystore: set TIMBURR_KEYSTORE_PATH")
         }
     }
 }
