@@ -109,6 +109,9 @@ class AppDb extends _$AppDb {
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
 
+  /// Synced tables in dependency order, parents first.
+  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, workouts, workoutExercises, workoutSets, cardio];
+
   /// The one local write path: upserts [row] (SQL column name to value), stamping `updated_at` and `dirty = 1`.
   Future<void> save<D>(TableInfo<Table, D> table, Map<String, Object?> row) {
     final values = {...row, 'updated_at': DateTime.now(), 'dirty': 1};
