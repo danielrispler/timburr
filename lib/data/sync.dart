@@ -29,8 +29,7 @@ class SyncEngine {
 
   static const overlap = Duration(seconds: 5);
 
-  List<TableInfo> get _tables =>
-      [_db.exercises, _db.routines, _db.routineExercises, _db.workouts, _db.workoutExercises, _db.workoutSets, _db.cardio];
+  List<TableInfo> get _tables => _db.syncedTables;
 
   Future<void>? _running;
   bool _again = false;
@@ -107,17 +106,7 @@ class SyncEngine {
     final local = await _db.customSelect('select updated_at from $name where id = ?', variables: [Variable(remote['id'])]).getSingleOrNull();
     final remoteAt = DateTime.parse(remote['updated_at'] as String);
     if (local != null && !remoteAt.isAfter(DateTime.parse(local.data['updated_at'] as String))) return;
-    final values = <String, Object?>{'dirty': 0};
-    for (final c in table.$columns) {
-      if (c.name == 'dirty' || !remote.containsKey(c.name)) continue;
-      final v = remote[c.name];
-      values[c.name] = switch (v) {
-        String s when c.type == DriftSqlType.dateTime => DateTime.parse(s),
-        List l => jsonEncode(l),
-        num n when c.type == DriftSqlType.double => n.toDouble(),
-        _ => v,
-      };
-    }
+    final values = {...rowFromJson(table, remote), 'dirty': 0};
     final cols = values.keys.join(', ');
     await _db.customInsert(
       'insert into $name ($cols) values (${List.filled(values.length, '?').join(', ')}) '
@@ -128,15 +117,8 @@ class SyncEngine {
   }
 
   Map<String, Object?> _toRemote(TableInfo table, Map<String, Object?> raw) => {
-        for (final c in table.$columns)
-          if (c.name != 'dirty' && !(c.name == 'user_id' && raw[c.name] == null) && c.name != 'server_updated_at')
-            c.name: switch (raw[c.name]) {
-              null => null,
-              final v when c.type == DriftSqlType.dateTime => DateTime.parse(v as String).toUtc().toIso8601String(),
-              final v when c.type == DriftSqlType.bool => v == 1,
-              final String v when c.name == 'muscles' => jsonDecode(v),
-              final v => v,
-            },
+        for (final MapEntry(:key, :value) in rowToJson(table, raw).entries)
+          if (!(key == 'user_id' && value == null) && key != 'server_updated_at') key: value,
       };
 
   /// Rows not yet pushed, across all tables.
@@ -156,3 +138,28 @@ class SyncEngine {
         await _db.delete(_db.syncCursors).go();
       });
 }
+
+/// A raw local row as JSON in the Supabase wire shape, every column except local `dirty`.
+Map<String, Object?> rowToJson(TableInfo table, Map<String, Object?> raw) => {
+      for (final c in table.$columns)
+        if (c.name != 'dirty')
+          c.name: switch (raw[c.name]) {
+            null => null,
+            final v when c.type == DriftSqlType.dateTime => DateTime.parse(v as String).toUtc().toIso8601String(),
+            final v when c.type == DriftSqlType.bool => v == 1,
+            final String v when c.name == 'muscles' => jsonDecode(v),
+            final v => v,
+          },
+    };
+
+/// The inverse of [rowToJson]: SQL values for the columns present in [json], `dirty` excluded.
+Map<String, Object?> rowFromJson(TableInfo table, Map<String, Object?> json) => {
+      for (final c in table.$columns)
+        if (c.name != 'dirty' && json.containsKey(c.name))
+          c.name: switch (json[c.name]) {
+            String s when c.type == DriftSqlType.dateTime => DateTime.parse(s),
+            List l => jsonEncode(l),
+            num n when c.type == DriftSqlType.double => n.toDouble(),
+            final v => v,
+          },
+    };

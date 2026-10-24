@@ -5,6 +5,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
+import '../backup/backup_screen.dart';
 import '../cardio/cardio_form.dart';
 import '../workouts/workout_screen.dart';
 import 'routine_editor.dart';
@@ -50,6 +51,11 @@ class RoutinesHome extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 88),
                   children: [
+                    // No engine here: restored rows go up with the next periodic sync.
+                    BackupReminderCard(
+                      onOpen: () => Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => BackupScreen(db: catalog.db, engine: null))),
+                    ),
                     StreamBuilder<Workout?>(
                       stream: workouts.watchActive(),
                       builder: (context, snap) {
