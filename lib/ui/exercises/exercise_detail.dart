@@ -1,13 +1,18 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
+import '../../data/db.dart';
+import '../../data/records.dart';
+import '../../data/workouts.dart';
 
 const loadTypes = ['weighted', 'bodyweight', 'timed'];
 
 class ExerciseDetail extends StatefulWidget {
-  const ExerciseDetail({super.key, required this.catalog, required this.entry});
+  const ExerciseDetail({super.key, required this.catalog, required this.entry, this.workouts});
 
   final Catalog catalog;
+  final WorkoutStore? workouts;
   final CatalogEntry entry;
 
   @override
@@ -16,6 +21,8 @@ class ExerciseDetail extends StatefulWidget {
 
 class _ExerciseDetailState extends State<ExerciseDetail> {
   late CatalogEntry entry = widget.entry;
+  late final _sessions = widget.workouts
+      ?.finishedSessions(entry.rowId ?? libraryRowId(entry.libraryId!));
 
   bool get _custom => entry.libraryId == null;
 
@@ -112,6 +119,13 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
                 trailing: const Icon(Icons.edit_note),
                 onTap: _editNote,
               ),
+              if (_sessions case final sessions?)
+                FutureBuilder(
+                  future: sessions,
+                  builder: (context, snap) => snap.hasData
+                      ? _Stats(loadType: entry.loadType ?? 'weighted', sessions: snap.data!)
+                      : const SizedBox.shrink(),
+                ),
               if (entry.instructions.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -124,6 +138,103 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
           ),
         ),
       ),
+    );
+  }
+}
+
+String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+String _date(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Last session, records and per-session charts.
+class _Stats extends StatelessWidget {
+  const _Stats({required this.loadType, required this.sessions});
+
+  final String loadType;
+  final List<(DateTime, List<WorkoutSet>)> sessions;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    Widget heading(String s) =>
+        Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text(s, style: text.titleMedium));
+    final last = sessions.lastWhere((s) => s.$2.any((x) => x.done), orElse: () => (DateTime(0), []));
+    if (last.$2.isEmpty) {
+      return const ListTile(leading: Icon(Icons.show_chart), title: Text('No history yet'));
+    }
+    final rec = records(loadType, [for (final (_, sets) in sessions) sets]);
+    final series = chartSeries(sessions);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      heading('Last session · ${_date(last.$1)}'),
+      for (final s in last.$2.where((s) => s.done))
+        ListTile(
+          dense: true,
+          title: Text(switch (loadType) {
+            'timed' => '${s.durationSec ?? 0} s',
+            'bodyweight' => '${s.reps ?? 0} reps${(s.weightKg ?? 0) > 0 ? ' +${_num(s.weightKg!)} kg' : ''}',
+            _ => '${_num(s.weightKg ?? 0)} kg × ${s.reps ?? 0}',
+          }),
+        ),
+      heading('Records'),
+      for (final MapEntry(:key, :value) in rec.entries)
+        ListTile(dense: true, title: Text(key), trailing: Text(_num(value))),
+      if (loadType == 'weighted') ...[
+        _Chart('Max weight (kg)', series.maxWeight),
+        _Chart('e1RM (kg)', series.e1rm),
+        _Chart('Volume (kg)', series.volume),
+      ],
+    ]);
+  }
+}
+
+class _Chart extends StatelessWidget {
+  const _Chart(this.title, this.points);
+
+  final String title;
+  final Series points;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        AspectRatio(
+          aspectRatio: 2,
+          child: LineChart(LineChartData(
+            gridData: const FlGridData(drawVerticalLine: false),
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              topTitles: const AxisTitles(),
+              rightTitles: const AxisTitles(),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 24,
+                  interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
+                  getTitlesWidget: (x, meta) {
+                    final i = x.toInt();
+                    if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
+                    final d = points[i].$1;
+                    return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
+                  },
+                ),
+              ),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                // shortcut: x is session index, not time, so gaps between sessions are evenly spaced.
+                spots: [for (final (i, (_, v)) in points.indexed) FlSpot(i.toDouble(), v)],
+                color: color,
+                barWidth: 3,
+                dotData: FlDotData(show: points.length < 30),
+              ),
+            ],
+          )),
+        ),
+      ]),
     );
   }
 }

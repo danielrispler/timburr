@@ -46,3 +46,19 @@ Set<String> prBadges(String loadType, Iterable<Iterable<WorkoutSet>> previous, I
   final rank = metrics.values.first;
   return {beats.reduce((a, b) => rank(b) > rank(a) ? b : a).id};
 }
+
+typedef Series = List<(DateTime, double)>;
+
+/// Per-session chart points from [sessions] (date, sets), done sets only.
+/// Sessions with no done set get no point.
+({Series maxWeight, Series e1rm, Series volume}) chartSeries(Iterable<(DateTime, Iterable<WorkoutSet>)> sessions) {
+  final Series w = [], e = [], v = [];
+  for (final (at, sets) in sessions) {
+    final done = sets.where((s) => s.done);
+    if (done.isEmpty) continue;
+    w.add((at, done.map((s) => s.weightKg ?? 0).reduce((a, b) => a > b ? a : b)));
+    e.add((at, done.map((s) => e1rm(s.weightKg ?? 0, s.reps ?? 0)).reduce((a, b) => a > b ? a : b)));
+    v.add((at, sessionVolume(done)));
+  }
+  return (maxWeight: w, e1rm: e, volume: v);
+}

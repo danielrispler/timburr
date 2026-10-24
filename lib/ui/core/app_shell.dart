@@ -88,7 +88,7 @@ class _AppShellState extends State<AppShell> {
           builder: (context) => ExercisePicker(
             catalog: widget.catalog,
             onSelected: (e) => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => ExerciseDetail(catalog: widget.catalog, entry: e))),
+                .push(MaterialPageRoute(builder: (_) => ExerciseDetail(catalog: widget.catalog, entry: e, workouts: widget.workouts))),
             onCreate: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
           ),
