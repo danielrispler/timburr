@@ -35,9 +35,9 @@ flutter test                                         # unit tests
 
 ## Import from the command line
 
-`tool/timburr-import` writes a v1 import file (format: `importFormat` in [`lib/data/importer.dart`](lib/data/importer.dart)) straight into Supabase. It signs in as you, so RLS still applies. It pulls your data into memory, runs the app's importer (same validation and name matching) and pushes the result. The phone picks it up on its next sync. An AI assistant can write the JSON and run the command.
+`tool/timburr-import` writes a v1 import file (format: `importFormat` in [`lib/data/importer.dart`](lib/data/importer.dart)) straight into Supabase. It uses the service_role key, which bypasses RLS, so it stamps and filters every row with your user id. It pulls your data into memory, runs the app's importer (same validation and name matching) and pushes the result. The phone picks it up on its next sync. An AI assistant can write the JSON and run the command.
 
-Add `TIMBURR_EMAIL` and `TIMBURR_PASSWORD` to `.env` (git-ignored), next to `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Sync the phone first: last write wins.
+Add `SUPABASE_SERVICE_ROLE_KEY` (Project Settings > API Keys, the secret key) and `TIMBURR_USER_ID` (Authentication > Users, your UID) to `.env` (git-ignored), next to `VITE_SUPABASE_URL`. That key never goes in `.env.json`, the app or the repo. Sync the phone first: last write wins.
 
 ```sh
 tool/timburr-import workouts.json --dry-run        # validate, list new custom exercises, write nothing

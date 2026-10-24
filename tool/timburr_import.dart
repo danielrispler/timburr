@@ -1,8 +1,9 @@
 // ignore_for_file: avoid_print
 // Imports a v1 JSON file (see lib/data/importer.dart importFormat) straight into Supabase, as Daniel.
+// Uses the service_role key (bypasses RLS), so every row is stamped and filtered with TIMBURR_USER_ID.
 // Run through tool/timburr-import, not directly: it runs under `flutter test` because the data layer imports Flutter.
 //
-// Flow: sign in (RLS applies), pull everything into an in-memory store, run the app's Importer on it, push.
+// Flow: pull everything into an in-memory store, run the app's Importer on it, push.
 import 'dart:convert';
 import 'dart:io';
 
@@ -31,18 +32,17 @@ void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   test('import $_file', () async {
     final env = _env();
-    for (final k in ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'TIMBURR_EMAIL', 'TIMBURR_PASSWORD']) {
+    for (final k in ['VITE_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'TIMBURR_USER_ID']) {
       if ((env[k] ?? '').isEmpty) fail('.env is missing $k');
     }
     final data = jsonDecode(File(_file).readAsStringSync());
     final errors = validateImport(data);
     if (errors.isNotEmpty) fail('Invalid file:\n${errors.join('\n')}');
 
-    final client = SupabaseClient(env['VITE_SUPABASE_URL']!, env['VITE_SUPABASE_PUBLISHABLE_KEY']!);
-    await client.auth.signInWithPassword(email: env['TIMBURR_EMAIL']!, password: env['TIMBURR_PASSWORD']!);
+    final client = SupabaseClient(env['VITE_SUPABASE_URL']!, env['SUPABASE_SERVICE_ROLE_KEY']!);
     final db = AppDb(NativeDatabase.memory());
     try {
-      final engine = SyncEngine(db, SupabaseRemote(client));
+      final engine = SyncEngine(db, SupabaseRemote(client, userId: env['TIMBURR_USER_ID']));
       Future<void> sync() async {
         await engine.sync();
         if (engine.error.value case final e?) fail('Sync failed: $e');
@@ -59,7 +59,7 @@ void main() {
       print('Imported ${(data['workouts'] as List? ?? []).length} workouts and ${(data['cardio'] as List? ?? []).length} cardio sessions.');
     } finally {
       await db.close();
-      await client.auth.signOut();
+      await client.dispose();
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
 }
