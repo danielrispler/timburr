@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
 import '../../data/db.dart';
+import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../exercises/exercise_picker.dart';
+import 'exercise_notes.dart';
+import 'rest_bar.dart';
 
 /// Active (or past) strength workout. Every tap writes straight to the store.
 class WorkoutScreen extends StatefulWidget {
@@ -70,6 +73,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+        bottomNavigationBar: RestBar(catalog: widget.catalog),
         appBar: AppBar(
           title: const Text('Workout'),
           actions: [IconButton(icon: const Icon(Icons.delete), tooltip: 'Discard workout', onPressed: _discard)],
@@ -106,15 +110,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           decoration: const InputDecoration(labelText: 'Workout note', border: OutlineInputBorder()),
                           onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
                         ),
+                        RoutineNote(store: widget.store, routineId: w.routineId),
                         const SizedBox(height: 8),
-                        for (final (i, e) in items.indexed)
-                          _ExerciseCard(
-                            key: ValueKey(e.id),
-                            store: widget.store,
-                            catalog: widget.catalog,
-                            item: e,
-                            isFirst: i == 0,
-                            isLast: i == items.length - 1,
+                        for (final g in supersetGroups(items))
+                          SupersetFrame(
+                            key: ValueKey(g.first.id),
+                            size: g.length,
+                            child: Column(children: [
+                              for (final e in g)
+                                _ExerciseCard(
+                                  key: ValueKey(e.id),
+                                  store: widget.store,
+                                  catalog: widget.catalog,
+                                  item: e,
+                                  isFirst: e == items.first,
+                                  isLast: e == items.last,
+                                ),
+                            ]),
                           ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
@@ -155,18 +167,20 @@ class _ExerciseCard extends StatefulWidget {
 
 class _ExerciseCardState extends State<_ExerciseCard> {
   CatalogEntry? _entry;
-  List<WorkoutSet> _last = const [];
+  List<List<WorkoutSet>> _previous = const [];
+  List<WorkoutSet> get _last => _previous.firstOrNull ?? const [];
 
   @override
   void initState() {
     super.initState();
     () async {
       final entry = await widget.catalog.byId(widget.item.exerciseId);
-      final last = await widget.store.lastTime(widget.item.exerciseId, excludeWorkoutId: widget.item.workoutId);
+      final previous =
+          await widget.store.previousSessions(widget.item.exerciseId, excludeWorkoutId: widget.item.workoutId);
       if (!mounted) return;
       setState(() {
         _entry = entry;
-        _last = last;
+        _previous = previous;
       });
     }();
   }
@@ -193,15 +207,25 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                 onPressed: widget.isLast ? null : () => store.move(e.id, 1)),
             IconButton(icon: const Icon(Icons.close), tooltip: 'Remove exercise', onPressed: () => store.remove(e.id)),
           ]),
-          if (note != null && note.isNotEmpty) Text(note, style: const TextStyle(fontStyle: FontStyle.italic)),
+          ExerciseNotes(store: store, catalog: widget.catalog, item: e, stickyNote: note, isLast: widget.isLast),
           Text('Last time: ${_last.isEmpty ? '—' : _last.map((s) => _describe(s, loadType)).join(', ')}',
               style: Theme.of(context).textTheme.bodySmall),
           StreamBuilder<List<WorkoutSet>>(
             stream: store.watchSets(e.id),
-            builder: (context, snap) => Column(children: [
-              for (final s in snap.data ?? const <WorkoutSet>[])
-                _SetRow(key: ValueKey(s.id), store: store, set: s, loadType: loadType),
-            ]),
+            builder: (context, snap) {
+              final sets = snap.data ?? const <WorkoutSet>[];
+              final prs = _entry == null ? const <String>{} : prBadges(loadType, _previous, sets);
+              return Column(children: [
+                for (final s in sets)
+                  _SetRow(
+                      key: ValueKey(s.id),
+                      store: store,
+                      set: s,
+                      loadType: loadType,
+                      pr: prs.contains(s.id),
+                      onDone: () => restTimer(widget.catalog).offer(e.exerciseId)),
+              ]);
+            },
           ),
           TextButton.icon(icon: const Icon(Icons.add), label: const Text('Add set'), onPressed: () => store.addSet(e.id)),
         ]),
@@ -219,11 +243,14 @@ String _describe(WorkoutSet s, String loadType) => switch (loadType) {
 String _kg(double? kg) => kg == null ? '0' : (kg == kg.roundToDouble() ? kg.toInt().toString() : kg.toString());
 
 class _SetRow extends StatelessWidget {
-  const _SetRow({super.key, required this.store, required this.set, required this.loadType});
+  const _SetRow(
+      {super.key, required this.store, required this.set, required this.loadType, this.pr = false, required this.onDone});
 
   final WorkoutStore store;
   final WorkoutSet set;
   final String loadType;
+  final bool pr;
+  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +285,13 @@ class _SetRow extends StatelessWidget {
           ),
         ),
       ],
-      Checkbox(value: s.done, onChanged: (v) => store.updateSet(s.copyWith(done: v ?? false))),
+      if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
+      Checkbox(
+          value: s.done,
+          onChanged: (v) {
+            store.updateSet(s.copyWith(done: v ?? false));
+            if (v == true) onDone();
+          }),
       IconButton(icon: const Icon(Icons.remove_circle_outline), tooltip: 'Delete set', onPressed: () => store.removeSet(s)),
     ]);
   }

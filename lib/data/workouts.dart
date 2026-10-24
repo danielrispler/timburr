@@ -18,6 +18,19 @@ num stepped(num? value, num delta) {
   return v < 0 ? 0 : v;
 }
 
+/// Ordered cards split into supersets: a card with `supersetWithNext` joins the card after it. The last card's flag is ignored.
+List<List<WorkoutExercise>> supersetGroups(List<WorkoutExercise> items) {
+  final groups = <List<WorkoutExercise>>[];
+  for (final (i, e) in items.indexed) {
+    if (i > 0 && items[i - 1].supersetWithNext) {
+      groups.last.add(e);
+    } else {
+      groups.add([e]);
+    }
+  }
+  return groups;
+}
+
 /// A strength workout session: its exercises and sets. Every edit is saved at once through [AppDb.save].
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
@@ -50,6 +63,9 @@ class WorkoutStore {
 
   Stream<Workout> watchWorkout(String id) =>
       (_db.select(_db.workouts)..where((w) => w.id.equals(id))).watchSingle();
+
+  Future<String?> routineStickyNote(String routineId) async =>
+      (await (_db.select(_db.routines)..where((r) => r.id.equals(routineId))).getSingleOrNull())?.stickyNote;
 
   Future<void> setStartedAt(String id, DateTime at) => _saveWorkout(id, (w) => w.copyWith(startedAt: at));
   Future<void> setNotes(String id, String? notes) => _saveWorkout(id, (w) => w.copyWith(notes: Value(notes)));
@@ -184,19 +200,24 @@ class WorkoutStore {
       });
 
   /// Sets of [exerciseId] in the latest live workout started before [excludeWorkoutId].
-  Future<List<WorkoutSet>> lastTime(String exerciseId, {required String excludeWorkoutId}) async {
+  Future<List<WorkoutSet>> lastTime(String exerciseId, {required String excludeWorkoutId}) async =>
+      (await previousSessions(exerciseId, excludeWorkoutId: excludeWorkoutId, limit: 1)).firstOrNull ?? [];
+
+  /// [exerciseId]'s sets per live workout started before [excludeWorkoutId], newest first.
+  Future<List<List<WorkoutSet>>> previousSessions(String exerciseId,
+      {required String excludeWorkoutId, int? limit}) async {
     final current = await (_db.select(_db.workouts)..where((w) => w.id.equals(excludeWorkoutId))).getSingle();
     final we = _db.workoutExercises, w = _db.workouts;
-    final latest = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
+    final rows = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
           ..where(we.exerciseId.equals(exerciseId) &
               we.deletedAt.isNull() &
               w.deletedAt.isNull() &
               w.id.equals(excludeWorkoutId).not() &
               w.startedAt.isSmallerThanValue(current.startedAt))
           ..orderBy([OrderingTerm.desc(w.startedAt)])
-          ..limit(1))
+          ..limit(limit ?? -1))
         .map((r) => r.readTable(we))
-        .getSingleOrNull();
-    return latest == null ? [] : watchSets(latest.id).first;
+        .get();
+    return [for (final e in rows) await watchSets(e.id).first];
   }
 }
