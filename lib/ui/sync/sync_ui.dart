@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../data/catalog.dart';
+import '../../data/importer.dart';
 import '../../data/sync.dart';
+import '../import/import_screen.dart';
 
 /// Header status: `synced`, `N pending`, `offline` or `error` (tap for the message).
 class SyncBadge extends StatelessWidget {
@@ -38,14 +41,16 @@ class SyncBadge extends StatelessWidget {
       );
 }
 
-/// More tab: Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
+/// More tab: Import, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.engine});
+  const MoreScreen({super.key, required this.engine, required this.catalog});
 
-  final SyncEngine engine;
+  final SyncEngine? engine; // null when no Supabase project is configured
+  final Catalog catalog;
 
   Future<void> _signOut(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final engine = this.engine!;
     final pending = await engine.pending();
     if (pending > 0) {
       messenger.showSnackBar(SnackBar(content: Text('Sync first: $pending changes are not uploaded yet.')));
@@ -58,8 +63,17 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(
         children: [
-          ListTile(leading: const Icon(Icons.sync), title: const Text('Sync now'), onTap: engine.sync),
-          ListTile(leading: const Icon(Icons.logout), title: const Text('Sign out'), onTap: () => _signOut(context)),
+          ListTile(
+            leading: const Icon(Icons.file_download),
+            title: const Text('Import'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ImportScreen(importer: Importer(catalog.db, catalog), catalog: catalog),
+            )),
+          ),
+          if (engine case final engine?) ...[
+            ListTile(leading: const Icon(Icons.sync), title: const Text('Sync now'), onTap: engine.sync),
+            ListTile(leading: const Icon(Icons.logout), title: const Text('Sign out'), onTap: () => _signOut(context)),
+          ],
         ],
       );
 }
