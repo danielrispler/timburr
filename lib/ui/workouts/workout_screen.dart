@@ -6,6 +6,7 @@ import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../exercises/exercise_picker.dart';
+import 'exercise_notes.dart';
 
 /// Active (or past) strength workout. Every tap writes straight to the store.
 class WorkoutScreen extends StatefulWidget {
@@ -107,15 +108,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           decoration: const InputDecoration(labelText: 'Workout note', border: OutlineInputBorder()),
                           onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
                         ),
+                        RoutineNote(store: widget.store, routineId: w.routineId),
                         const SizedBox(height: 8),
-                        for (final (i, e) in items.indexed)
-                          _ExerciseCard(
-                            key: ValueKey(e.id),
-                            store: widget.store,
-                            catalog: widget.catalog,
-                            item: e,
-                            isFirst: i == 0,
-                            isLast: i == items.length - 1,
+                        for (final g in supersetGroups(items))
+                          SupersetFrame(
+                            key: ValueKey(g.first.id),
+                            size: g.length,
+                            child: Column(children: [
+                              for (final e in g)
+                                _ExerciseCard(
+                                  key: ValueKey(e.id),
+                                  store: widget.store,
+                                  catalog: widget.catalog,
+                                  item: e,
+                                  isFirst: e == items.first,
+                                  isLast: e == items.last,
+                                ),
+                            ]),
                           ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
@@ -196,7 +205,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                 onPressed: widget.isLast ? null : () => store.move(e.id, 1)),
             IconButton(icon: const Icon(Icons.close), tooltip: 'Remove exercise', onPressed: () => store.remove(e.id)),
           ]),
-          if (note != null && note.isNotEmpty) Text(note, style: const TextStyle(fontStyle: FontStyle.italic)),
+          ExerciseNotes(store: store, catalog: widget.catalog, item: e, stickyNote: note, isLast: widget.isLast),
           Text('Last time: ${_last.isEmpty ? '—' : _last.map((s) => _describe(s, loadType)).join(', ')}',
               style: Theme.of(context).textTheme.bodySmall),
           StreamBuilder<List<WorkoutSet>>(
