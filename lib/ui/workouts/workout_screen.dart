@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
 import '../../data/db.dart';
+import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../exercises/exercise_picker.dart';
 import 'rest_bar.dart';
@@ -157,18 +158,20 @@ class _ExerciseCard extends StatefulWidget {
 
 class _ExerciseCardState extends State<_ExerciseCard> {
   CatalogEntry? _entry;
-  List<WorkoutSet> _last = const [];
+  List<List<WorkoutSet>> _previous = const [];
+  List<WorkoutSet> get _last => _previous.firstOrNull ?? const [];
 
   @override
   void initState() {
     super.initState();
     () async {
       final entry = await widget.catalog.byId(widget.item.exerciseId);
-      final last = await widget.store.lastTime(widget.item.exerciseId, excludeWorkoutId: widget.item.workoutId);
+      final previous =
+          await widget.store.previousSessions(widget.item.exerciseId, excludeWorkoutId: widget.item.workoutId);
       if (!mounted) return;
       setState(() {
         _entry = entry;
-        _last = last;
+        _previous = previous;
       });
     }();
   }
@@ -200,15 +203,20 @@ class _ExerciseCardState extends State<_ExerciseCard> {
               style: Theme.of(context).textTheme.bodySmall),
           StreamBuilder<List<WorkoutSet>>(
             stream: store.watchSets(e.id),
-            builder: (context, snap) => Column(children: [
-              for (final s in snap.data ?? const <WorkoutSet>[])
-                _SetRow(
-                    key: ValueKey(s.id),
-                    store: store,
-                    set: s,
-                    loadType: loadType,
-                    onDone: () => restTimer(widget.catalog).offer(e.exerciseId)),
-            ]),
+            builder: (context, snap) {
+              final sets = snap.data ?? const <WorkoutSet>[];
+              final prs = _entry == null ? const <String>{} : prBadges(loadType, _previous, sets);
+              return Column(children: [
+                for (final s in sets)
+                  _SetRow(
+                      key: ValueKey(s.id),
+                      store: store,
+                      set: s,
+                      loadType: loadType,
+                      pr: prs.contains(s.id),
+                      onDone: () => restTimer(widget.catalog).offer(e.exerciseId)),
+              ]);
+            },
           ),
           TextButton.icon(icon: const Icon(Icons.add), label: const Text('Add set'), onPressed: () => store.addSet(e.id)),
         ]),
@@ -226,11 +234,13 @@ String _describe(WorkoutSet s, String loadType) => switch (loadType) {
 String _kg(double? kg) => kg == null ? '0' : (kg == kg.roundToDouble() ? kg.toInt().toString() : kg.toString());
 
 class _SetRow extends StatelessWidget {
-  const _SetRow({super.key, required this.store, required this.set, required this.loadType, required this.onDone});
+  const _SetRow(
+      {super.key, required this.store, required this.set, required this.loadType, this.pr = false, required this.onDone});
 
   final WorkoutStore store;
   final WorkoutSet set;
   final String loadType;
+  final bool pr;
   final VoidCallback onDone;
 
   @override
@@ -266,6 +276,7 @@ class _SetRow extends StatelessWidget {
           ),
         ),
       ],
+      if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
       Checkbox(
           value: s.done,
           onChanged: (v) {
