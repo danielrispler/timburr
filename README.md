@@ -33,7 +33,39 @@ flutter test                                         # unit tests
 (cd supabase && npm install && npm test)             # migration tests in PGlite, no Docker
 ```
 
-Signed release builds and the GitHub Actions release workflow arrive in stage 4.
+## Signed release builds
+
+Every build must use the same keystore, or Android refuses to install updates over the old app.
+
+1. Create the keystore once, outside the repo:
+
+   ```sh
+   export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+   "$JAVA_HOME/bin/keytool" -genkeypair -v -keystore ~/timburr-release.jks \
+     -alias timburr -keyalg RSA -keysize 4096 -validity 36500
+   ```
+
+2. Back up `~/timburr-release.jks` and its passwords in a password manager (for example, as an attachment). If you lose them, you cannot ship updates to the installed app.
+3. Create `android/key.properties` (git-ignored):
+
+   ```properties
+   storeFile=/Users/you/timburr-release.jks
+   storePassword=...
+   keyAlias=timburr
+   keyPassword=...
+   ```
+
+4. Build: `flutter build apk --release --dart-define-from-file=.env.json`. Without `key.properties`, release builds fall back to the debug key.
+
+The env vars `TIMBURR_KEYSTORE_PATH`, `TIMBURR_KEYSTORE_PASSWORD`, `TIMBURR_KEY_ALIAS` and `TIMBURR_KEY_PASSWORD` override `key.properties`.
+
+### GitHub release
+
+Pushing a `v*` tag (for example `git tag v0.2.0 && git push origin v0.2.0`) runs `.github/workflows/release.yml`. It builds the signed APK with `versionCode` = the workflow run number and attaches it to a GitHub Release. First add these repository secrets (**Settings > Secrets and variables > Actions**):
+
+- `KEYSTORE_BASE64`: the output of `base64 -i ~/timburr-release.jks`
+- `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (the publishable key only, never `service_role`)
 
 ## Exercise library
 
