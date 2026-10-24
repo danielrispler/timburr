@@ -1,11 +1,12 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'package:drift/drift.dart' show OrderingTerm, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/catalog.dart';
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/importer.dart';
+import 'package:timburr/data/routines.dart';
 import 'package:timburr/data/workouts.dart';
 
 const _library = [
@@ -128,5 +129,28 @@ void main() {
     expect(text, contains('"version": 1'));
     expect(text, contains('- Barbell Squat\n- Plank'));
     expect(text, isNot(contains('Pushups')));
+  });
+
+  test('saveRoutines creates a missing routine from the workout, links it, and reuses an existing one', () async {
+    final routines = RoutineStore(db);
+    await importer.save(_doc(), saveRoutines: true);
+    final list = await routines.watchRoutines().first;
+    expect(list.map((r) => r.name), ['Push A']);
+    final plan = await routines.plan(list.single.id);
+    final w = (await db.select(db.workouts).get()).single;
+    expect(w.routineId, list.single.id);
+    final firstSets = await (db.select(db.workoutSets)..orderBy([(s) => OrderingTerm(expression: s.setNumber)])).get();
+    expect(plan, isNotEmpty);
+    expect(plan.first.sets.length, greaterThan(0));
+    expect(firstSets, isNotEmpty);
+
+    await importer.save(_doc(), saveRoutines: true); // same name again: no second routine, plan untouched
+    expect((await routines.watchRoutines().first), hasLength(1));
+    expect(await routines.plan(list.single.id), hasLength(plan.length));
+  });
+
+  test('without saveRoutines no routine is created', () async {
+    await importer.save(_doc());
+    expect(await db.select(db.routines).get(), isEmpty);
   });
 }

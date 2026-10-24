@@ -7,7 +7,7 @@ Flutter + Dart. Local SQLite (drift) as the working copy, synced to a personal S
 ## Supabase setup
 
 1. Create a project at [supabase.com](https://supabase.com). The free plan is enough. Pick a region near you.
-2. Open **SQL Editor**, paste [`supabase/migrations/001_init.sql`](supabase/migrations/001_init.sql), and click **Run**.
+2. Open **SQL Editor** and run each file in [`supabase/migrations/`](supabase/migrations/) in order: paste it and click **Run**.
 3. Create your user: **Authentication > Users > Add user > Create new user**. Enter your email and password, and tick **Auto Confirm User**.
 4. Disable sign-ups: **Authentication > Sign In / Providers**, turn off **Allow new users to sign up**, then **Save**.
 5. Copy your keys from **Project Settings > API Keys**: the Project URL and the **publishable** key (`sb_publishable_...`, or the legacy `anon` key).
@@ -31,6 +31,17 @@ flutter run --dart-define-from-file=.env.json        # app on a device or emulat
 flutter build apk --dart-define-from-file=.env.json  # APK in build/app/outputs/flutter-apk/
 flutter test                                         # unit tests
 (cd supabase && npm install && npm test)             # migration tests in PGlite, no Docker
+```
+
+## Import from the command line
+
+`tool/timburr-import` writes a v1 import file (format: `importFormat` in [`lib/data/importer.dart`](lib/data/importer.dart)) straight into Supabase. It signs in as you, so RLS still applies. It pulls your data into memory, runs the app's importer (same validation and name matching) and pushes the result. The phone picks it up on its next sync. An AI assistant can write the JSON and run the command.
+
+Add `TIMBURR_EMAIL` and `TIMBURR_PASSWORD` to `.env` (git-ignored), next to `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Sync the phone first: last write wins.
+
+```sh
+tool/timburr-import workouts.json --dry-run        # validate, list new custom exercises, write nothing
+tool/timburr-import workouts.json --save-routines  # import; an unknown "routine" name becomes a saved workout
 ```
 
 ## Signed release builds
