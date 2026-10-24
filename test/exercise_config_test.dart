@@ -53,4 +53,16 @@ void main() {
     expect([for (final e in await catalog.list()) e.name], ['Pushups']);
     expect((await catalog.byId(id))!.name, 'Sled Push');
   });
+
+  test('last rest is stored per exercise, library or custom, and read back', () async {
+    final lib = await catalog.configureLibrary('Pushups');
+    final custom = await catalog.saveCustom(name: 'Sled', loadType: 'weighted', muscles: [], equipment: 'other');
+    expect((await catalog.byId(lib))!.lastRestSec, isNull);
+    await catalog.setLastRest(lib, 90);
+    await catalog.setLastRest(custom, 150);
+    await catalog.setLastRest(lib, 120);
+    expect((await catalog.byId(lib))!.lastRestSec, 120);
+    expect((await catalog.byId(custom))!.lastRestSec, 150);
+    expect({for (final e in await catalog.list()) e.name: e.lastRestSec}, {'Pushups': 120, 'Sled': 150});
+  });
 }
