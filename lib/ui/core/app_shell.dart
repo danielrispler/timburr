@@ -7,6 +7,7 @@ import '../exercises/exercise_detail.dart';
 import '../exercises/exercise_picker.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
+import '../history/history_screen.dart';
 import '../routines/routines_home.dart';
 import '../sync/sync_ui.dart';
 
@@ -94,6 +95,8 @@ class _AppShellState extends State<AppShell> {
         )
       : i == 0
           ? RoutinesHome(store: widget.routines, catalog: widget.catalog, workouts: widget.workouts)
+          : _tabs[i].label == 'History'
+              ? HistoryScreen(workouts: widget.workouts, catalog: widget.catalog)
           : _tabs[i].label == 'More' && widget.sync != null
               ? MoreScreen(engine: widget.sync!)
           : _Placeholder(_tabs[i].label);
