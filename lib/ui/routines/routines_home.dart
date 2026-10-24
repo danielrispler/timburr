@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
+import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../cardio/cardio_form.dart';
 import '../workouts/workout_screen.dart';
@@ -90,10 +90,14 @@ class RoutinesHome extends StatelessWidget {
                           title: Text(r.name),
                           subtitle: r.stickyNote == null || r.stickyNote!.isEmpty ? null : Text(r.stickyNote!),
                           leading: const IconTile(Icons.fitness_center),
-                          trailing: IconButton.filledTonal(
-                              icon: const Icon(Icons.play_arrow),
-                              tooltip: 'Start ${r.name}',
-                              onPressed: () => _start(context, routineId: r.id)),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(
+                                icon: const Icon(Icons.edit), tooltip: 'Edit ${r.name}', onPressed: () => _open(context, r.id)),
+                            IconButton.filledTonal(
+                                icon: const Icon(Icons.play_arrow),
+                                tooltip: 'Start ${r.name}',
+                                onPressed: () => _start(context, routineId: r.id)),
+                          ]),
                           onTap: () => _open(context, r.id),
                         ),
                     ]),

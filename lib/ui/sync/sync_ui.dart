@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../core/theme.dart';
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
 import '../../data/sync.dart';
+import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../cardio/cardio_stats.dart';
 import '../import/import_screen.dart';

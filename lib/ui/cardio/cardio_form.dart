@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../core/theme.dart';
 
 /// New or edit cardio session. Pace updates as distance and duration are typed.
 class CardioForm extends StatefulWidget {
@@ -93,7 +94,7 @@ class _CardioFormState extends State<CardioForm> {
           keyboardType: keyboard,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-              labelText: label, hintText: hint, errorText: _errors[key], border: const OutlineInputBorder()),
+              labelText: label, hintText: hint, errorText: _errors[key]),
         ),
       );
 
@@ -109,13 +110,12 @@ class _CardioFormState extends State<CardioForm> {
           if (c != null) IconButton(icon: const Icon(Icons.delete), tooltip: 'Delete', onPressed: _delete),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-          icon: const Icon(Icons.check), label: const Text('Save'), onPressed: _save),
+      bottomNavigationBar: BottomAction(children: [FilledButton(onPressed: _save, child: const Text('Save'))]),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             children: [
               SegmentedButton<String>(
                 segments: [for (final t in cardioTypes) ButtonSegment(value: t, label: Text(t[0].toUpperCase() + t.substring(1)))],
@@ -123,11 +123,16 @@ class _CardioFormState extends State<CardioForm> {
                 onSelectionChanged: (s) => setState(() => _type = s.single),
               ),
               if (_errors['type'] case final e?) Text(e, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event),
-                title: Text('${loc.formatMediumDate(_at)}, ${TimeOfDay.fromDateTime(_at).format(context)}'),
-                onTap: _pickDate,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: groupedTile(
+                    0,
+                    1,
+                    ListTile(
+                      leading: const IconTile(Icons.event),
+                      title: Text('${loc.formatMediumDate(_at)}, ${TimeOfDay.fromDateTime(_at).format(context)}'),
+                      onTap: _pickDate,
+                    )),
               ),
               _field('distance', _km, 'Distance (km)'),
               _field('duration', _dur, 'Duration', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),

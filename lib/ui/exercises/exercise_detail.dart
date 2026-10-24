@@ -1,11 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
+import '../core/theme.dart';
 
 const loadTypes = ['weighted', 'bodyweight', 'timed'];
 
@@ -271,7 +271,7 @@ class _CustomExerciseFormState extends State<CustomExerciseForm> {
 
   @override
   Widget build(BuildContext context) {
-    InputDecoration deco(String label) => InputDecoration(labelText: label, border: const OutlineInputBorder());
+    InputDecoration deco(String label) => InputDecoration(labelText: label);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.entry == null ? 'New exercise' : 'Edit exercise'),

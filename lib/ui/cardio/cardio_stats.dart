@@ -1,9 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../core/theme.dart';
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../core/theme.dart';
 
 String _time(int sec) {
   final h = sec ~/ 3600, m = (sec % 3600) ~/ 60, s = sec % 60;

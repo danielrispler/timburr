@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../core/theme.dart';
 import '../../data/backup.dart';
 import '../../data/db.dart';
 import '../../data/sync.dart';
+import '../core/theme.dart';
 
 /// More > Backup / Restore. Export opens the share sheet; restore asks replace or merge, then confirms.
 class BackupScreen extends StatefulWidget {
