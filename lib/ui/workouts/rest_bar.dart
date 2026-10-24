@@ -56,23 +56,32 @@ class RestBar extends StatelessWidget {
         if (!t.offered && left == null) return const SizedBox.shrink();
         return SafeArea(
           child: Material(
-            elevation: 8,
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(children: [
                 if (left != null) ...[
-                  const Icon(Icons.timer),
-                  const SizedBox(width: 4),
-                  Text(_fmt(left.inSeconds + 1), style: Theme.of(context).textTheme.titleMedium),
-                  IconButton(icon: const Icon(Icons.close), tooltip: 'Stop rest', onPressed: t.stop),
+                  // Timer pill, as in Google Health's workout header.
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                    decoration: ShapeDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHigh, shape: const StadiumBorder()),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.timer),
+                      const SizedBox(width: 8),
+                      Text(_fmt(left.inSeconds + 1), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                      IconButton(icon: const Icon(Icons.close), tooltip: 'Stop rest', onPressed: t.stop),
+                    ]),
+                  ),
                 ],
                 if (t.offered)
                   Expanded(
-                    child: Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
+                    child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, children: [
                       for (final s in restChoices)
                         s == t.highlightSec
                             ? FilledButton(onPressed: () => t.start(s), child: Text(_fmt(s)))
-                            : OutlinedButton(onPressed: () => t.start(s), child: Text(_fmt(s))),
+                            : FilledButton.tonal(onPressed: () => t.start(s), child: Text(_fmt(s))),
                     ]),
                   ),
               ]),

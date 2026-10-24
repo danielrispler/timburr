@@ -5,6 +5,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
+import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
 import 'exercise_notes.dart';
 import 'rest_bar.dart';
@@ -73,7 +74,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        bottomNavigationBar: RestBar(catalog: widget.catalog),
+        bottomNavigationBar: Column(mainAxisSize: MainAxisSize.min, children: [
+          RestBar(catalog: widget.catalog),
+          StreamBuilder<Workout>(
+            stream: widget.store.watchWorkout(widget.workoutId),
+            builder: (context, ws) => ws.data == null || ws.data!.finishedAt != null
+                ? const SizedBox.shrink()
+                : BottomAction(children: [
+                    FilledButton.icon(icon: const Icon(Icons.stop), label: const Text('Finish workout'), onPressed: _finish),
+                  ]),
+          ),
+        ]),
         appBar: AppBar(
           title: const Text('Workout'),
           actions: [IconButton(icon: const Icon(Icons.delete), tooltip: 'Discard workout', onPressed: _discard)],
@@ -107,7 +118,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         TextField(
                           controller: _notes,
                           maxLines: null,
-                          decoration: const InputDecoration(labelText: 'Workout note', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(labelText: 'Workout note'),
                           onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
                         ),
                         RoutineNote(store: widget.store, routineId: w.routineId),
@@ -129,12 +140,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             ]),
                           ),
                         const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                            icon: const Icon(Icons.add), label: const Text('Add exercise'), onPressed: _addExercise),
-                        const SizedBox(height: 8),
-                        if (w.finishedAt == null)
-                          FilledButton.icon(
-                              icon: const Icon(Icons.check), label: const Text('Finish workout'), onPressed: _finish),
+                        FilledButton.tonalIcon(
+                            icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercise),
                       ],
                     ),
                   ),
@@ -191,12 +198,14 @@ class _ExerciseCardState extends State<_ExerciseCard> {
     final loadType = _entry?.loadType ?? 'weighted';
     final note = _entry?.stickyNote;
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
+        padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text(_entry?.name ?? '…', style: Theme.of(context).textTheme.titleMedium)),
+            IconTile(muscleIcon(_entry?.muscles.firstOrNull)),
+            const SizedBox(width: 16),
+            Expanded(child: Text(_entry?.name ?? '…', style: const TextStyle(fontSize: 18))),
             IconButton(
                 icon: const Icon(Icons.arrow_upward),
                 tooltip: 'Move up',

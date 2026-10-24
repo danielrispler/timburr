@@ -5,6 +5,7 @@ import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
 import '../../data/sync.dart';
+import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../cardio/cardio_stats.dart';
 import '../import/import_screen.dart';
@@ -77,28 +78,31 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(
         children: [
+          TileGroup(title: 'Data', children: [
           ListTile(
-            leading: const Icon(Icons.file_download),
+            leading: const IconTile(Icons.file_download),
             title: const Text('Import'),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ImportScreen(importer: Importer(catalog.db, catalog), catalog: catalog),
             )),
           ),
           ListTile(
-            leading: const Icon(Icons.directions_run),
+            leading: const IconTile(Icons.directions_run),
             title: const Text('Cardio stats'),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CardioStatsScreen(cardio: cardio))),
           ),
           ListTile(
-            leading: const Icon(Icons.backup),
+            leading: const IconTile(Icons.backup),
             title: const Text('Backup / Restore'),
             onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => BackupScreen(db: catalog.db, engine: engine))),
           ),
-          if (engine case final engine?) ...[
-            ListTile(leading: const Icon(Icons.sync), title: const Text('Sync now'), onTap: engine.sync),
-            ListTile(leading: const Icon(Icons.logout), title: const Text('Sign out'), onTap: () => _signOut(context)),
-          ],
+          ]),
+          if (engine case final engine?)
+            TileGroup(title: 'Account', children: [
+              ListTile(leading: const IconTile(Icons.sync), title: const Text('Sync now'), onTap: engine.sync),
+              ListTile(leading: const IconTile(Icons.logout), title: const Text('Sign out'), onTap: () => _signOut(context)),
+            ]),
         ],
       );
 }
@@ -146,6 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _password,
                   decoration: const InputDecoration(labelText: 'Password'),

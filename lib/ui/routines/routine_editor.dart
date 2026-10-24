@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
+import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
 
 /// Name, sticky note and ordered exercise list of one routine. Fields save on change.
@@ -19,7 +20,7 @@ class RoutineEditor extends StatefulWidget {
 
 class _RoutineEditorState extends State<RoutineEditor> {
   final _name = TextEditingController(), _note = TextEditingController();
-  Map<String, String> _names = {};
+  Map<String, CatalogEntry> _entries = {};
   bool _loaded = false;
 
   @override
@@ -39,7 +40,9 @@ class _RoutineEditorState extends State<RoutineEditor> {
 
   Future<void> _loadNames() async {
     final all = await widget.catalog.list();
-    if (mounted) setState(() => _names = {for (final e in all) if (e.rowId != null) e.rowId!: e.name});
+    if (mounted) {
+      setState(() => _entries = {for (final e in all) if (e.rowId != null) e.rowId!: e});
+    }
   }
 
   @override
@@ -89,8 +92,9 @@ class _RoutineEditorState extends State<RoutineEditor> {
           title: const Text('Routine'),
           actions: [IconButton(icon: const Icon(Icons.delete), tooltip: 'Delete routine', onPressed: _delete)],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-            icon: const Icon(Icons.add), label: const Text('Add exercise'), onPressed: _addExercise),
+        bottomNavigationBar: BottomAction(children: [
+          FilledButton.tonalIcon(icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercise),
+        ]),
         body: !_loaded
             ? const Center(child: CircularProgressIndicator())
             : Center(
@@ -105,21 +109,23 @@ class _RoutineEditorState extends State<RoutineEditor> {
                         children: [
                           TextField(
                             controller: _name,
-                            decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+                            decoration: const InputDecoration(labelText: 'Name'),
                             onChanged: (_) => _saveFields(),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _note,
                             maxLines: null,
-                            decoration: const InputDecoration(labelText: 'Sticky note', border: OutlineInputBorder()),
+                            decoration: const InputDecoration(labelText: 'Sticky note'),
                             onChanged: (_) => _saveFields(),
                           ),
                           const SizedBox(height: 12),
+                          if (items.isNotEmpty)
+                            TileGroup(title: 'Exercises', children: [
                           for (final (i, e) in items.indexed)
                             ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(_names[e.exerciseId] ?? '…'),
+                              leading: IconTile(muscleIcon(_entries[e.exerciseId]?.muscles.firstOrNull)),
+                              title: Text(_entries[e.exerciseId]?.name ?? '…'),
                               trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                                 IconButton(
                                     icon: const Icon(Icons.arrow_upward),
@@ -135,6 +141,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
                                     onPressed: () => widget.store.remove(e.id)),
                               ]),
                             ),
+                            ]),
                         ],
                       );
                     },

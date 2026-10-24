@@ -4,6 +4,7 @@ import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/workouts.dart';
+import '../core/theme.dart';
 import '../cardio/cardio_form.dart';
 import '../workouts/workout_screen.dart';
 
@@ -30,7 +31,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: SegmentedButton<_Type>(
           segments: const [
             ButtonSegment(value: _Type.all, label: Text('All')),
@@ -50,13 +51,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
               final items = mergeHistory(ws.data ?? const [], cs.data ?? const [],
                   strength: _type != _Type.cardio, cardio: _type != _Type.strength);
               if (items.isEmpty) return const Center(child: Text('No finished sessions yet'));
-              return ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (context, i) => switch (items[i]) {
-                  final Workout w => _workoutTile(context, w),
-                  final c => _cardioTile(context, c as CardioData),
-                },
-              );
+              // shortcut: one group builds every tile eagerly, switch to per-month lazy groups if history gets long.
+              return ListView(children: [
+                TileGroup(children: [
+                  for (final item in items)
+                    switch (item) {
+                      final Workout w => _workoutTile(context, w),
+                      final c => _cardioTile(context, c as CardioData),
+                    },
+                ]),
+              ]);
             },
           ),
         ),
@@ -70,7 +74,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _workoutTile(BuildContext context, Workout w) {
     final mins = w.finishedAt!.difference(w.startedAt).inMinutes;
     return ListTile(
-      leading: const Icon(Icons.fitness_center),
+      leading: const IconTile(Icons.fitness_center),
       title: Text(_when(context, w.startedAt)),
       subtitle: Text(w.notes?.isNotEmpty == true ? '$mins min · ${w.notes}' : '$mins min',
           maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -82,7 +86,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _cardioTile(BuildContext context, CardioData c) {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     return ListTile(
-      leading: const Icon(Icons.directions_run),
+      leading: const IconTile(Icons.directions_run),
       title: Text(_when(context, c.startedAt)),
       subtitle: Text(
           '${c.type} · ${c.distanceKm} km · ${c.durationSec ~/ 60} min${pace == null ? '' : ' · ${formatPace(pace)} /km'}',

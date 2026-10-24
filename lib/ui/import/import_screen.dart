@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
+import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
 
 /// Paste v1 JSON, fix cells in the preview, map unknown exercises, then save all at once.
@@ -116,13 +117,18 @@ class _ImportScreenState extends State<ImportScreen> {
     final error = Theme.of(context).colorScheme.error;
     return Scaffold(
       appBar: AppBar(title: const Text('Import')),
+      bottomNavigationBar: d == null
+          ? null
+          : BottomAction(children: [
+              FilledButton(onPressed: _errors.isEmpty && !_busy ? _save : null, child: const Text('Save all')),
+            ]),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              OutlinedButton.icon(
+              FilledButton.tonalIcon(
                 onPressed: _copyFormat,
                 icon: const Icon(Icons.copy),
                 label: const Text('Copy import format'),
@@ -132,7 +138,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 controller: _paste,
                 minLines: 3,
                 maxLines: 8,
-                decoration: const InputDecoration(labelText: 'Paste JSON', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Paste JSON'),
               ),
               const SizedBox(height: 8),
               FilledButton.tonal(onPressed: _check, child: const Text('Check')),
@@ -176,10 +182,10 @@ class _ImportScreenState extends State<ImportScreen> {
                   ]),
                 ],
                 if (_unknown.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('Unknown exercises', style: Theme.of(context).textTheme.titleMedium),
-                  for (final n in _unknown)
-                    ListTile(
+                  const SizedBox(height: 8),
+                  const SectionTitle('Unknown exercises'),
+                  for (final (i, n) in _unknown.indexed)
+                    groupedTile(i, _unknown.length, ListTile(
                       title: Text(n),
                       subtitle: Text(switch (_mapping[n.toLowerCase()]) {
                         final e? => 'Map to ${e.name}',
@@ -193,13 +199,8 @@ class _ImportScreenState extends State<ImportScreen> {
                             )
                           : const Icon(Icons.edit),
                       onTap: () => _pickMapping(n),
-                    ),
+                    )),
                 ],
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _errors.isEmpty && !_busy ? _save : null,
-                  child: const Text('Save all'),
-                ),
               ],
             ],
           ),

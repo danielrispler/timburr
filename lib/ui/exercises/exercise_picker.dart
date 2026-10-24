@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
+import '../core/theme.dart';
 
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
 class ExercisePicker extends StatefulWidget {
@@ -33,19 +34,29 @@ class _ExercisePickerState extends State<ExercisePicker> {
     if (mounted) setState(() => _entries = entries);
   }
 
-  Widget _filter(String label, String? value, List<String> options, ValueChanged<String?> onChanged) => Expanded(
-        child: DropdownButtonFormField<String?>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('Any')),
-            for (final o in options) DropdownMenuItem(value: o, child: Text(o)),
-          ],
-          onChanged: (v) {
-            onChanged(v);
-            _reload();
-          },
+  /// Outlined chip with a drop-down arrow, as in Google Health. '' in the menu means "Any".
+  Widget _filter(String label, String? value, List<String> options, ValueChanged<String?> onChanged) =>
+      PopupMenuButton<String>(
+        tooltip: label,
+        onSelected: (v) {
+          onChanged(v.isEmpty ? null : v);
+          _reload();
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: '', child: Text('Any')),
+          for (final o in options) PopupMenuItem(value: o, child: Text(o)),
+        ],
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: value == null ? null : Theme.of(context).colorScheme.secondaryContainer,
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(value ?? label, style: const TextStyle(fontSize: 15)),
+            const Icon(Icons.arrow_drop_down),
+          ]),
         ),
       );
 
@@ -59,9 +70,9 @@ class _ExercisePickerState extends State<ExercisePicker> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search), hintText: 'Search exercises', border: OutlineInputBorder()),
+              child: SearchBar(
+                leading: const Padding(padding: EdgeInsets.only(left: 8), child: Icon(Icons.search)),
+                hintText: 'Search exercises',
                 onChanged: (v) {
                   _query = v;
                   _reload();
@@ -71,9 +82,9 @@ class _ExercisePickerState extends State<ExercisePicker> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(children: [
-                _filter('Muscle', _muscle, widget.catalog.muscles, (v) => _muscle = v),
-                const SizedBox(width: 12),
                 _filter('Equipment', _equipment, widget.catalog.equipment, (v) => _equipment = v),
+                const SizedBox(width: 8),
+                _filter('Muscle group', _muscle, widget.catalog.muscles, (v) => _muscle = v),
               ]),
             ),
             if (widget.onCreate case final create?)
@@ -97,13 +108,21 @@ class _ExercisePickerState extends State<ExercisePicker> {
                           itemCount: entries.length,
                           itemBuilder: (_, i) {
                             final e = entries[i];
-                            return ListTile(
-                              title: Text(e.name),
-                              subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
-                              onTap: () async {
-                                await widget.onSelected(e);
-                                _reload();
-                              },
+                            return Padding(
+                              padding: EdgeInsets.fromLTRB(16, i == 0 ? 8 : 0, 16, 0),
+                              child: groupedTile(
+                                i,
+                                entries.length,
+                                ListTile(
+                                  leading: IconTile(muscleIcon(e.muscles.firstOrNull)),
+                                  title: Text(e.name),
+                                  subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
+                                  onTap: () async {
+                                    await widget.onSelected(e);
+                                    _reload();
+                                  },
+                                ),
+                              ),
                             );
                           },
                         ),
