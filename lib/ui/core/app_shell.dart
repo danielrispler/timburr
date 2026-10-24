@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../../data/catalog.dart';
 import '../exercises/exercise_detail.dart';
 import '../exercises/exercise_picker.dart';
+import '../../data/routines.dart';
+import '../routines/routines_home.dart';
 
 typedef _Tab = ({String label, IconData icon});
 
@@ -17,9 +19,10 @@ const _tabs = <_Tab>[
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
 /// pops that stack, then returns to Home, then leaves the app.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.catalog});
+  const AppShell({super.key, required this.catalog, required this.routines});
 
   final Catalog catalog;
+  final RoutineStore routines;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -82,7 +85,9 @@ class _AppShellState extends State<AppShell> {
                 .push(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
           ),
         )
-      : _Placeholder(_tabs[i].label);
+      : i == 0
+          ? RoutinesHome(store: widget.routines, catalog: widget.catalog)
+          : _Placeholder(_tabs[i].label);
 }
 
 class _Placeholder extends StatelessWidget {
