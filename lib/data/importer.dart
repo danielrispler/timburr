@@ -163,9 +163,14 @@ class Importer {
     return '$importFormat\n\nMy exercises:\n${names.map((n) => '- $n').join('\n')}\n';
   }
 
-  /// Lower-cased name to row id or library entry, for every catalog exercise.
-  Future<Map<String, CatalogEntry>> _byName() async =>
-      {for (final e in (await _catalog.list()).reversed) e.name.toLowerCase(): e};
+  /// Lower-cased name or alias to row id or library entry, for every catalog exercise. A name beats an alias.
+  Future<Map<String, CatalogEntry>> _byName() async {
+    final all = (await _catalog.list()).reversed;
+    return {
+      for (final e in all) for (final a in e.aliases) a.toLowerCase(): e,
+      for (final e in all) e.name.toLowerCase(): e,
+    };
+  }
 
   /// Exercise names in [data] not found in the catalog, first spelling kept, in order.
   Future<List<String>> unknownNames(Map data) async {

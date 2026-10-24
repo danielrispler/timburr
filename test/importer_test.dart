@@ -84,6 +84,15 @@ void main() {
     expect(validateImport(d), isEmpty);
   });
 
+  test('a name can match a library alias', () async {
+    final c = Catalog(db, () async => jsonEncode([
+      {..._library.first, 'aliases': ['Back Squat']},
+    ]));
+    final d = _doc();
+    (d['workouts'] as List).first['exercises'][0]['name'] = 'back squat';
+    expect(await Importer(db, c).unknownNames(d), ['Plank']);
+  });
+
   test('names match library and custom exercises case-insensitively; the rest are unknown', () async {
     final d = _doc();
     expect(await importer.unknownNames(d), ['Plank']);

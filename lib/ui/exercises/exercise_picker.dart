@@ -121,7 +121,7 @@ class _ExercisePickerState extends State<ExercisePicker> {
                                 entries.length,
                                 ListTile(
                                   leading: ExerciseThumb(e),
-                                  title: Text(e.name),
+                                  title: Text(e.label),
                                   subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
                                   trailing: widget.onAdd == null
                                       ? null

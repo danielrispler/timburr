@@ -10,6 +10,7 @@ const _library = [
   {
     'id': 'Barbell_Squat', 'name': 'Barbell Squat', 'category': 'strength', 'equipment': 'barbell',
     'primaryMuscles': ['quadriceps'], 'secondaryMuscles': ['glutes'], 'instructions': ['Squat down.'],
+    'aliases': ['Back Squat'], 'legacyIds': ['Old_Squat'], 'media': '0043-qXTaZnJ',
   },
   {
     'id': 'Pushups', 'name': 'Pushups', 'category': 'strength', 'equipment': 'body only',
@@ -42,6 +43,21 @@ void main() {
 
   test('search is case-insensitive', () async {
     expect(names(await catalog.list(query: 'bEnCh')), ['Dumbbell Bench Press']);
+  });
+
+  test('search matches aliases, and the label shows them in brackets', () async {
+    final e = (await catalog.list(query: 'back sq')).single;
+    expect(e.label, 'Barbell Squat (Back Squat)');
+  });
+
+  test('a row logged under a legacy library id merges into its new entry and keeps its row', () async {
+    await db.save(db.exercises, {'id': 'old-row', 'library_id': 'Old_Squat', 'sticky_note': 'belt'});
+    final all = await catalog.list(query: 'squat');
+    final e = all.single;
+    expect((e.rowId, e.libraryId, e.name, e.media, e.stickyNote), ('old-row', 'Barbell_Squat', 'Barbell Squat', '0043-qXTaZnJ', 'belt'));
+    expect(await catalog.rowIdFor(e), 'old-row');
+    expect(await catalog.configureLibrary(e.libraryId!, rowId: e.rowId, loadType: 'timed'), 'old-row');
+    expect((await db.select(db.exercises).get()).length, 1);
   });
 
   test('muscle filter matches primary or secondary muscles', () async {
@@ -85,8 +101,9 @@ void main() {
   });
 
   test('image and video links', () {
-    expect(exerciseImageUrl('3_4_Sit-Up', 1).toString(),
-        'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/1.jpg');
+    const base = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/7455efae41b330c265e7cd4b78dfa848e7ce5ebd';
+    expect(exerciseMediaUrl('0043-qXTaZnJ').toString(), '$base/images/0043-qXTaZnJ.jpg');
+    expect(exerciseMediaUrl('0043-qXTaZnJ', gif: true).toString(), '$base/videos/0043-qXTaZnJ.gif');
     expect(youtubeSearchUrl('Back Squat').toString(), 'https://www.youtube.com/results?search_query=Back+Squat+exercise');
   });
 }
