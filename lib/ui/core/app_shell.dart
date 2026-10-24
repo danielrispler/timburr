@@ -100,7 +100,7 @@ class _AppShellState extends State<AppShell> {
           : _tabs[i].label == 'History'
               ? HistoryScreen(workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog)
           : _tabs[i].label == 'More'
-              ? MoreScreen(engine: widget.sync, catalog: widget.catalog)
+              ? MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio)
           : _Placeholder(_tabs[i].label);
 }
 
