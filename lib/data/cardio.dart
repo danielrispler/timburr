@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'db.dart';
+import 'records.dart' show Series;
 
 const cardioTypes = ['run', 'walk', 'treadmill', 'bike'];
 
@@ -111,3 +112,34 @@ List<Object> mergeHistory(List<Workout> workouts, List<CardioData> sessions, {bo
   DateTime at(Object o) => o is Workout ? o.startedAt : (o as CardioData).startedAt;
   return [if (strength) ...workouts, if (cardio) ...sessions]..sort((a, b) => at(b).compareTo(at(a)));
 }
+
+const distanceBuckets = [5, 10];
+
+/// 5 or 10 when [km] is within 5% of it (GPS and treadmill drift), else null.
+int? distanceBucket(double km) {
+  for (final b in distanceBuckets) {
+    if ((km - b).abs() <= b * 0.05 + 1e-9) return b;
+  }
+  return null;
+}
+
+/// [sessions] narrowed to [type] and [bucket] when given; order kept.
+List<CardioData> filterCardio(List<CardioData> sessions, {String? type, int? bucket}) => [
+      for (final s in sessions)
+        if ((type == null || s.type == type) && (bucket == null || distanceBucket(s.distanceKm) == bucket)) s,
+    ];
+
+/// Shortest duration in [bucket], or null. Filter by type first: a bike 10 km is not a run 10 km.
+CardioData? bestTime(List<CardioData> sessions, int bucket) {
+  CardioData? best;
+  for (final s in filterCardio(sessions, bucket: bucket)) {
+    if (best == null || s.durationSec < best.durationSec) best = s;
+  }
+  return best;
+}
+
+/// (date, sec/km) oldest first, for the pace chart.
+Series paceSeries(List<CardioData> sessions) => [
+      for (final s in [...sessions]..sort((a, b) => a.startedAt.compareTo(b.startedAt)))
+        if (paceSecPerKm(s.distanceKm, s.durationSec) case final p?) (s.startedAt, p),
+    ];
