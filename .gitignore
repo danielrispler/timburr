@@ -12,3 +12,11 @@ coverage/
 *.jks
 keystore.properties
 
+!.env.example.json
+
+# flutter
+.dart_tool/
+build/
+.flutter-plugins-dependencies
+*.iml
+.idea/

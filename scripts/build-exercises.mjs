@@ -1,5 +1,5 @@
 // Downloads free-exercise-db (Unlicense) at a pinned commit and writes the trimmed copy bundled in the app.
-// Images and unused fields are dropped to keep the APK small. Run: npm run build:exercises
+// Images and unused fields are dropped to keep the APK small. Run: node scripts/build-exercises.mjs
 import { writeFile } from 'node:fs/promises'
 
 const COMMIT = 'f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5'
@@ -19,5 +19,5 @@ const trimmed = all.map((e) => ({
   instructions: e.instructions,
 }))
 
-await writeFile(new URL('../src/data/exercises.json', import.meta.url), JSON.stringify(trimmed) + '\n')
+await writeFile(new URL('../assets/exercises.json', import.meta.url), JSON.stringify(trimmed) + '\n')
 console.log(`wrote ${trimmed.length} exercises from ${COMMIT}`)
