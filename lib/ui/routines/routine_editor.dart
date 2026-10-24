@@ -4,69 +4,97 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
 import '../core/theme.dart';
+import '../exercises/exercise_image.dart';
 import '../exercises/exercise_picker.dart';
+import 'planned_sets.dart';
+import 'start.dart';
 
-/// Name, sticky note and ordered exercise list of one routine. Fields save on change.
+/// Builder for one saved workout, as in Google Health: exercises with planned sets, start or log it.
+/// A [isNew] workout that is never named with the bookmark is deleted on leaving, but can still be started.
 class RoutineEditor extends StatefulWidget {
-  const RoutineEditor({super.key, required this.store, required this.catalog, required this.routineId});
+  const RoutineEditor({super.key, required this.stores, required this.routineId, this.isNew = false});
 
-  final RoutineStore store;
-  final Catalog catalog;
+  final Stores stores;
   final String routineId;
+  final bool isNew;
 
   @override
   State<RoutineEditor> createState() => _RoutineEditorState();
 }
 
 class _RoutineEditorState extends State<RoutineEditor> {
-  final _name = TextEditingController(), _note = TextEditingController();
+  late final _store = widget.stores.routines;
+  final _note = TextEditingController();
+  Routine? _routine;
   Map<String, CatalogEntry> _entries = {};
-  bool _loaded = false;
+  late bool _saved = !widget.isNew;
+  final _dismissed = <String>{}; // hidden at once; Dismissible must leave the tree before the DB write lands
 
   @override
   void initState() {
     super.initState();
-    widget.store.watchRoutines().first.then((rs) {
-      final r = rs.where((r) => r.id == widget.routineId).firstOrNull;
-      if (r == null || !mounted) return;
-      setState(() {
-        _name.text = r.name;
-        _note.text = r.stickyNote ?? '';
-        _loaded = true;
-      });
-    });
+    _loadRoutine();
     _loadNames();
   }
 
+  Future<void> _loadRoutine() async {
+    final r = (await _store.watchRoutines().first).where((r) => r.id == widget.routineId).firstOrNull;
+    if (r == null || !mounted) return;
+    setState(() {
+      _routine = r;
+      _note.text = r.stickyNote ?? '';
+    });
+  }
+
   Future<void> _loadNames() async {
-    final all = await widget.catalog.list();
-    if (mounted) {
-      setState(() => _entries = {for (final e in all) if (e.rowId != null) e.rowId!: e});
-    }
+    final all = await widget.stores.catalog.list();
+    if (mounted) setState(() => _entries = {for (final e in all) if (e.rowId != null) e.rowId!: e});
   }
 
   @override
   void dispose() {
-    _name.dispose();
+    if (!_saved) _store.delete(widget.routineId);
     _note.dispose();
     super.dispose();
   }
 
-  void _saveFields() {
-    final name = _name.text.trim();
-    widget.store.update(widget.routineId,
-        name: name.isEmpty ? 'Untitled' : name, stickyNote: _note.text.isEmpty ? null : _note.text);
+  void _saveNote() => _store.update(widget.routineId,
+      name: _routine!.name, stickyNote: _note.text.isEmpty ? null : _note.text);
+
+  Future<void> _rename() async {
+    final ctrl = TextEditingController(text: _saved ? _routine!.name : '');
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Name your workout'),
+        content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(labelText: 'Workout name')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (name == null || name.isEmpty) return;
+    await _store.update(widget.routineId, name: name, stickyNote: _note.text.isEmpty ? null : _note.text);
+    _saved = true;
+    await _loadRoutine();
   }
 
-  Future<void> _addExercise() async {
-    final entry = await Navigator.of(context).push<CatalogEntry>(MaterialPageRoute(
+  Future<void> _addExercises() async {
+    final picked = await Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Add exercise')),
-        body: ExercisePicker(catalog: widget.catalog, onSelected: (e) => Navigator.of(context).pop(e)),
+        appBar: AppBar(title: const Text('Add exercises')),
+        body: ExercisePicker(
+          catalog: widget.stores.catalog,
+          onSelected: (e) => Navigator.of(context).pop([e]),
+          onAdd: (list) => Navigator.of(context).pop(list),
+        ),
       ),
     ));
-    if (entry == null) return;
-    await widget.store.add(widget.routineId, entry);
+    for (final e in picked ?? const <CatalogEntry>[]) {
+      await _store.add(widget.routineId, e);
+    }
     await _loadNames();
   }
 
@@ -74,7 +102,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete routine?'),
+        title: const Text('Delete workout?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
@@ -82,71 +110,97 @@ class _RoutineEditorState extends State<RoutineEditor> {
       ),
     );
     if (ok != true) return;
-    await widget.store.delete(widget.routineId);
+    _saved = false; // dispose deletes it
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Routine'),
-          actions: [IconButton(icon: const Icon(Icons.delete), tooltip: 'Delete routine', onPressed: _delete)],
+  Widget build(BuildContext context) {
+    final r = _routine;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(r == null || !_saved ? 'New workout' : r.name),
+        actions: [
+          IconButton(icon: Icon(_saved ? Icons.bookmark : Icons.bookmark_border), tooltip: 'Save and name', onPressed: r == null ? null : _rename),
+          IconButton(icon: const Icon(Icons.delete), tooltip: 'Delete workout', onPressed: _delete),
+        ],
+      ),
+      bottomNavigationBar: BottomAction(children: [
+        FilledButton.tonalIcon(icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercises),
+        FilledButton.icon(
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('Start workout'),
+          onPressed: () => startStrength(context, widget.stores, routineId: widget.routineId, now: true),
         ),
-        bottomNavigationBar: BottomAction(children: [
-          FilledButton.tonalIcon(icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercise),
-        ]),
-        body: !_loaded
-            ? const Center(child: CircularProgressIndicator())
-            : Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 700),
-                  child: StreamBuilder<List<RoutineExercise>>(
-                    stream: widget.store.watchExercises(widget.routineId),
-                    builder: (context, snap) {
-                      final items = snap.data ?? const [];
-                      return ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                        children: [
-                          TextField(
-                            controller: _name,
-                            decoration: const InputDecoration(labelText: 'Name'),
-                            onChanged: (_) => _saveFields(),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _note,
-                            maxLines: null,
-                            decoration: const InputDecoration(labelText: 'Sticky note'),
-                            onChanged: (_) => _saveFields(),
-                          ),
-                          const SizedBox(height: 12),
-                          if (items.isNotEmpty)
-                            TileGroup(title: 'Exercises', children: [
-                          for (final (i, e) in items.indexed)
-                            ListTile(
-                              leading: IconTile(muscleIcon(_entries[e.exerciseId]?.muscles.firstOrNull)),
-                              title: Text(_entries[e.exerciseId]?.name ?? '…'),
-                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(
-                                    icon: const Icon(Icons.arrow_upward),
-                                    tooltip: 'Move up',
-                                    onPressed: i == 0 ? null : () => widget.store.move(e.id, -1)),
-                                IconButton(
-                                    icon: const Icon(Icons.arrow_downward),
-                                    tooltip: 'Move down',
-                                    onPressed: i == items.length - 1 ? null : () => widget.store.move(e.id, 1)),
-                                IconButton(
-                                    icon: const Icon(Icons.close),
-                                    tooltip: 'Remove',
-                                    onPressed: () => widget.store.remove(e.id)),
-                              ]),
+        TextButton.icon(
+          icon: const Icon(Icons.check),
+          label: const Text('I have done this workout'),
+          onPressed: () => startStrength(context, widget.stores, routineId: widget.routineId, now: false),
+        ),
+      ]),
+      body: r == null
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: StreamBuilder<List<RoutineExercise>>(
+                  stream: _store.watchExercises(widget.routineId),
+                  builder: (context, snap) {
+                    final items = [for (final e in snap.data ?? const <RoutineExercise>[]) if (!_dismissed.contains(e.id)) e];
+                    final equipment = {for (final e in items) ?_entries[e.exerciseId]?.equipment};
+                    return ReorderableListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        if (equipment.isNotEmpty)
+                          Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(equipment.join(' • '))),
+                        TextField(
+                          controller: _note,
+                          maxLines: null,
+                          decoration: const InputDecoration(labelText: 'Sticky note'),
+                          onChanged: (_) => _saveNote(),
+                        ),
+                        const SizedBox(height: 12),
+                        if (items.isEmpty) const ListTile(title: Text('No exercises yet')),
+                      ]),
+                      onReorderItem: (from, to) => _store.reorder(items[from].id, to),
+                      children: [
+                        for (final e in items)
+                          Dismissible(
+                            key: ValueKey(e.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 24),
+                              color: Theme.of(context).colorScheme.errorContainer,
+                              child: const Icon(Icons.delete),
                             ),
-                            ]),
-                        ],
-                      );
-                    },
-                  ),
+                            onDismissed: (_) {
+                              setState(() => _dismissed.add(e.id));
+                              _store.remove(e.id);
+                            },
+                            child: Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: StreamBuilder<List<RoutineSet>>(
+                                stream: _store.watchSets(e.id),
+                                builder: (context, sets) => ListTile(
+                                  leading: ExerciseThumb(_entries[e.exerciseId]),
+                                  title: Text(_entries[e.exerciseId]?.name ?? '…'),
+                                  subtitle: Text(planSummary(sets.data ?? const [])),
+                                  onTap: _entries[e.exerciseId] == null
+                                      ? null
+                                      : () => Navigator.of(context).push(MaterialPageRoute(
+                                          builder: (_) => PlannedSetsEditor(
+                                              store: _store, entry: _entries[e.exerciseId]!, routineExerciseId: e.id))),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
-      );
+            ),
+    );
+  }
 }

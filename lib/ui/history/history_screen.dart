@@ -5,6 +5,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
+import '../cardio/activity_timer.dart';
 import '../cardio/cardio_form.dart';
 import '../workouts/workout_screen.dart';
 
@@ -86,10 +87,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _cardioTile(BuildContext context, CardioData c) {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     return ListTile(
-      leading: const IconTile(Icons.directions_run),
+      leading: IconTile(activityIcon(c.type)),
       title: Text(_when(context, c.startedAt)),
       subtitle: Text(
-          '${c.type} · ${c.distanceKm} km · ${c.durationSec ~/ 60} min${pace == null ? '' : ' · ${formatPace(pace)} /km'}',
+          [activityLabel(c.type), if (c.distanceKm != null) '${c.distanceKm} km', '${c.durationSec ~/ 60} min', if (pace != null) '${formatPace(pace)} /km'].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
       onTap: () => Navigator.of(context)

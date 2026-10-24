@@ -4,15 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
 import '../core/theme.dart';
+import 'exercise_image.dart';
 
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
 class ExercisePicker extends StatefulWidget {
-  const ExercisePicker({super.key, required this.catalog, required this.onSelected, this.onCreate});
+  const ExercisePicker({super.key, required this.catalog, required this.onSelected, this.onCreate, this.onAdd});
 
   final Catalog catalog;
   /// Awaited, then the list reloads, so edits made on a pushed page show up.
   final FutureOr<void> Function(CatalogEntry) onSelected;
   final Future<void> Function()? onCreate;
+
+  /// Set for multi-select: rows get checkboxes and an "Add" button passes the ticked entries, in tick order.
+  final void Function(List<CatalogEntry>)? onAdd;
 
   @override
   State<ExercisePicker> createState() => _ExercisePickerState();
@@ -22,6 +26,7 @@ class _ExercisePickerState extends State<ExercisePicker> {
   String _query = '';
   String? _muscle, _equipment;
   List<CatalogEntry>? _entries;
+  final _ticked = <String, CatalogEntry>{}; // by libraryId ?? rowId
 
   @override
   void initState() {
@@ -108,16 +113,25 @@ class _ExercisePickerState extends State<ExercisePicker> {
                           itemCount: entries.length,
                           itemBuilder: (_, i) {
                             final e = entries[i];
+                            final key = e.libraryId ?? e.rowId!;
                             return Padding(
                               padding: EdgeInsets.fromLTRB(16, i == 0 ? 8 : 0, 16, 0),
                               child: groupedTile(
                                 i,
                                 entries.length,
                                 ListTile(
-                                  leading: IconTile(muscleIcon(e.muscles.firstOrNull)),
+                                  leading: ExerciseThumb(e),
                                   title: Text(e.name),
                                   subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
-                                  onTap: () async {
+                                  trailing: widget.onAdd == null
+                                      ? null
+                                      : Checkbox(
+                                          value: _ticked.containsKey(key),
+                                          onChanged: (v) => setState(() => v! ? _ticked[key] = e : _ticked.remove(key)),
+                                        ),
+                                  onTap: widget.onAdd != null
+                                      ? () => setState(() => _ticked.remove(key) ?? (_ticked[key] = e))
+                                      : () async {
                                     await widget.onSelected(e);
                                     _reload();
                                   },
@@ -127,6 +141,10 @@ class _ExercisePickerState extends State<ExercisePicker> {
                           },
                         ),
             ),
+            if (widget.onAdd case final add? when _ticked.isNotEmpty)
+              BottomAction(children: [
+                FilledButton(onPressed: () => add(_ticked.values.toList()), child: Text('Add ${_ticked.length}')),
+              ]),
           ],
         ),
       ),

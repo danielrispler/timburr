@@ -1,11 +1,12 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'package:drift/drift.dart' show OrderingTerm, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/catalog.dart';
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/importer.dart';
+import 'package:timburr/data/routines.dart';
 import 'package:timburr/data/workouts.dart';
 
 const _library = [
@@ -57,7 +58,7 @@ void main() {
     w['exercises'][0]['sets'][0]['reps'] = -1;
     w['exercises'][0]['sets'][1]['durationSec'] = 30; // both reps and durationSec
     w['exercises'][1]['sets'] = [];
-    d['cardio'][0]['type'] = 'swim';
+    d['cardio'][0]['type'] = 'golf';
     d['cardio'][0]['rpe'] = 11;
     d['cardio'][0]['distanceKm'] = '5';
     expect(validateImport(d), [
@@ -68,11 +69,19 @@ void main() {
       'workouts[0].exercises[0].sets[0].reps: must be a whole number >= 0',
       'workouts[0].exercises[0].sets[1]: give reps or durationSec, not both',
       'workouts[0].exercises[1].sets: must be a non-empty list',
-      'cardio[0].type: must be one of run, walk, treadmill, bike',
+      'cardio[0].type: must be one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball',
       'cardio[0].distanceKm: must be a number > 0',
       'cardio[0].rpe: must be a whole number 1-10',
     ]);
     expect(validateImport('nope'), ['root: must be an object']);
+  });
+
+  test('sports need no distanceKm', () {
+    final d = _doc();
+    d['cardio'][0]
+      ..['type'] = 'padel'
+      ..remove('distanceKm');
+    expect(validateImport(d), isEmpty);
   });
 
   test('names match library and custom exercises case-insensitively; the rest are unknown', () async {
@@ -120,5 +129,28 @@ void main() {
     expect(text, contains('"version": 1'));
     expect(text, contains('- Barbell Squat\n- Plank'));
     expect(text, isNot(contains('Pushups')));
+  });
+
+  test('saveRoutines creates a missing routine from the workout, links it, and reuses an existing one', () async {
+    final routines = RoutineStore(db);
+    await importer.save(_doc(), saveRoutines: true);
+    final list = await routines.watchRoutines().first;
+    expect(list.map((r) => r.name), ['Push A']);
+    final plan = await routines.plan(list.single.id);
+    final w = (await db.select(db.workouts).get()).single;
+    expect(w.routineId, list.single.id);
+    final firstSets = await (db.select(db.workoutSets)..orderBy([(s) => OrderingTerm(expression: s.setNumber)])).get();
+    expect(plan, isNotEmpty);
+    expect(plan.first.sets.length, greaterThan(0));
+    expect(firstSets, isNotEmpty);
+
+    await importer.save(_doc(), saveRoutines: true); // same name again: no second routine, plan untouched
+    expect((await routines.watchRoutines().first), hasLength(1));
+    expect(await routines.plan(list.single.id), hasLength(plan.length));
+  });
+
+  test('without saveRoutines no routine is created', () async {
+    await importer.save(_doc());
+    expect(await db.select(db.routines).get(), isEmpty);
   });
 }

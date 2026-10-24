@@ -7,6 +7,7 @@ import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
+import '../exercises/exercise_image.dart';
 import 'exercise_notes.dart';
 import 'rest_bar.dart';
 
@@ -42,13 +43,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _addExercise() async {
-    final entry = await Navigator.of(context).push<CatalogEntry>(MaterialPageRoute(
+    final picked = await Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Add exercise')),
-        body: ExercisePicker(catalog: widget.catalog, onSelected: (e) => Navigator.of(context).pop(e)),
+        appBar: AppBar(title: const Text('Add exercises')),
+        body: ExercisePicker(
+          catalog: widget.catalog,
+          onSelected: (e) => Navigator.of(context).pop([e]),
+          onAdd: (list) => Navigator.of(context).pop(list),
+        ),
       ),
     ));
-    if (entry != null) await widget.store.addExercise(widget.workoutId, entry);
+    for (final e in picked ?? const <CatalogEntry>[]) {
+      await widget.store.addExercise(widget.workoutId, e);
+    }
   }
 
   Future<void> _discard() async {
@@ -68,6 +75,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _finish() async {
+    if (await widget.store.templateChanged(widget.workoutId) && mounted) {
+      final update = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Update saved workout?'),
+          content: const Text('Save today\'s exercises and sets as the plan for next time.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Update')),
+          ],
+        ),
+      );
+      if (update == true) await widget.store.updateTemplate(widget.workoutId);
+    }
     await widget.store.finish(widget.workoutId);
     if (mounted) Navigator.of(context).pop();
   }
@@ -203,7 +224,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
         padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            IconTile(muscleIcon(_entry?.muscles.firstOrNull)),
+            ExerciseThumb(_entry),
             const SizedBox(width: 16),
             Expanded(child: Text(_entry?.name ?? '…', style: const TextStyle(fontSize: 18))),
             IconButton(

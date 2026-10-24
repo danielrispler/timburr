@@ -82,4 +82,61 @@ void main() {
     await db.save(db.exercises, {'id': 'c1', 'deleted_at': DateTime.now()});
     expect(await Catalog(db, () async => '[]').list(), isEmpty);
   });
+
+  group('planned sets', () {
+    test('a new exercise gets 3 x 10 reps; timed gets 3 x 30 s', () async {
+      final r = await store.create('Push');
+      final a = await store.add(r, lib('A'));
+      final t = await store.add(r, CatalogEntry(name: 'Plank', libraryId: 'Plank', loadType: 'timed'));
+      expect([for (final s in await store.watchSets(a).first) (s.setNumber, s.reps, s.durationSec)],
+          [(1, 10, null), (2, 10, null), (3, 10, null)]);
+      expect([for (final s in await store.watchSets(t).first) s.durationSec], [30, 30, 30]);
+    });
+
+    test('saveSets reuses rows by number and soft-deletes extras', () async {
+      final r = await store.create('Push');
+      final a = await store.add(r, lib('A'));
+      final before = {for (final s in await store.watchSets(a).first) s.id};
+      await store.saveSets(a, [(weightKg: 60, reps: 5, durationSec: null), (weightKg: 60, reps: 5, durationSec: null)]);
+      final after = await store.watchSets(a).first;
+      expect([for (final s in after) (s.weightKg, s.reps)], [(60.0, 5), (60.0, 5)]);
+      expect(before.containsAll({for (final s in after) s.id}), isTrue);
+      expect(await db.select(db.routineSets).get(), hasLength(3)); // third one soft-deleted
+    });
+
+    test('reorder moves to an index and renumbers', () async {
+      final r = await store.create('Push');
+      final ids = [for (final x in ['A', 'B', 'C']) await store.add(r, lib(x))];
+      await store.reorder(ids[2], 0);
+      expect(await order(r), [libraryRowId('C'), libraryRowId('A'), libraryRowId('B')]);
+    });
+
+    test('duplicate copies exercises and sets under a new name', () async {
+      final r = await store.create('Push');
+      final a = await store.add(r, lib('A'));
+      await store.saveSets(a, [(weightKg: 40, reps: 8, durationSec: null)]);
+      final copy = await store.duplicate(r);
+      expect((await store.watchRoutines().first).map((x) => x.name), containsAll(['Push', 'Push copy']));
+      final items = await store.watchExercises(copy).first;
+      expect(items.single.exerciseId, libraryRowId('A'));
+      expect([for (final s in await store.watchSets(items.single.id).first) (s.weightKg, s.reps)], [(40.0, 8)]);
+    });
+
+    test('deleting an exercise hides its sets with it', () async {
+      final r = await store.create('Push');
+      final a = await store.add(r, lib('A'));
+      await store.remove(a);
+      expect(await store.plan(r), isEmpty);
+    });
+  });
+
+  test('planSummary', () {
+    RoutineSet s({int? reps, int? sec, double? kg}) => RoutineSet(
+        id: 'x', createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+        routineExerciseId: 'e', setNumber: 1, reps: reps, durationSec: sec, weightKg: kg);
+    expect(planSummary([s(reps: 10), s(reps: 10), s(reps: 10)]), '3 sets • 10 reps');
+    expect(planSummary([s(reps: 5, kg: 62.5)]), '1 set • 5 reps • 62.5 kg');
+    expect(planSummary([s(sec: 30), s(sec: 30)]), '2 sets • 30 s');
+    expect(planSummary([]), 'No sets');
+  });
 }

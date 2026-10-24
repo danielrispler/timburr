@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Import a v1 JSON file into Supabase as you. Needs SUPABASE_SERVICE_ROLE_KEY and TIMBURR_USER_ID in .env.
+# Usage: tool/timburr-import <file.json> [--dry-run] [--save-routines]
+# Sync the phone first: last write wins, so its unsynced edits could lose to these rows.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+file="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; shift
+defines=(--dart-define=FILE="$file")
+for a in "$@"; do
+  case "$a" in
+    --dry-run) defines+=(--dart-define=DRY_RUN=true) ;;
+    --save-routines) defines+=(--dart-define=SAVE_ROUTINES=true) ;;
+    *) echo "unknown flag $a" >&2; exit 2 ;;
+  esac
+done
+flutter test tool/timburr_import.dart --reporter expanded "${defines[@]}"

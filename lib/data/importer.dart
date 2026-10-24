@@ -1,11 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import 'cardio.dart';
 import 'catalog.dart';
 import 'db.dart';
+import 'routines.dart';
 
 const _uuid = Uuid();
-const cardioTypes = ['run', 'walk', 'treadmill', 'bike'];
 
 /// Short v1 description for the chat assistant; see docs/import-format.md.
 const importFormat = '''
@@ -32,7 +33,7 @@ Turn my workout screenshot into JSON in this exact format (version 1). Output on
       "avgHr": 158, "inclinePct": null, "rpe": 7, "notes": "" }
   ]
 }
-Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is one of run, walk, treadmill, bike; rpe is 1-10. Use my exercise names below when they match.''';
+Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball; distanceKm is left out for padel, tennis, soccer and basketball; rpe is 1-10. Use my exercise names below when they match.''';
 
 /// Every problem in [data] as `path: message`; empty means valid v1.
 List<String> validateImport(Object? data) {
@@ -131,7 +132,7 @@ List<String> validateImport(Object? data) {
     fields(c, p, {'type', 'date', 'distanceKm', 'durationSec', 'avgHr', 'inclinePct', 'rpe', 'notes'});
     if (!cardioTypes.contains(c['type'])) err('$p.type', 'must be one of ${cardioTypes.join(', ')}');
     date(c, p);
-    number(c, p, 'distanceKm', positive: true, required: true);
+    number(c, p, 'distanceKm', positive: true, required: hasDistance(c['type']));
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
     if (c['inclinePct'] != null && c['inclinePct'] is! num) err('$p.inclinePct', 'must be a number');
@@ -180,8 +181,9 @@ class Importer {
   }
 
   /// Saves [data] atomically. [mapping] sends a lower-cased unknown name to an existing exercise;
-  /// unmapped unknowns become custom exercises. Throws [FormatException] if [data] is invalid.
-  Future<void> save(Map data, {Map<String, CatalogEntry> mapping = const {}}) async {
+  /// unmapped unknowns become custom exercises. With [saveRoutines], a workout whose "routine" names no live routine
+  /// creates that routine, planned from the workout's exercises and sets. Throws [FormatException] if [data] is invalid.
+  Future<void> save(Map data, {Map<String, CatalogEntry> mapping = const {}, bool saveRoutines = false}) async {
     final errors = validateImport(data);
     if (errors.isNotEmpty) throw FormatException(errors.join('\n'));
     final known = await _byName();
@@ -208,19 +210,29 @@ class Importer {
 
       for (final w in data['workouts'] as List? ?? const []) {
         final id = _uuid.v4(), at = DateTime.parse(w['date'] as String);
+        final routineName = (w['routine'] as String?)?.trim() ?? '';
+        final Plan? plan = saveRoutines && routineName.isNotEmpty && !routines.containsKey(routineName.toLowerCase()) ? [] : null;
+        if (plan != null) routines[routineName.toLowerCase()] = await RoutineStore(_db).create(routineName);
         await _db.save(_db.workouts, {
           'id': id,
-          'routine_id': routines[(w['routine'] as String?)?.trim().toLowerCase()],
+          'routine_id': routines[routineName.toLowerCase()],
           'started_at': at,
           'finished_at': at, // shortcut: duration unknown from a screenshot, so 0; add an end time to v2 if wanted
           'notes': _blank(w['notes']),
         });
         for (final (i, e) in (w['exercises'] as List).indexed) {
-          final weId = _uuid.v4();
+          final weId = _uuid.v4(), exId = await exerciseId(e as Map);
+          plan?.add((
+            exerciseId: exId,
+            sets: [
+              for (final s in e['sets'] as List)
+                (weightKg: (s['weightKg'] as num?)?.toDouble(), reps: s['reps'] as int?, durationSec: s['durationSec'] as int?)
+            ],
+          ));
           await _db.save(_db.workoutExercises, {
             'id': weId,
             'workout_id': id,
-            'exercise_id': await exerciseId(e as Map),
+            'exercise_id': exId,
             'position': i,
             'notes': _blank(e['notes']),
             'superset_with_next': e['supersetWithNext'] ?? false,
@@ -237,13 +249,14 @@ class Importer {
             });
           }
         }
+        if (plan != null) await RoutineStore(_db).replacePlan(routines[routineName.toLowerCase()]!, plan);
       }
       for (final c in data['cardio'] as List? ?? const []) {
         await _db.save(_db.cardio, {
           'id': _uuid.v4(),
           'type': c['type'],
           'started_at': DateTime.parse(c['date'] as String),
-          'distance_km': (c['distanceKm'] as num).toDouble(),
+          'distance_km': (c['distanceKm'] as num?)?.toDouble(),
           'duration_sec': c['durationSec'],
           'avg_hr': c['avgHr'],
           'incline_pct': (c['inclinePct'] as num?)?.toDouble(),

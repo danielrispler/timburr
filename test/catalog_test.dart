@@ -83,4 +83,10 @@ void main() {
     expect(catalog.muscles, ['chest', 'glutes', 'quadriceps', 'triceps']);
     expect(catalog.equipment, ['barbell', 'body only', 'dumbbell']);
   });
+
+  test('image and video links', () {
+    expect(exerciseImageUrl('3_4_Sit-Up', 1).toString(),
+        'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/1.jpg');
+    expect(youtubeSearchUrl('Back Squat').toString(), 'https://www.youtube.com/results?search_query=Back+Squat+exercise');
+  });
 }

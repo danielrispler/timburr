@@ -159,3 +159,10 @@ String libraryRowId(String libraryId) => const Uuid().v5(_libraryNamespace, libr
 
 /// `Old_Cable_Fly-Low` -> `Old Cable Fly Low`, for rows whose library entry left the bundle.
 String humanize(String libraryId) => libraryId.split(RegExp(r'[_\-\s]+')).where((w) => w.isNotEmpty).join(' ');
+
+/// free-exercise-db photo of a library exercise: [frame] 0 is the start position, 1 the end.
+Uri exerciseImageUrl(String libraryId, int frame) =>
+    Uri.https('raw.githubusercontent.com', '/yuhonas/free-exercise-db/main/exercises/$libraryId/$frame.jpg');
+
+/// YouTube search for how to do [name].
+Uri youtubeSearchUrl(String name) => Uri.https('www.youtube.com', '/results', {'search_query': '$name exercise'});

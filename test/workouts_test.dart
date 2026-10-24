@@ -197,4 +197,94 @@ void main() {
     await store.setNotes(w, 'later');
     expect((await store.watchWorkout(w).first).dirty, 1);
   });
+
+  group('from a saved workout', () {
+    late RoutineStore routines;
+    setUp(() => routines = RoutineStore(db));
+
+    Future<List<(double?, int?, bool)>> sets(String w) async => [
+          for (final e in await store.watchExercises(w).first)
+            for (final s in await store.watchSets(e.id).first) (s.weightKg, s.reps, s.done)
+        ];
+
+    test('start prefills planned sets; missing weight falls back to last session', () async {
+      final r = await routines.create('Push');
+      final a = await routines.add(r, lib('A'));
+      await routines.saveSets(a, [(weightKg: null, reps: 5, durationSec: null), (weightKg: 70, reps: 5, durationSec: null)]);
+      final first = await store.start(routineId: r);
+      expect(await sets(first), [(null, 5, false), (70.0, 5, false)]);
+      final e = (await store.watchExercises(first).first).single;
+      final s1 = (await store.watchSets(e.id).first).first;
+      await store.updateSet(s1.copyWith(weightKg: const Value(65), done: true));
+      await store.finish(first);
+      final second = await store.start(routineId: r);
+      expect(await sets(second), [(65.0, 5, false), (70.0, 5, false)]);
+    });
+
+    test('logDone saves a finished workout at the given time with every set done', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      final at = DateTime(2026, 10, 20, 18);
+      final w = await store.start(routineId: r, at: at, done: true);
+      final row = await store.watchWorkout(w).first;
+      expect(row.startedAt, at);
+      expect(row.finishedAt, at.add(estimateDuration(3)));
+      expect(await sets(w), everyElement(isA<(double?, int?, bool)>().having((s) => s.$3, 'done', true)));
+      expect(await store.active(), isNull);
+    });
+
+    test('estimateDuration is 3 min per set, at least 10 min', () {
+      expect(estimateDuration(1), const Duration(minutes: 10));
+      expect(estimateDuration(12), const Duration(minutes: 36));
+    });
+
+    test('templateChanged and updateTemplate', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      final w = await store.start(routineId: r);
+      expect(await store.templateChanged(w), isFalse);
+      final e = (await store.watchExercises(w).first).single;
+      final s1 = (await store.watchSets(e.id).first).first;
+      await store.updateSet(s1.copyWith(weightKg: const Value(50)));
+      await store.addExercise(w, lib('B'));
+      expect(await store.templateChanged(w), isTrue);
+      await store.updateTemplate(w);
+      expect(await store.templateChanged(w), isFalse);
+      final plan = await routines.plan(r);
+      expect([for (final p in plan) p.exerciseId], [libraryRowId('A'), libraryRowId('B')]);
+      expect(plan.first.sets.first.weightKg, 50);
+      expect(plan.last.sets, isEmpty);
+    });
+
+    test('a prefilled last-session weight does not count as a change', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      final w1 = await store.start(routineId: r);
+      final e = (await store.watchExercises(w1).first).single;
+      for (final s in await store.watchSets(e.id).first) {
+        await store.updateSet(s.copyWith(weightKg: const Value(60), done: true));
+      }
+      await store.finish(w1);
+      final w2 = await store.start(routineId: r);
+      expect(await store.templateChanged(w2), isFalse);
+    });
+
+    test('deleting a routine soft-deletes its exercises and sets', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      await routines.delete(r);
+      expect((await db.select(db.routineExercises).get()).every((e) => e.deletedAt != null), isTrue);
+      expect((await db.select(db.routineSets).get()).every((s) => s.deletedAt != null), isTrue);
+    });
+
+    test('templateChanged is false for a deleted or missing template', () async {
+      final r = await routines.create('Draft');
+      await routines.add(r, lib('A'));
+      final w = await store.start(routineId: r);
+      await store.addExercise(w, lib('B'));
+      await routines.delete(r);
+      expect(await store.templateChanged(w), isFalse);
+      expect(await store.templateChanged(await store.start()), isFalse);
+    });
+  });
 }

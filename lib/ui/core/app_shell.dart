@@ -4,12 +4,11 @@ import 'package:flutter/services.dart';
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/sync.dart';
-import '../exercises/exercise_detail.dart';
-import '../exercises/exercise_picker.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
 import '../history/history_screen.dart';
 import '../routines/routines_home.dart';
+import '../routines/start.dart';
 import '../sync/sync_ui.dart';
 
 typedef _Tab = ({String label, IconData icon});
@@ -17,7 +16,7 @@ typedef _Tab = ({String label, IconData icon});
 const _tabs = <_Tab>[
   (label: 'Home', icon: Icons.home),
   (label: 'History', icon: Icons.history),
-  (label: 'Exercises', icon: Icons.fitness_center),
+  (label: 'Workouts', icon: Icons.fitness_center),
   (label: 'More', icon: Icons.more_horiz),
 ];
 
@@ -85,29 +84,13 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _tabRoot(int i) => _tabs[i].label == 'Exercises'
-      ? Builder(
-          builder: (context) => ExercisePicker(
-            catalog: widget.catalog,
-            onSelected: (e) => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => ExerciseDetail(catalog: widget.catalog, entry: e, workouts: widget.workouts))),
-            onCreate: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
-          ),
-        )
-      : i == 0
-          ? RoutinesHome(store: widget.routines, catalog: widget.catalog, workouts: widget.workouts, cardio: widget.cardio)
-          : _tabs[i].label == 'History'
-              ? HistoryScreen(workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog)
-          : _tabs[i].label == 'More'
-              ? MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio)
-          : _Placeholder(_tabs[i].label);
-}
+  late final Stores _stores =
+      (routines: widget.routines, workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog);
 
-class _Placeholder extends StatelessWidget {
-  const _Placeholder(this.label);
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Center(child: Text(label));
+  Widget _tabRoot(int i) => switch (_tabs[i].label) {
+        'Home' => HomeScreen(stores: _stores),
+        'History' => HistoryScreen(workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog),
+        'Workouts' => WorkoutsTab(stores: _stores),
+        _ => MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio, workouts: widget.workouts),
+      };
 }

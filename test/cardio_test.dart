@@ -141,4 +141,33 @@ void main() {
       expect(s, [(DateTime(2026, 1, 1), 360.0), (DateTime(2026, 1, 2), 300.0)]);
     });
   });
+
+  group('sports', () {
+    test('need no distance; distance types still do', () {
+      expect(validateCardio(type: 'padel', distance: '', duration: '60'), isEmpty);
+      expect(validateCardio(type: 'swim', distance: '', duration: '30').keys, ['distance']);
+      expect(hasDistance('soccer'), isFalse);
+      expect(hasDistance('swim'), isTrue);
+    });
+    test('save without distance; no pace or bucket', () async {
+      final db = AppDb(NativeDatabase.memory());
+      final store = CardioStore(db);
+      final id = await store.save(type: 'tennis', startedAt: DateTime(2026, 1, 1), distanceKm: null, durationSec: 3600);
+      final c = await store.watch(id).first;
+      expect((c.type, c.distanceKm), ('tennis', null));
+      expect(paceSecPerKm(c.distanceKm, c.durationSec), isNull);
+      expect(distanceBucket(c.distanceKm), isNull);
+      await db.close();
+    });
+    test('weekly totals: minutes and sessions per Monday-started week', () {
+      CardioData s(int day, int sec) => CardioData(
+          id: '$day$sec', createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+          type: 'padel', startedAt: DateTime(2026, 10, day, 18), durationSec: sec);
+      // 2026-10-19 is a Monday.
+      expect(weeklyTotals([s(19, 3600), s(25, 1800), s(26, 600)]), [
+        (DateTime(2026, 10, 19), 5400, 2),
+        (DateTime(2026, 10, 26), 600, 1),
+      ]);
+    });
+  });
 }

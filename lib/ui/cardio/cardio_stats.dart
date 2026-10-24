@@ -11,7 +11,7 @@ String _time(int sec) {
   return h > 0 ? '$h:${two(m)}:${two(s)}' : '$m:${two(s)}';
 }
 
-/// Cardio sessions filtered by type and distance bucket, best time per bucket and a pace chart.
+/// Cardio sessions filtered by type and distance bucket, best time per bucket and a pace chart; sports show weekly totals.
 class CardioStatsScreen extends StatefulWidget {
   const CardioStatsScreen({super.key, required this.cardio});
 
@@ -45,6 +45,16 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                         ChoiceChip(label: Text(t), selected: _type == t, onSelected: (_) => setState(() => _type = t)),
                     ]),
                   ),
+                  if (!hasDistance(_type))
+                    TileGroup(title: 'Per week', children: [
+                      if (ofType.isEmpty) const ListTile(title: Text('No sessions')),
+                      for (final (monday, sec, n) in weeklyTotals(ofType).reversed)
+                        ListTile(
+                          title: Text('Week of ${monday.day}/${monday.month}/${monday.year}'),
+                          trailing: Text('${_time(sec)} · $n ${n == 1 ? 'session' : 'sessions'}'),
+                        ),
+                    ])
+                  else ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Wrap(spacing: 8, children: [
@@ -69,7 +79,7 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                   if (shown.isEmpty) const ListTile(title: Text('No sessions')),
                   for (final s in shown)
                     ListTile(
-                      title: Text('${s.distanceKm} km in ${_time(s.durationSec)}'),
+                      title: Text('${s.distanceKm ?? '-'} km in ${_time(s.durationSec)}'),
                       subtitle: Text('${s.startedAt.day}/${s.startedAt.month}/${s.startedAt.year}'),
                       trailing: Text(switch (paceSecPerKm(s.distanceKm, s.durationSec)) {
                         final p? => '${formatPace(p)} /km',
@@ -77,6 +87,7 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                       }),
                     ),
                   ]),
+                  ],
                 ]),
               ),
             );
