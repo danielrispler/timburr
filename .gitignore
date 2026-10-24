@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# secrets: never commit
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+keystore.properties
+
+# android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
