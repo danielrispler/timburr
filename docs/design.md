@@ -1,17 +1,20 @@
-# Timburr design (stage 1 proposal)
+# Timburr design
 
 ## Stack
 
-- Vite + React + TypeScript, wrapped with Capacitor 8 for Android (min SDK 24, target 36).
-- **Dexie (IndexedDB)** as the on-device working copy instead of `@capacitor-community/sqlite`. It runs the same in the Android WebView, the desktop browser and Vitest (`fake-indexeddb`), needs no native setup, and `liveQuery` gives reactive screens. WebView storage is app data: it is only cleared by "Clear data" or an uninstall, and both sync and backups cover that case.
-- `@supabase/supabase-js` for auth and sync. Chart.js (stage 3).
-- Capacitor plugins, added in the stage that needs them: `@capacitor/app` (resume, back button), `@capacitor/network`, `@capacitor/haptics`, `@capacitor/local-notifications` (stage 2); `@capacitor/filesystem` + `@capacitor/share` (stage 4).
-- No router dependency: a ~30-line hash router. The Android back button maps to `history.back()`.
-- Plain CSS, dark only. Exercise reordering uses up/down buttons, not drag.
+Spec: [#3](https://github.com/danielrispler/timburr/issues/3).
+
+- Flutter + Dart, Android only (min SDK 24, target 36). Replaces the Stage 1 Vite + React + Capacitor scaffold.
+- **drift (SQLite)** as the on-device working copy. Reactive `watch` queries drive the screens, and tests use an in-memory database.
+- `supabase_flutter` for auth and sync. `fl_chart` for charts (stage 3).
+- Plugins, added in the stage that needs them: `connectivity_plus`, `flutter_local_notifications` (stage 2); `share_plus`, `file_picker`, `path_provider` (stage 4). `uuid` for v4 and v5 ids.
+- Supabase URL and publishable key come from `--dart-define-from-file` with a git-ignored env file.
+- Built-in `Navigator` and a bottom `NavigationBar`. No router or state-management package.
+- Material 3, dark only. Exercise reordering uses up/down buttons, not drag.
 
 ## Data model
 
-All tables live in `supabase/migrations/001_init.sql`, mirrored in Dexie with the same names and columns.
+All tables live in `supabase/migrations/001_init.sql`, mirrored in drift with the same names and columns, plus a local-only `dirty` flag and per-table pull cursors.
 
 Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `deleted_at`, `server_updated_at`.
 
@@ -35,7 +38,7 @@ Changes from the brief:
 
 ## Sync
 
-- Every local write goes through one `save(table, row)` helper. It sets `updated_at = now()` and `dirty = 1`. IndexedDB cannot index booleans, so `dirty` is a number.
+- Every local write goes through one `save(table, row)` helper. It sets `updated_at = now()` and `dirty = 1`. `dirty` is an integer.
 - Every sync runs `push`, then `pull`. Only one sync runs at a time.
 - Triggers: app start, resume, finishing a workout, every 5 minutes while open, going back online, and "Sync now".
 - **Push.** For each table in dependency order (exercises, routines, routine_exercises, workouts, workout_exercises, sets, cardio), upsert the dirty rows in chunks. Clear `dirty` only on rows whose `updated_at` didn't change during the push, so an edit made mid-sync stays dirty.

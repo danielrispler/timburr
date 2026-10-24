@@ -2,7 +2,7 @@
 
 Personal offline-first workout log for Android. Timburr carries a log everywhere; so does this app.
 
-Vite + React + TypeScript, wrapped with Capacitor. Local IndexedDB (Dexie) as the working copy, synced to a personal Supabase project. Design: [docs/design.md](docs/design.md).
+Flutter + Dart. Local SQLite (drift) as the working copy, synced to a personal Supabase project. Spec: [#3](https://github.com/danielrispler/timburr/issues/3). Design: [docs/design.md](docs/design.md).
 
 ## Supabase setup
 
@@ -23,25 +23,15 @@ A free project pauses after about 7 days of low activity. The app keeps working 
 
 ## Development
 
-```sh
-npm install
-npm run dev     # app in the desktop browser
-npm test        # unit tests
-npm run lint
-```
-
-## Android
-
-These steps need Android Studio. The commands below use its bundled JDK.
+The Flutter app is being rebuilt from the Stage 1 React scaffold; commands land with it.
 
 ```sh
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-npm run android                          # web build + copy into android/
-(cd android && ./gradlew assembleDebug)  # android/app/build/outputs/apk/debug/app-debug.apk
+flutter run --dart-define-from-file=.env.json   # app on a device or emulator
+flutter test                                    # unit tests
 ```
 
 Signed release builds and the GitHub Actions release workflow arrive in stage 4.
 
 ## Exercise library
 
-The bundled library is [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (Unlicense), pinned to one commit and trimmed (no images) by `npm run build:exercises`.
+The bundled library is [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (Unlicense), pinned to one commit and trimmed (no images) by a build script.

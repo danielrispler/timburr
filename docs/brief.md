@@ -1,6 +1,6 @@
 # Original brief
 
-Daniel's requirements, verbatim from session 1. Where [design.md](design.md) differs, design.md wins: those are decisions made while planning.
+Daniel's requirements, verbatim from session 1. Where [design.md](design.md) or the spec ([#3](https://github.com/danielrispler/timburr/issues/3)) differs, they win. Notably the stack is now Flutter + Dart, not React/Capacitor/TypeScript.
 
 ---
 
