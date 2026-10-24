@@ -95,7 +95,8 @@ describe('002_routine_sets_and_sports.sql', () => {
     const add = (type: string, km: number | null) =>
       as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), $1, now(), $2, 3600)`, [type, km]))
     await add('padel', null)
-    await add('swim', 1.5)
+    await add('swim', 1.525)
+    expect(await as(me, () => rows(`select distance_km from cardio where type = 'swim'`))).toEqual([{ distance_km: '1.525' }])
     await expect(add('run', null)).rejects.toThrow(/cardio_distance_check/)
     await expect(add('golf', 5)).rejects.toThrow(/cardio_type_check/)
   })

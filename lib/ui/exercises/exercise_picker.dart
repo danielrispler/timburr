@@ -129,7 +129,9 @@ class _ExercisePickerState extends State<ExercisePicker> {
                                           value: _ticked.containsKey(key),
                                           onChanged: (v) => setState(() => v! ? _ticked[key] = e : _ticked.remove(key)),
                                         ),
-                                  onTap: () async {
+                                  onTap: widget.onAdd != null
+                                      ? () => setState(() => _ticked.remove(key) ?? (_ticked[key] = e))
+                                      : () async {
                                     await widget.onSelected(e);
                                     _reload();
                                   },

@@ -133,7 +133,10 @@ class _CardioFormState extends State<CardioForm> {
                     avatar: Icon(activityIcon(t)),
                     label: Text(activityLabel(t)),
                     selected: _type == t,
-                    onSelected: (_) => setState(() => _type = t),
+                    onSelected: (_) => setState(() {
+                      if ((t == 'swim') != (_type == 'swim')) _km.clear(); // meters vs km
+                      _type = t;
+                    }),
                   ),
               ]),
               if (_errors['type'] case final e?) Text(e, style: TextStyle(color: Theme.of(context).colorScheme.error)),

@@ -27,5 +27,7 @@ alter table public.cardio drop constraint cardio_type_check;
 alter table public.cardio add constraint cardio_type_check
   check (type in ('run', 'walk', 'treadmill', 'bike', 'swim', 'padel', 'tennis', 'soccer', 'basketball'));
 alter table public.cardio alter column distance_km drop not null;
+-- Swims are typed in meters: keep them to the meter.
+alter table public.cardio alter column distance_km type numeric(7, 3);
 alter table public.cardio add constraint cardio_distance_check
   check (distance_km is not null or type in ('padel', 'tennis', 'soccer', 'basketball'));

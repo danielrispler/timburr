@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show listEquals;
 import 'package:uuid/uuid.dart';
 
 import 'catalog.dart';
@@ -77,8 +76,16 @@ class WorkoutStore {
     final routineId = (await watchWorkout(workoutId).first).routineId;
     if (routineId == null || !await _routineLive(routineId)) return false;
     final a = await RoutineStore(_db).plan(routineId), b = await _plan(workoutId);
+    // A planned set without weight was prefilled from last session, so any weight there still matches.
+    bool same(PlannedSet p, PlannedSet w) =>
+        p.reps == w.reps && p.durationSec == w.durationSec && (p.weightKg == null || p.weightKg == w.weightKg);
     return a.length != b.length ||
-        [for (final (i, x) in a.indexed) x.exerciseId != b[i].exerciseId || !listEquals(x.sets, b[i].sets)].any((d) => d);
+        [
+          for (final (i, x) in a.indexed)
+            x.exerciseId != b[i].exerciseId ||
+                x.sets.length != b[i].sets.length ||
+                [for (final (j, s) in x.sets.indexed) !same(s, b[i].sets[j])].any((d) => d)
+        ].any((d) => d);
   }
 
   /// Overwrites the workout's routine with what was done in this workout.

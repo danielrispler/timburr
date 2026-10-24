@@ -49,14 +49,20 @@ class _PlannedSetsEditorState extends State<PlannedSetsEditor> {
   }
 
   Future<void> _save() async {
-    await widget.store.saveSets(widget.routineExerciseId, [
+    final sets = [
       for (final (count, kg) in _sets!)
         (
           weightKg: parseNum(kg.text),
           reps: _timed ? null : int.tryParse(count.text.trim()),
           durationSec: _timed ? int.tryParse(count.text.trim()) : null,
         ),
-    ]);
+    ];
+    // The server rejects these (check / numeric(6,2)), and one rejected row stalls all sync.
+    if (sets.any((s) => (s.reps ?? 0) < 0 || (s.durationSec ?? 0) < 0 || (s.weightKg ?? 0) < 0 || (s.weightKg ?? 0) > 9999)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Use 0 or more, and under 10000 kg.')));
+      return;
+    }
+    await widget.store.saveSets(widget.routineExerciseId, sets);
     if (mounted) Navigator.pop(context);
   }
 

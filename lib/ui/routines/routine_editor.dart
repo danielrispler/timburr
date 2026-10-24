@@ -28,6 +28,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
   Routine? _routine;
   Map<String, CatalogEntry> _entries = {};
   late bool _saved = !widget.isNew;
+  final _dismissed = <String>{}; // hidden at once; Dismissible must leave the tree before the DB write lands
 
   @override
   void initState() {
@@ -75,7 +76,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
     );
     ctrl.dispose();
     if (name == null || name.isEmpty) return;
-    await _store.update(widget.routineId, name: name, stickyNote: _routine!.stickyNote);
+    await _store.update(widget.routineId, name: name, stickyNote: _note.text.isEmpty ? null : _note.text);
     _saved = true;
     await _loadRoutine();
   }
@@ -145,7 +146,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
                 child: StreamBuilder<List<RoutineExercise>>(
                   stream: _store.watchExercises(widget.routineId),
                   builder: (context, snap) {
-                    final items = snap.data ?? const <RoutineExercise>[];
+                    final items = [for (final e in snap.data ?? const <RoutineExercise>[]) if (!_dismissed.contains(e.id)) e];
                     final equipment = {for (final e in items) ?_entries[e.exerciseId]?.equipment};
                     return ReorderableListView(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -173,7 +174,10 @@ class _RoutineEditorState extends State<RoutineEditor> {
                               color: Theme.of(context).colorScheme.errorContainer,
                               child: const Icon(Icons.delete),
                             ),
-                            onDismissed: (_) => _store.remove(e.id),
+                            onDismissed: (_) {
+                              setState(() => _dismissed.add(e.id));
+                              _store.remove(e.id);
+                            },
                             child: Card(
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               child: StreamBuilder<List<RoutineSet>>(

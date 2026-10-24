@@ -46,10 +46,12 @@ class RoutineStore {
         return copy;
       });
 
-  Future<void> delete(String id) async {
-    final r = await (_db.select(_db.routines)..where((r) => r.id.equals(id))).getSingle();
-    await _db.save(_db.routines, {'id': id, 'name': r.name, 'deleted_at': DateTime.now()});
-  }
+  /// Soft-deletes the routine with its exercises and planned sets.
+  Future<void> delete(String id) => _db.transaction(() async {
+        await replacePlan(id, const []);
+        final r = await (_db.select(_db.routines)..where((r) => r.id.equals(id))).getSingle();
+        await _db.save(_db.routines, {'id': id, 'name': r.name, 'deleted_at': DateTime.now()});
+      });
 
   /// Live exercises of routine [routineId], by position. Hidden once the routine is deleted.
   Stream<List<RoutineExercise>> watchExercises(String routineId) {

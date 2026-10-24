@@ -8,22 +8,33 @@ import '../../data/catalog.dart';
 import '../core/theme.dart';
 
 final _downloads = <String, Future<File?>>{};
+final _http = HttpClient();
+var _running = 0;
+final _waiting = <Completer<void>>[];
 
 /// Photo [frame] of a library exercise, downloaded once into the cache dir. Local only: not synced or backed up.
-/// Null when offline or missing; a failed download is retried next time it is asked for.
+/// Null when offline or missing. A failure is remembered until the app restarts, so rebuilds don't refetch.
 Future<File?> _photo(String libraryId, int frame) => _downloads['$libraryId/$frame'] ??= () async {
       final f = File('${(await getApplicationCacheDirectory()).path}/exercise_images/${libraryId}_$frame.jpg');
       if (await f.exists()) return f;
+      // At most 4 downloads at once, so a fast scroll doesn't open hundreds of sockets.
+      if (_running >= 4) await (_waiting..add(Completer())).last.future;
+      _running++;
       try {
-        final res = await (await HttpClient().getUrl(exerciseImageUrl(libraryId, frame))).close();
-        if (res.statusCode != 200) throw HttpException('${res.statusCode}');
+        final res = await (await _http.getUrl(exerciseImageUrl(libraryId, frame))).close();
+        if (res.statusCode != 200) {
+          await res.drain<void>();
+          return null;
+        }
         await f.parent.create(recursive: true);
         final part = File('${f.path}.part');
         await res.pipe(part.openWrite());
         return await part.rename(f.path);
       } catch (_) {
-        _downloads.remove('$libraryId/$frame');
         return null;
+      } finally {
+        _running--;
+        if (_waiting.isNotEmpty) _waiting.removeAt(0).complete();
       }
     }();
 

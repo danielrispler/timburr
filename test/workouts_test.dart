@@ -256,6 +256,27 @@ void main() {
       expect(plan.last.sets, isEmpty);
     });
 
+    test('a prefilled last-session weight does not count as a change', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      final w1 = await store.start(routineId: r);
+      final e = (await store.watchExercises(w1).first).single;
+      for (final s in await store.watchSets(e.id).first) {
+        await store.updateSet(s.copyWith(weightKg: const Value(60), done: true));
+      }
+      await store.finish(w1);
+      final w2 = await store.start(routineId: r);
+      expect(await store.templateChanged(w2), isFalse);
+    });
+
+    test('deleting a routine soft-deletes its exercises and sets', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('A'));
+      await routines.delete(r);
+      expect((await db.select(db.routineExercises).get()).every((e) => e.deletedAt != null), isTrue);
+      expect((await db.select(db.routineSets).get()).every((s) => s.deletedAt != null), isTrue);
+    });
+
     test('templateChanged is false for a deleted or missing template', () async {
       final r = await routines.create('Draft');
       await routines.add(r, lib('A'));
