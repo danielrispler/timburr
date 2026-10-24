@@ -18,11 +18,13 @@ class CatalogEntry {
     this.instructions = const [],
     this.loadType,
     this.stickyNote,
+    this.lastRestSec,
   });
 
   final String name;
   final String? libraryId, rowId, category, equipment, loadType, stickyNote;
   final List<String> muscles, secondaryMuscles, instructions;
+  final int? lastRestSec;
 }
 
 /// Library plus `exercises` rows, with search and filters.
@@ -89,6 +91,8 @@ class Catalog {
 
   Future<void> setStickyNote(String rowId, String? note) => _db.save(_db.exercises, {'id': rowId, 'sticky_note': note});
 
+  Future<void> setLastRest(String rowId, int sec) => _db.save(_db.exercises, {'id': rowId, 'last_rest_sec': sec});
+
   Future<void> deleteCustom(String rowId) => _db.save(_db.exercises, {'id': rowId, 'deleted_at': DateTime.now()});
 
   /// Resolves a row by id, deleted or not, so history keeps its names.
@@ -133,6 +137,7 @@ CatalogEntry _entry(Map<String, CatalogEntry> library, Exercise r) {
     instructions: lib?.instructions ?? const [],
     loadType: r.loadType ?? lib?.loadType ?? 'weighted',
     stickyNote: r.stickyNote,
+    lastRestSec: r.lastRestSec,
   );
 }
 

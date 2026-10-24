@@ -5,6 +5,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/workouts.dart';
 import '../exercises/exercise_picker.dart';
+import 'rest_bar.dart';
 
 /// Active (or past) strength workout. Every tap writes straight to the store.
 class WorkoutScreen extends StatefulWidget {
@@ -70,6 +71,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+        bottomNavigationBar: RestBar(catalog: widget.catalog),
         appBar: AppBar(
           title: const Text('Workout'),
           actions: [IconButton(icon: const Icon(Icons.delete), tooltip: 'Discard workout', onPressed: _discard)],
@@ -200,7 +202,12 @@ class _ExerciseCardState extends State<_ExerciseCard> {
             stream: store.watchSets(e.id),
             builder: (context, snap) => Column(children: [
               for (final s in snap.data ?? const <WorkoutSet>[])
-                _SetRow(key: ValueKey(s.id), store: store, set: s, loadType: loadType),
+                _SetRow(
+                    key: ValueKey(s.id),
+                    store: store,
+                    set: s,
+                    loadType: loadType,
+                    onDone: () => restTimer(widget.catalog).offer(e.exerciseId)),
             ]),
           ),
           TextButton.icon(icon: const Icon(Icons.add), label: const Text('Add set'), onPressed: () => store.addSet(e.id)),
@@ -219,11 +226,12 @@ String _describe(WorkoutSet s, String loadType) => switch (loadType) {
 String _kg(double? kg) => kg == null ? '0' : (kg == kg.roundToDouble() ? kg.toInt().toString() : kg.toString());
 
 class _SetRow extends StatelessWidget {
-  const _SetRow({super.key, required this.store, required this.set, required this.loadType});
+  const _SetRow({super.key, required this.store, required this.set, required this.loadType, required this.onDone});
 
   final WorkoutStore store;
   final WorkoutSet set;
   final String loadType;
+  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +266,12 @@ class _SetRow extends StatelessWidget {
           ),
         ),
       ],
-      Checkbox(value: s.done, onChanged: (v) => store.updateSet(s.copyWith(done: v ?? false))),
+      Checkbox(
+          value: s.done,
+          onChanged: (v) {
+            store.updateSet(s.copyWith(done: v ?? false));
+            if (v == true) onDone();
+          }),
       IconButton(icon: const Icon(Icons.remove_circle_outline), tooltip: 'Delete set', onPressed: () => store.removeSet(s)),
     ]);
   }
