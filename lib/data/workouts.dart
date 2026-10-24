@@ -18,6 +18,19 @@ num stepped(num? value, num delta) {
   return v < 0 ? 0 : v;
 }
 
+/// Ordered cards split into supersets: a card with `supersetWithNext` joins the card after it. The last card's flag is ignored.
+List<List<WorkoutExercise>> supersetGroups(List<WorkoutExercise> items) {
+  final groups = <List<WorkoutExercise>>[];
+  for (final (i, e) in items.indexed) {
+    if (i > 0 && items[i - 1].supersetWithNext) {
+      groups.last.add(e);
+    } else {
+      groups.add([e]);
+    }
+  }
+  return groups;
+}
+
 /// A strength workout session: its exercises and sets. Every edit is saved at once through [AppDb.save].
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
@@ -50,6 +63,9 @@ class WorkoutStore {
 
   Stream<Workout> watchWorkout(String id) =>
       (_db.select(_db.workouts)..where((w) => w.id.equals(id))).watchSingle();
+
+  Future<String?> routineStickyNote(String routineId) async =>
+      (await (_db.select(_db.routines)..where((r) => r.id.equals(routineId))).getSingleOrNull())?.stickyNote;
 
   Future<void> setStartedAt(String id, DateTime at) => _saveWorkout(id, (w) => w.copyWith(startedAt: at));
   Future<void> setNotes(String id, String? notes) => _saveWorkout(id, (w) => w.copyWith(notes: Value(notes)));
