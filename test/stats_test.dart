@@ -12,6 +12,7 @@ Workout w(DateTime at, {String? routine, int minutes = 60}) => Workout(
     startedAt: at,
     finishedAt: at.add(Duration(minutes: minutes)));
 WorkoutSet s(double kg, int reps, {bool done = true}) => WorkoutSet(
+    isDrop: false,
     id: 's${_n++}',
     createdAt: DateTime(2026),
     updatedAt: DateTime(2026),

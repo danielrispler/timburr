@@ -12,7 +12,7 @@ const _uuid = Uuid();
 typedef PlannedSet = ({double? weightKg, int? reps, int? durationSec});
 
 /// A routine's exercises in order, each with its planned sets.
-typedef Plan = List<({String exerciseId, List<PlannedSet> sets})>;
+typedef Plan = List<({String exerciseId, String? backupExerciseId, List<PlannedSet> sets})>;
 
 /// What a newly added exercise starts with: 3 x 10 reps, or 3 x 30 s when timed.
 List<PlannedSet> defaultSets(String? loadType) =>
@@ -72,9 +72,28 @@ class RoutineStore {
         return _append(routineId, exerciseId, items.length, defaultSets(entry.loadType));
       });
 
-  Future<String> _append(String routineId, String exerciseId, int position, List<PlannedSet> sets) async {
+  /// Sets or clears ([entry] null) the backup exercise of routine exercise [routineExerciseId].
+  Future<void> setBackup(String routineExerciseId, CatalogEntry? entry) => _db.transaction(() async {
+        final e = await (_db.select(_db.routineExercises)..where((e) => e.id.equals(routineExerciseId))).getSingle();
+        await _db.save(_db.routineExercises, {
+          'id': e.id,
+          'routine_id': e.routineId,
+          'exercise_id': e.exerciseId,
+          'position': e.position,
+          'backup_exercise_id': entry == null ? null : await Catalog(_db).rowIdFor(entry),
+        });
+      });
+
+  Future<String> _append(String routineId, String exerciseId, int position, List<PlannedSet> sets,
+      {String? backupExerciseId}) async {
     final id = _uuid.v4();
-    await _db.save(_db.routineExercises, {'id': id, 'routine_id': routineId, 'exercise_id': exerciseId, 'position': position});
+    await _db.save(_db.routineExercises, {
+      'id': id,
+      'routine_id': routineId,
+      'exercise_id': exerciseId,
+      'backup_exercise_id': backupExerciseId,
+      'position': position,
+    });
     await saveSets(id, sets);
     return id;
   }
@@ -108,6 +127,7 @@ class RoutineStore {
         for (final e in await watchExercises(routineId).first)
           (
             exerciseId: e.exerciseId,
+            backupExerciseId: e.backupExerciseId,
             sets: [
               for (final s in await watchSets(e.id).first) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
             ],
@@ -124,7 +144,7 @@ class RoutineStore {
 
   Future<void> _writePlan(String routineId, Plan plan) async {
     for (final (i, p) in plan.indexed) {
-      await _append(routineId, p.exerciseId, i, p.sets);
+      await _append(routineId, p.exerciseId, i, p.sets, backupExerciseId: p.backupExerciseId);
     }
   }
 

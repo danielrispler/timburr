@@ -76,4 +76,25 @@ void main() {
     expect(again.notes, isNull);
     expect((await Catalog(db, () async => '[]').byId(again.exerciseId))!.stickyNote, 'seat 4');
   });
+
+  group('superset rows', () {
+    var n = 0;
+    WorkoutSet set(String we, {bool drop = false}) => WorkoutSet(
+        id: 's${n++}', createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+        workoutExerciseId: we, setNumber: 1, done: false, isDrop: drop);
+
+    test('rows alternate by round; drops stay under their set; uneven counts trail', () {
+      final a1 = set('a'), a1d = set('a', drop: true), a2 = set('a'), a3 = set('a'), b1 = set('b'), b2 = set('b');
+      final rows = supersetRows([[a1, a1d, a2, a3], [b1, b2]]);
+      expect([for (final r in rows) r.set.id], [a1.id, a1d.id, b1.id, a2.id, b2.id, a3.id]);
+      expect([for (final r in rows) r.exercise], [0, 0, 1, 0, 1, 0]);
+      // Rest is offered only after the last row of a round.
+      expect([for (final r in rows) r.endsRound], [false, false, true, false, true, true]);
+    });
+
+    test('a single card: every set and its drops end a round', () {
+      final x = set('a'), xd = set('a', drop: true), y = set('a');
+      expect([for (final r in supersetRows([[x, xd, y]])) r.endsRound], [false, true, true]);
+    });
+  });
 }

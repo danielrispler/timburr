@@ -237,6 +237,7 @@ class Importer {
           final weId = _uuid.v4(), exId = await exerciseId(e as Map);
           plan?.add((
             exerciseId: exId,
+            backupExerciseId: null,
             sets: [
               for (final s in e['sets'] as List)
                 (weightKg: (s['weightKg'] as num?)?.toDouble(), reps: s['reps'] as int?, durationSec: s['durationSec'] as int?)

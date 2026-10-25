@@ -46,6 +46,7 @@ class Routines extends Table with Synced {
 class RoutineExercises extends Table with Synced {
   TextColumn get routineId => text().references(Routines, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
+  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)();
   IntColumn get position => integer()();
 }
 
@@ -64,11 +65,18 @@ class Workouts extends Table with Synced {
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get finishedAt => dateTime().nullable()();
   TextColumn get notes => text().nullable()();
+  // Google Health stats, typed in from a screenshot.
+  IntColumn get avgHr => integer().nullable()();
+  IntColumn get calories => integer().nullable()();
+  IntColumn get activeSec => integer().nullable()();
+  IntColumn get effort => integer().nullable()();
+  IntColumn get cardioLoad => integer().nullable()();
 }
 
 class WorkoutExercises extends Table with Synced {
   TextColumn get workoutId => text().references(Workouts, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
+  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)(); // swap exchanges the two
   IntColumn get position => integer()();
   TextColumn get notes => text().nullable()();
   BoolColumn get supersetWithNext => boolean().withDefault(const Constant(false))();
@@ -85,6 +93,7 @@ class WorkoutSets extends Table with Synced {
   IntColumn get reps => integer().nullable()();
   IntColumn get durationSec => integer().nullable()();
   BoolColumn get done => boolean().withDefault(const Constant(false))();
+  BoolColumn get isDrop => boolean().withDefault(const Constant(false))(); // a drop set of the set before it
 }
 
 class Cardio extends Table with Synced {
@@ -112,7 +121,7 @@ class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -120,6 +129,14 @@ class AppDb extends _$AppDb {
           if (from < 2) {
             await m.createTable(routineSets);
             await m.alterTable(TableMigration(cardio)); // distance_km becomes nullable
+          }
+          if (from < 3) {
+            await m.addColumn(workoutSets, workoutSets.isDrop);
+            await m.addColumn(routineExercises, routineExercises.backupExerciseId);
+            await m.addColumn(workoutExercises, workoutExercises.backupExerciseId);
+            for (final c in [workouts.avgHr, workouts.calories, workouts.activeSec, workouts.effort, workouts.cardioLoad]) {
+              await m.addColumn(workouts, c);
+            }
           }
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),

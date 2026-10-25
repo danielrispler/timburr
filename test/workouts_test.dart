@@ -326,4 +326,38 @@ void main() {
       expect(await store.templateChanged(await store.start()), isFalse);
     });
   });
+
+  test('a drop set goes right after its set at about 80% weight, and renumbers the rest', () async {
+    final w = await store.start();
+    await store.addExercise(w, lib('A'));
+    final we = (await store.watchExercises(w).first).single;
+    final s1 = await store.addSet(we.id);
+    await store.updateSet(s1.copyWith(weightKg: const Value(50), reps: const Value(8), done: true));
+    await store.addSet(we.id);
+    await store.addDrop((await store.watchSets(we.id).first).first);
+    expect([for (final s in await store.watchSets(we.id).first) (s.setNumber, s.weightKg, s.reps, s.isDrop, s.done)],
+        [(1, 50.0, 8, false, true), (2, 40.0, 8, true, false), (3, 50.0, 8, false, false)]);
+  });
+
+  test('a backup exercise comes from the routine and swaps both ways', () async {
+    final routines = RoutineStore(db);
+    final r = await routines.create('Upper B');
+    final re = await routines.add(r, lib('Pull-up'));
+    await routines.setBackup(re, lib('Assisted'));
+    final w = await store.start(routineId: r);
+    var e = (await store.watchExercises(w).first).single;
+    expect((e.exerciseId, e.backupExerciseId), (libraryRowId('Pull-up'), libraryRowId('Assisted')));
+    await store.swap(e);
+    e = (await store.watchExercises(w).first).single;
+    expect((e.exerciseId, e.backupExerciseId), (libraryRowId('Assisted'), libraryRowId('Pull-up')));
+    await routines.setBackup(re, null);
+    expect((await routines.watchExercises(r).first).single.backupExerciseId, null);
+  });
+
+  test('health stats save on the workout', () async {
+    final w = await store.start();
+    await store.setHealth(w, (avgHr: 91, calories: 255, activeSec: 3689, effort: 5, cardioLoad: 5));
+    final row = await store.watchWorkout(w).first;
+    expect((row.avgHr, row.calories, row.activeSec, row.effort, row.cardioLoad, row.dirty), (91, 255, 3689, 5, 5, 1));
+  });
 }

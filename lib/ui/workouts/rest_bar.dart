@@ -93,11 +93,18 @@ class RestBar extends StatelessWidget {
                         alignment: WrapAlignment.end,
                         spacing: 8,
                         runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          for (final s in restChoices)
+                          // A custom last rest gets its own chip next to the presets.
+                          for (final s in [
+                            ...restChoices,
+                            if (t.highlightSec case final h? when !restChoices.contains(h)) h,
+                          ])
                             s == t.highlightSec
                                 ? FilledButton(onPressed: () => t.start(s), child: Text(_fmt(s)))
                                 : FilledButton.tonal(onPressed: () => t.start(s), child: Text(_fmt(s))),
+                          OutlinedButton(onPressed: () => _custom(context, t), child: const Text('Custom')),
+                          IconButton(icon: const Icon(Icons.close), tooltip: 'Close', onPressed: t.dismiss),
                         ],
                       ),
                     ),
@@ -109,6 +116,34 @@ class RestBar extends StatelessWidget {
       },
     );
   }
+}
+
+/// Minutes and seconds typed in a dialog, then started.
+Future<void> _custom(BuildContext context, RestTimer t) async {
+  t.dismiss();
+  final m = TextEditingController(), sec = TextEditingController();
+  Widget field(TextEditingController c, String label) => Expanded(
+    child: TextField(
+      controller: c,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(labelText: label),
+    ),
+  );
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Custom rest'),
+      content: Row(children: [field(m, 'min'), const SizedBox(width: 16), field(sec, 'sec')]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Start')),
+      ],
+    ),
+  );
+  final total = (int.tryParse(m.text) ?? 0) * 60 + (int.tryParse(sec.text) ?? 0);
+  m.dispose();
+  sec.dispose();
+  if (ok == true && total > 0 && total <= 3600) await t.start(total);
 }
 
 String _fmt(int sec) => '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';

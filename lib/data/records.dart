@@ -15,11 +15,11 @@ Map<String, double Function(WorkoutSet)> setMetrics(String loadType) => switch (
     };
 
 /// Records over [sessions] (each one exercise's sets in one workout), done sets only.
-/// Weighted also gets 'volume' (best session volume). Empty when nothing is done.
+/// Weighted also gets 'volume' (best session volume). Drop sets count toward volume only. Empty when nothing is done.
 Map<String, double> records(String loadType, Iterable<Iterable<WorkoutSet>> sessions) {
   final out = <String, double>{};
   for (final sets in sessions) {
-    for (final s in sets.where((s) => s.done)) {
+    for (final s in sets.where((s) => s.done && !s.isDrop)) {
       for (final MapEntry(:key, :value) in setMetrics(loadType).entries) {
         final v = value(s);
         if (v > (out[key] ?? double.negativeInfinity)) out[key] = v;
@@ -40,7 +40,7 @@ Set<String> prBadges(String loadType, Iterable<Iterable<WorkoutSet>> previous, I
   if (rec.isEmpty) return {};
   final metrics = setMetrics(loadType);
   final beats = current
-      .where((s) => s.done && metrics.entries.any((m) => m.value(s) > (rec[m.key] ?? double.negativeInfinity)))
+      .where((s) => s.done && !s.isDrop && metrics.entries.any((m) => m.value(s) > (rec[m.key] ?? double.negativeInfinity)))
       .toList();
   if (beats.isEmpty) return {};
   final rank = metrics.values.first;
