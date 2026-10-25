@@ -58,7 +58,7 @@ class _SyncBadgeState extends State<SyncBadge> {
       );
 }
 
-/// More tab: Import, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
+/// More page (gear in the header): Exercises, Import, Cardio stats, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key, required this.engine, required this.catalog, required this.cardio, required this.workouts});
 

@@ -108,7 +108,7 @@ void main() {
     expect([for (final sets in prev) sets.single.weightKg], [60.0, 50.0]);
   });
 
-  test('finished sessions are oldest first, finished and live only', () async {
+  test('finished sessions and logged sets are oldest first, finished and live only', () async {
     Future<String> session(DateTime at, double kg) async {
       final w = await store.start();
       await store.setStartedAt(w, at);
@@ -128,6 +128,8 @@ void main() {
     final out = await store.finishedSessions(libraryRowId('A'));
     expect([for (final (at, sets) in out) (at, sets.single.weightKg)],
         [(DateTime(2026, 1, 1), 50.0), (DateTime(2026, 1, 5), 70.0)]);
+    final logged = await store.watchLogged().first;
+    expect([for (final r in logged) r.set.weightKg], [50.0, 70.0]);
   });
 
   test('finish stamps finished_at, triggers sync, and ends the active workout', () async {

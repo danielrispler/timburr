@@ -1,0 +1,72 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:timburr/data/db.dart';
+import 'package:timburr/data/stats.dart';
+
+var _n = 0;
+Workout w(DateTime at, {String? routine, int minutes = 60}) => Workout(
+    id: 'w${_n++}',
+    createdAt: at,
+    updatedAt: at,
+    dirty: 0,
+    routineId: routine,
+    startedAt: at,
+    finishedAt: at.add(Duration(minutes: minutes)));
+WorkoutSet s(double kg, int reps, {bool done = true}) => WorkoutSet(
+    id: 's${_n++}',
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+    dirty: 0,
+    workoutExerciseId: 'we',
+    setNumber: 1,
+    weightKg: kg,
+    reps: reps,
+    done: done);
+List<LoggedSet> rows(Workout wk, String ex, List<WorkoutSet> sets) =>
+    [for (final x in sets) (workout: wk, exerciseId: ex, set: x)];
+
+void main() {
+  test('repMax inverts Epley', () {
+    expect(repMax(120, 1), 120);
+    expect(repMax(120, 5), closeTo(102.86, 0.01));
+  });
+
+  test('weekly buckets the last weeks with empty ones and volumes', () {
+    final now = DateTime(2026, 10, 25); // Sunday
+    final a = w(DateTime(2026, 10, 20)), b = w(DateTime(2026, 10, 13)), old = w(DateTime(2026, 1, 1));
+    final weeks = weekly([a, b, old], {a.id: 1000, b.id: 500}, now, weeks: 3);
+    expect([for (final x in weeks) x.monday], [DateTime(2026, 10, 5), DateTime(2026, 10, 12), DateTime(2026, 10, 19)]);
+    expect([for (final x in weeks) x.workouts], [0, 1, 1]);
+    expect(weeks.last.volume, 1000);
+  });
+
+  test('week streaks: current survives an empty current week; longest finds the best run', () {
+    final now = DateTime(2026, 10, 22);
+    final days = [DateTime(2026, 10, 13), DateTime(2026, 10, 6), DateTime(2026, 9, 1), DateTime(2026, 8, 25), DateTime(2026, 8, 18), DateTime(2026, 8, 11)];
+    expect(weekStreaks(days, now), (current: 2, longest: 4));
+    expect(weekStreaks([DateTime(2026, 9, 1)], now).current, 0);
+    expect(weekStreaks([], now), (current: 0, longest: 0));
+  });
+
+  test('routine stats count, last date and average duration', () {
+    final r = routineStats([w(DateTime(2026, 1, 1), routine: 'A', minutes: 40), w(DateTime(2026, 2, 1), routine: 'A', minutes: 60), w(DateTime(2026, 3, 1))]);
+    expect(r.single.count, 2);
+    expect(r.single.last, DateTime(2026, 2, 1));
+    expect(r.single.avg, const Duration(minutes: 50));
+  });
+
+  test('PR events skip the baseline and only count strict improvements', () {
+    final w1 = w(DateTime(2026, 1, 1)), w2 = w(DateTime(2026, 1, 8)), w3 = w(DateTime(2026, 1, 15));
+    final all = [...rows(w1, 'bench', [s(100, 5)]), ...rows(w2, 'bench', [s(100, 5), s(200, 5, done: false)]), ...rows(w3, 'bench', [s(105, 5)])];
+    final prs = prEvents(sessionsByExercise(all), (_) => 'weighted');
+    expect([for (final p in prs) p.workout.id], [w3.id]);
+    expect(topExercises(all), [('bench', 3)]);
+    expect(volumeByWorkout(all)[w2.id], 500);
+  });
+
+  test('e1rm trend compares the last window with the one before', () {
+    final now = DateTime(2026, 10, 25);
+    final sessions = [(w(DateTime(2026, 6, 1)), [s(100, 1)]), (w(DateTime(2026, 10, 1)), [s(110, 1)])];
+    expect(e1rmTrend(sessions, now), closeTo(0.10, 1e-9));
+    expect(e1rmTrend(sessions.sublist(1), now), isNull);
+  });
+}

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'catalog.dart';
 import 'db.dart';
 import 'routines.dart';
+import 'stats.dart';
 
 const _uuid = Uuid();
 
@@ -293,6 +294,19 @@ class WorkoutStore {
       by[s.workoutExerciseId]!.add(s);
     }
     return [for (final id in ids) by[id]!];
+  }
+
+  /// Every live set of every finished, live workout, oldest workout first. Feeds the stats screens.
+  Stream<List<LoggedSet>> watchLogged() {
+    final s = _db.workoutSets, we = _db.workoutExercises, w = _db.workouts;
+    return (_db.select(s).join([
+      innerJoin(we, we.id.equalsExp(s.workoutExerciseId)),
+      innerJoin(w, w.id.equalsExp(we.workoutId)),
+    ])
+          ..where(s.deletedAt.isNull() & we.deletedAt.isNull() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
+          ..orderBy([OrderingTerm.asc(w.startedAt), OrderingTerm.asc(we.position), OrderingTerm.asc(s.setNumber)]))
+        .map((r) => (workout: r.readTable(w), exerciseId: r.readTable(we).exerciseId, set: r.readTable(s)))
+        .watch();
   }
 
   /// [exerciseId]'s sets per finished, live workout with its start time, oldest first.

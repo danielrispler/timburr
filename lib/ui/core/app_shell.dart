@@ -9,6 +9,7 @@ import '../../data/workouts.dart';
 import '../history/history_screen.dart';
 import '../routines/routines_home.dart';
 import '../routines/start.dart';
+import '../stats/stats_screen.dart';
 import '../sync/sync_ui.dart';
 
 typedef _Tab = ({String label, IconData icon});
@@ -17,7 +18,7 @@ const _tabs = <_Tab>[
   (label: 'Home', icon: Icons.home),
   (label: 'History', icon: Icons.history),
   (label: 'Workouts', icon: Icons.fitness_center),
-  (label: 'More', icon: Icons.more_horiz),
+  (label: 'Stats', icon: Icons.insights),
 ];
 
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
@@ -59,6 +60,16 @@ class _AppShellState extends State<AppShell> {
         appBar: AppBar(
           title: Text(_tabs[_index].label),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'More',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('More')),
+                  body: MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio, workouts: widget.workouts),
+                ),
+              )),
+            ),
             if (widget.sync case final sync?)
               SyncBadge(engine: sync)
             else
@@ -91,6 +102,6 @@ class _AppShellState extends State<AppShell> {
         'Home' => HomeScreen(stores: _stores),
         'History' => HistoryScreen(workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog),
         'Workouts' => WorkoutsTab(stores: _stores),
-        _ => MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio, workouts: widget.workouts),
+        _ => StatsScreen(stores: _stores),
       };
 }
