@@ -90,9 +90,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     return ListTile(
       leading: IconTile(activityIcon(c.type)),
-      title: Text(_when(context, c.startedAt)),
+      title: Text(activityLabel(c.type)),
       subtitle: Text(
-          [activityLabel(c.type), if (c.distanceKm != null) '${c.distanceKm} km', '${c.durationSec ~/ 60} min', if (pace != null) '${formatPace(pace)} /km'].join(' · '),
+          [_when(context, c.startedAt), if (c.distanceKm != null) '${c.distanceKm} km', '${c.durationSec ~/ 60} min', if (pace != null) '${formatPace(pace)} /km'].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
       onTap: () => Navigator.of(context)

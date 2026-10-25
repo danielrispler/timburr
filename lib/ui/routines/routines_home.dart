@@ -65,8 +65,9 @@ class _Summary extends StatelessWidget {
     final names = {for (final r in d.routines) r.id: r.name};
     final recent = <String>{
       for (final w in d.workouts)
-        if (w.routineId case final id? when names.containsKey(id)) id
-    }.take(3);
+        if (w.routineId case final id? when names.containsKey(id)) id,
+      ...names.keys, // never-done routines fill the rest
+    }.take(splitCycle.length); // room for every routine in the cycle
     final volumes = volumeByWorkout(d.rows);
     final last = d.workouts.firstOrNull;
     final monday = mondayOf(DateTime.now());
