@@ -8,7 +8,9 @@ import '../../data/catalog.dart';
 import '../core/theme.dart';
 
 final _downloads = <String, Future<File?>>{};
-final _http = HttpClient();
+final _http = HttpClient()
+  ..connectionTimeout = const Duration(seconds: 10)
+  ..idleTimeout = const Duration(seconds: 15);
 var _running = 0;
 final _waiting = <Completer<void>>[];
 
@@ -18,23 +20,33 @@ Future<File?> _media(String media, {bool gif = false}) => _downloads['$media/$gi
       final f = File('${(await getApplicationCacheDirectory()).path}/exercise_media/$media.${gif ? 'gif' : 'jpg'}');
       if (await f.exists()) return f;
       // At most 4 downloads at once, so a fast scroll doesn't open hundreds of sockets.
-      if (_running >= 4) await (_waiting..add(Completer())).last.future;
-      _running++;
+      // A releasing download hands its slot straight to the next waiter, so _running never exceeds 4.
+      if (_running >= 4) {
+        await (_waiting..add(Completer())).last.future;
+      } else {
+        _running++;
+      }
       try {
-        final res = await (await _http.getUrl(exerciseMediaUrl(media, gif: gif))).close();
-        if (res.statusCode != 200) {
-          await res.drain<void>();
-          return null;
-        }
-        await f.parent.create(recursive: true);
-        final part = File('${f.path}.part');
-        await res.pipe(part.openWrite());
-        return await part.rename(f.path);
+        return await () async {
+          final res = await (await _http.getUrl(exerciseMediaUrl(media, gif: gif))).close();
+          if (res.statusCode != 200) {
+            await res.drain<void>();
+            return null;
+          }
+          await f.parent.create(recursive: true);
+          final part = File('${f.path}.part');
+          await res.pipe(part.openWrite());
+          return await part.rename(f.path);
+        }()
+            .timeout(const Duration(seconds: 60));
       } catch (_) {
         return null;
       } finally {
-        _running--;
-        if (_waiting.isNotEmpty) _waiting.removeAt(0).complete();
+        if (_waiting.isNotEmpty) {
+          _waiting.removeAt(0).complete();
+        } else {
+          _running--;
+        }
       }
     }();
 

@@ -168,10 +168,21 @@ class BottomAction extends StatelessWidget {
 /// Icon for an exercise's IconTile, by its primary muscle. Names are the catalog's (assets/exercises.json);
 /// an unknown name falls back to the generic icon.
 IconData muscleIcon(String? muscle) => switch (muscle) {
-      'abdominals' || 'lower back' => Icons.self_improvement,
-      'quadriceps' || 'hamstrings' || 'glutes' || 'calves' || 'abductors' || 'adductors' => Icons.directions_walk,
-      'chest' || 'shoulders' || 'triceps' => Icons.fitness_center,
-      'lats' || 'middle back' || 'traps' || 'biceps' || 'forearms' => Icons.sports_gymnastics,
-      'neck' => Icons.accessibility_new,
+      'abdominals' || 'abs' || 'lower abs' || 'obliques' || 'core' || 'waist' || 'lower back' || 'spine' ||
+      'hip flexors' || 'serratus anterior' =>
+        Icons.self_improvement,
+      'quadriceps' || 'quads' || 'hamstrings' || 'glutes' || 'calves' || 'soleus' || 'abductors' || 'adductors' ||
+      'inner thighs' || 'groin' || 'shins' || 'ankles' || 'ankle stabilizers' || 'feet' || 'upper legs' ||
+      'lower legs' =>
+        Icons.directions_walk,
+      'chest' || 'pectorals' || 'upper chest' || 'shoulders' || 'delts' || 'deltoids' || 'rear deltoids' ||
+      'rotator cuff' || 'triceps' =>
+        Icons.fitness_center,
+      'back' || 'lats' || 'latissimus dorsi' || 'upper back' || 'middle back' || 'rhomboids' || 'traps' ||
+      'trapezius' || 'biceps' || 'brachialis' || 'forearms' || 'wrists' || 'wrist flexors' || 'wrist extensors' ||
+      'hands' || 'grip muscles' || 'upper arms' || 'lower arms' =>
+        Icons.sports_gymnastics,
+      'neck' || 'levator scapulae' || 'sternocleidomastoid' => Icons.accessibility_new,
+      'cardiovascular system' || 'cardio' => Icons.directions_run,
       _ => Icons.sports_martial_arts,
     };

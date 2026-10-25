@@ -76,6 +76,19 @@ void main() {
     expect(validateImport('nope'), ['root: must be an object']);
   });
 
+  test('numbers over the server column limits fail', () {
+    final d = _doc();
+    d['workouts'][0]['exercises'][0]['sets'][0]['weightKg'] = 10000;
+    d['cardio'][0]['distanceKm'] = 10000;
+    expect(validateImport(d), [
+      'workouts[0].exercises[0].sets[0].weightKg: must be less than 10000',
+      'cardio[0].distanceKm: must be less than 10000',
+    ]);
+    d['workouts'][0]['exercises'][0]['sets'][0]['weightKg'] = 9999.99;
+    d['cardio'][0]['distanceKm'] = 9999.999;
+    expect(validateImport(d), isEmpty);
+  });
+
   test('sports need no distanceKm', () {
     final d = _doc();
     d['cardio'][0]

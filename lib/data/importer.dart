@@ -60,18 +60,24 @@ List<String> validateImport(Object? data) {
     if (v is! String || DateTime.tryParse(v) == null) err('$path.date', 'must be a date like 2026-10-24T16:13');
   }
 
-  void whole(Map m, String path, String key, {int min = 0, int? max, bool required = false}) {
+  const int4Max = 2147483647; // Postgres int column cap
+  void whole(Map m, String path, String key, {int min = 0, int max = int4Max, bool required = false}) {
     final v = m[key];
     if (v == null && !required) return;
-    if (v is! int || v < min || (max != null && v > max)) {
-      err('$path.$key', max != null ? 'must be a whole number $min-$max' : 'must be a whole number >= $min');
+    if (v is! int || v < min || v > max) {
+      err('$path.$key', max != int4Max ? 'must be a whole number $min-$max' : v is int && v > max ? 'must be at most $max' : 'must be a whole number >= $min');
     }
   }
 
-  void number(Map m, String path, String key, {bool positive = false, bool required = false}) {
+  /// [below] is the exclusive cap of the server numeric column, e.g. 10000 for numeric(6, 2).
+  void number(Map m, String path, String key, {bool positive = false, bool required = false, num? below}) {
     final v = m[key];
     if (v == null && !required) return;
-    if (v is! num || (positive ? v <= 0 : v < 0)) err('$path.$key', 'must be a number ${positive ? '> 0' : '>= 0'}');
+    if (v is! num || (positive ? v <= 0 : v < 0)) {
+      err('$path.$key', 'must be a number ${positive ? '> 0' : '>= 0'}');
+    } else if (below != null && v >= below) {
+      err('$path.$key', 'must be less than $below');
+    }
   }
 
   List? list(Map m, String path, String key, {bool nonEmpty = false}) {
@@ -115,7 +121,7 @@ List<String> validateImport(Object? data) {
           continue;
         }
         fields(s, ps, {'weightKg', 'reps', 'durationSec'});
-        number(s, ps, 'weightKg');
+        number(s, ps, 'weightKg', below: 10000);
         whole(s, ps, 'reps');
         whole(s, ps, 'durationSec');
         if ((s['reps'] == null) == (s['durationSec'] == null)) err(ps, 'give reps or durationSec, not both');
@@ -132,10 +138,12 @@ List<String> validateImport(Object? data) {
     fields(c, p, {'type', 'date', 'distanceKm', 'durationSec', 'avgHr', 'inclinePct', 'rpe', 'notes'});
     if (!cardioTypes.contains(c['type'])) err('$p.type', 'must be one of ${cardioTypes.join(', ')}');
     date(c, p);
-    number(c, p, 'distanceKm', positive: true, required: hasDistance(c['type']));
+    number(c, p, 'distanceKm', positive: true, below: 10000, required: hasDistance(c['type']));
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
-    if (c['inclinePct'] != null && c['inclinePct'] is! num) err('$p.inclinePct', 'must be a number');
+    if (c['inclinePct'] != null && (c['inclinePct'] is! num || (c['inclinePct'] as num).abs() >= 1000)) {
+      err('$p.inclinePct', 'must be a number between -1000 and 1000');
+    }
     whole(c, p, 'rpe', min: 1, max: 10);
     str(c, p, 'notes');
   }

@@ -1,3 +1,4 @@
+import 'dart:math' show min;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
@@ -175,6 +176,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                 store: widget.store,
                                 catalog: widget.catalog,
                                 item: e,
+                                startedAt: w.startedAt,
                                 isFirst: e == items.first,
                                 isLast: e == items.last,
                               ),
@@ -204,6 +206,7 @@ class _ExerciseCard extends StatefulWidget {
     required this.store,
     required this.catalog,
     required this.item,
+    required this.startedAt,
     required this.isFirst,
     required this.isLast,
   });
@@ -211,6 +214,8 @@ class _ExerciseCard extends StatefulWidget {
   final WorkoutStore store;
   final Catalog catalog;
   final WorkoutExercise item;
+  // Previous sessions are those started before this, so reload when it changes.
+  final DateTime startedAt;
   final bool isFirst, isLast;
 
   @override
@@ -225,6 +230,16 @@ class _ExerciseCardState extends State<_ExerciseCard> {
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_ExerciseCard old) {
+    super.didUpdateWidget(old);
+    if (old.startedAt != widget.startedAt || old.item.exerciseId != widget.item.exerciseId) _load();
+  }
+
+  void _load() {
     () async {
       final entry = await widget.catalog.byId(widget.item.exerciseId);
       final previous = await widget.store.previousSessions(
@@ -237,6 +252,21 @@ class _ExerciseCardState extends State<_ExerciseCard> {
         _previous = previous;
       });
     }();
+  }
+
+  Future<void> _confirmRemove() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${_entry?.name ?? 'exercise'}?'),
+        content: const Text('Its sets in this workout are removed too.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok == true) await widget.store.remove(widget.item.id);
   }
 
   @override
@@ -269,7 +299,7 @@ class _ExerciseCardState extends State<_ExerciseCard> {
                 IconButton(
                   icon: const Icon(Icons.close),
                   tooltip: 'Remove exercise',
-                  onPressed: () => store.remove(e.id),
+                  onPressed: _confirmRemove,
                 ),
               ],
             ),
@@ -368,7 +398,25 @@ class _SetRow extends StatelessWidget {
         color: Theme.of(context).colorScheme.error,
         child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
       ),
-      onDismissed: (_) => store.removeSet(s),
+      onDismissed: (_) async {
+        final messenger = ScaffoldMessenger.of(context);
+        await store.removeSet(s);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Set ${s.setNumber} deleted'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () async {
+                // removeSet shifted later sets down by one; shift them back, then undelete.
+                for (final x in await store.watchSets(s.workoutExerciseId).first) {
+                  if (x.setNumber >= s.setNumber) await store.updateSet(x.copyWith(setNumber: x.setNumber + 1));
+                }
+                await store.updateSet(s.copyWith(deletedAt: const Value(null)));
+              },
+            ),
+          ),
+        );
+      },
       child: Row(
         children: [
           SizedBox(width: 24, child: Text('${s.setNumber}')),
@@ -447,7 +495,8 @@ class _Stepper extends StatelessWidget {
     );
     c.dispose();
     final v = num.tryParse(typed?.replaceAll(',', '.') ?? '');
-    if (v != null) onChanged(stepped(v, 0));
+    // Same bounds as PlannedSetsEditor; weight_kg is numeric(6,2) on the server.
+    if (v != null && v >= 0 && v <= 9999) onChanged(stepped(v, 0));
   }
 
   @override
@@ -480,7 +529,7 @@ class _Stepper extends StatelessWidget {
         icon: const Icon(Icons.add),
         tooltip: '+ $label',
         style: _compact,
-        onPressed: () => onChanged(stepped(value, step)),
+        onPressed: () => onChanged(min(stepped(value, step), 9999)),
       ),
     ],
   );

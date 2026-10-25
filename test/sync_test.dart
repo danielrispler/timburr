@@ -184,8 +184,18 @@ void main() {
     expect(await db.select(db.workoutSets).get(), isEmpty);
     expect(await db.select(db.syncCursors).get(), isEmpty);
   });
+  // Mis-sorted as text only where UTC is behind local time by 3h or more, for example TZ=Asia/Jerusalem.
+  test('pulled datetimes sort with local writes by started_at', () async {
+    await db.save(db.workouts, {'id': 'local', 'started_at': DateTime(2026, 10, 24, 12)});
+    final pulled = rowFromJson(db.workouts, {'id': 'pulled', 'started_at': DateTime(2026, 10, 24, 14).toUtc().toIso8601String()});
+    await db.save(db.workouts, pulled);
+    final rows = await db.customSelect('select id from workouts order by started_at').get();
+    expect(rows.map((r) => r.read<String>('id')), ['local', 'pulled']);
+  });
+
 }
 
 extension<T> on T {
   void also(void Function(T) f) => f(this);
+
 }

@@ -157,7 +157,7 @@ Map<String, Object?> rowFromJson(TableInfo table, Map<String, Object?> json) => 
       for (final c in table.$columns)
         if (c.name != 'dirty' && json.containsKey(c.name))
           c.name: switch (json[c.name]) {
-            String s when c.type == DriftSqlType.dateTime => DateTime.parse(s),
+            String s when c.type == DriftSqlType.dateTime => DateTime.parse(s).toLocal(), // local writes store a local offset; match so text sort works
             List l => jsonEncode(l),
             num n when c.type == DriftSqlType.double => n.toDouble(),
             final v => v,

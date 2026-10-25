@@ -122,12 +122,13 @@ class WorkoutStore {
   Future<String?> routineStickyNote(String routineId) async =>
       (await (_db.select(_db.routines)..where((r) => r.id.equals(routineId))).getSingleOrNull())?.stickyNote;
 
-  Future<void> setStartedAt(String id, DateTime at) => _saveWorkout(id, (w) => w.copyWith(startedAt: at));
+  Future<void> setStartedAt(String id, DateTime at) => _saveWorkout(
+      id, (w) => w.copyWith(startedAt: at, finishedAt: Value(w.finishedAt?.add(at.difference(w.startedAt)))));
   Future<void> setNotes(String id, String? notes) => _saveWorkout(id, (w) => w.copyWith(notes: Value(notes)));
 
   Future<void> finish(String id) async {
     await _saveWorkout(id, (w) => w.copyWith(finishedAt: Value(DateTime.now())));
-    await onFinished?.call();
+    unawaited(onFinished?.call()); // sync in the background
   }
 
   /// Soft-deletes the workout with its exercises and sets, so each delete syncs.
@@ -182,6 +183,10 @@ class WorkoutStore {
   /// Soft-deletes workout exercise [id] and closes the gap.
   Future<void> remove(String id) => _edit(id, (items, i) async {
         final e = items.removeAt(i);
+        // A link into the removed card must not join its neighbours.
+        if (i > 0 && items[i - 1].supersetWithNext) {
+          await saveExercise(items[i - 1] = items[i - 1].copyWith(supersetWithNext: false));
+        }
         await saveExercise(e.copyWith(deletedAt: Value(DateTime.now())));
       });
 
@@ -191,7 +196,10 @@ class WorkoutStore {
         final items = [...await watchExercises(row.workoutId).first];
         await change(items, items.indexWhere((e) => e.id == id));
         for (final (i, e) in items.indexed) {
-          if (e.position != i) await saveExercise(e.copyWith(position: i));
+          final link = e.supersetWithNext && i < items.length - 1; // the last card links to nothing
+          if (e.position != i || e.supersetWithNext != link) {
+            await saveExercise(e.copyWith(position: i, supersetWithNext: link));
+          }
         }
       });
 
@@ -214,11 +222,9 @@ class WorkoutStore {
   /// Appends a set prefilled from the previous set here, else from last time's same-numbered (or last) set.
   Future<WorkoutSet> addSet(String workoutExerciseId) => _db.transaction(() async {
         final sets = await watchSets(workoutExerciseId).first;
-        var from = sets.lastOrNull;
-        if (from == null) {
-          final we = await (_db.select(_db.workoutExercises)..where((e) => e.id.equals(workoutExerciseId))).getSingle();
-          from = (await lastTime(we.exerciseId, excludeWorkoutId: we.workoutId)).firstOrNull;
-        }
+        final we = await (_db.select(_db.workoutExercises)..where((e) => e.id.equals(workoutExerciseId))).getSingle();
+        final finished = (await watchWorkout(we.workoutId).first).finishedAt != null;
+        final from = sets.lastOrNull ?? (await lastTime(we.exerciseId, excludeWorkoutId: we.workoutId)).firstOrNull;
         final s = WorkoutSet(
           id: _uuid.v4(),
           createdAt: DateTime.now(),
@@ -229,7 +235,7 @@ class WorkoutStore {
           weightKg: from?.weightKg,
           reps: from?.reps,
           durationSec: from?.durationSec,
-          done: false,
+          done: finished, // sets added to a finished workout count as done
         );
         await updateSet(s);
         return s;
@@ -273,7 +279,20 @@ class WorkoutStore {
           ..limit(limit ?? -1))
         .map((r) => r.readTable(we))
         .get();
-    return [for (final e in rows) await watchSets(e.id).first];
+    return _setsFor([for (final e in rows) e.id]);
+  }
+
+  /// Live sets of each of [ids], in order, loaded in one query.
+  Future<List<List<WorkoutSet>>> _setsFor(List<String> ids) async {
+    final sets = await (_db.select(_db.workoutSets)
+          ..where((s) => s.workoutExerciseId.isIn(ids) & s.deletedAt.isNull())
+          ..orderBy([(s) => OrderingTerm(expression: s.setNumber)]))
+        .get();
+    final by = <String, List<WorkoutSet>>{for (final id in ids) id: []};
+    for (final s in sets) {
+      by[s.workoutExerciseId]!.add(s);
+    }
+    return [for (final id in ids) by[id]!];
   }
 
   /// [exerciseId]'s sets per finished, live workout with its start time, oldest first.
@@ -283,6 +302,7 @@ class WorkoutStore {
           ..where(we.exerciseId.equals(exerciseId) & we.deletedAt.isNull() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
           ..orderBy([OrderingTerm.asc(w.startedAt)]))
         .get();
-    return [for (final r in rows) (r.readTable(w).startedAt, await watchSets(r.readTable(we).id).first)];
+    final sets = await _setsFor([for (final r in rows) r.readTable(we).id]);
+    return [for (final (i, r) in rows.indexed) (r.readTable(w).startedAt, sets[i])];
   }
 }

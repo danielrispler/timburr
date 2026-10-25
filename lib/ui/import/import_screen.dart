@@ -90,7 +90,7 @@ class _ImportScreenState extends State<ImportScreen> {
   Widget _cell(Map node, String key, {bool numeric = false, double width = 72}) => SizedBox(
         width: width,
         child: TextFormField(
-          key: ObjectKey((node, key)),
+          key: ValueKey((node, key)), // record == compares node by identity, stable across builds
           initialValue: node[key]?.toString() ?? '',
           keyboardType: numeric ? const TextInputType.numberWithOptions(decimal: true) : null,
           decoration: const InputDecoration(isDense: true),
