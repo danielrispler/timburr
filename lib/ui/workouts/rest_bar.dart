@@ -55,7 +55,9 @@ class RestBar extends StatelessWidget {
       builder: (context, _) {
         final left = t.remaining;
         if (!t.offered && left == null) return const SizedBox.shrink();
+        // The bottom inset is left to the BottomAction below it.
         return SafeArea(
+          bottom: false,
           child: Material(
             color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),

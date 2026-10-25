@@ -47,8 +47,16 @@ class _RoutineEditorState extends State<RoutineEditor> {
   }
 
   Future<void> _loadNames() async {
-    final all = await widget.stores.catalog.list();
-    if (mounted) setState(() => _entries = {for (final e in all) if (e.rowId != null) e.rowId!: e});
+    final catalog = widget.stores.catalog;
+    final entries = {for (final e in await catalog.list()) if (e.rowId != null) e.rowId!: e};
+    // list() skips deleted exercises; the routine may still reference some.
+    for (final e in await _store.watchExercises(widget.routineId).first) {
+      if (!entries.containsKey(e.exerciseId)) {
+        final d = await catalog.byId(e.exerciseId);
+        if (d != null) entries[e.exerciseId] = d;
+      }
+    }
+    if (mounted) setState(() => _entries = entries);
   }
 
   @override

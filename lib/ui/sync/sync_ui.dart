@@ -75,8 +75,13 @@ class MoreScreen extends StatelessWidget {
       messenger.showSnackBar(SnackBar(content: Text('Sync first: $pending changes are not uploaded yet.')));
       return;
     }
-    await Supabase.instance.client.auth.signOut();
-    await engine.wipe();
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } on AuthException {
+      // gotrue drops the local session before the network call, so offline sign-out is still a sign-out.
+    } finally {
+      await engine.wipe();
+    }
   }
 
   @override

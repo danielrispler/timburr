@@ -54,9 +54,9 @@ void main() {
     await link(w, 0); // A+B
     await link(w, 1); // B+C
     await store.remove((await items(w))[1].id);
-    expect(await groups(w), [[a, c], [d]]);
+    expect(await groups(w), [[a], [c], [d]]); // the link into B does not join A to C
     await store.remove((await items(w))[1].id);
-    expect(await groups(w), [[a, d]]);
+    expect(await groups(w), [[a], [d]]);
   });
 
   test('session and workout notes survive reopening; sticky notes carry to the next workout', () async {

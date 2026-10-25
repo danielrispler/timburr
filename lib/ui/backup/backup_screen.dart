@@ -42,8 +42,9 @@ class _BackupScreenState extends State<BackupScreen> {
         final stamp = DateTime.now().toIso8601String().substring(0, 10);
         final file = File('${(await getTemporaryDirectory()).path}/timburr-backup-$stamp.json');
         await file.writeAsString(await Backup(widget.db).export());
-        await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
-        await BackupReminder.markExported();
+        final result = await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
+        // Some Android versions report unavailable even when the share went through.
+        if (result.status != ShareResultStatus.dismissed) await BackupReminder.markExported();
       });
 
   Future<void> _restore() async {
@@ -122,14 +123,14 @@ class _BackupScreenState extends State<BackupScreen> {
 class BackupReminderCard extends StatefulWidget {
   const BackupReminderCard({super.key, required this.onOpen});
 
-  final VoidCallback onOpen;
+  final Future<void> Function() onOpen;
 
   @override
   State<BackupReminderCard> createState() => _BackupReminderCardState();
 }
 
 class _BackupReminderCardState extends State<BackupReminderCard> {
-  late final Future<bool> _due = BackupReminder.due();
+  late Future<bool> _due = BackupReminder.due();
   bool _dismissed = false;
 
   @override
@@ -142,7 +143,10 @@ class _BackupReminderCardState extends State<BackupReminderCard> {
                   leading: const IconTile(Icons.backup),
                   title: const Text('Back up your data'),
                   subtitle: const Text('No export in the last 14 days'),
-                  onTap: widget.onOpen,
+                  onTap: () async {
+                    await widget.onOpen();
+                    if (mounted) setState(() => _due = BackupReminder.due());
+                  },
                   trailing: IconButton(
                     icon: const Icon(Icons.close),
                     tooltip: 'Dismiss',

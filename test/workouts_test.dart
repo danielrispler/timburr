@@ -198,6 +198,43 @@ void main() {
     expect((await store.watchWorkout(w).first).dirty, 1);
   });
 
+  test('moving the start time of a finished workout keeps its duration', () async {
+    final w = await store.start();
+    await store.finish(w);
+    final before = await store.watchWorkout(w).first;
+    final at = before.startedAt.subtract(const Duration(hours: 2));
+    await store.setStartedAt(w, at);
+    final after = await store.watchWorkout(w).first;
+    expect(after.startedAt, at);
+    expect(after.finishedAt!.difference(after.startedAt), before.finishedAt!.difference(before.startedAt));
+  });
+
+  test('remove and move never leave a dangling superset link', () async {
+    final w = await store.start();
+    for (final id in ['A', 'B', 'C', 'D']) {
+      await store.addExercise(w, lib(id));
+    }
+    Future<List<bool>> links() async => [for (final e in await store.watchExercises(w).first) e.supersetWithNext];
+    for (final e in (await store.watchExercises(w).first).take(3)) {
+      await store.saveExercise(e.copyWith(supersetWithNext: true)); // A-B-C-D superset
+    }
+    var items = await store.watchExercises(w).first;
+    await store.remove(items[1].id); // B: A must not join C
+    expect(await links(), [false, true, false]);
+    items = await store.watchExercises(w).first;
+    await store.move(items[1].id, 1); // C to last
+    expect(await links(), [false, false, false]);
+  });
+
+  test('a set added to a finished workout is done', () async {
+    final w = await store.start();
+    await store.addExercise(w, lib('A'));
+    final e = (await store.watchExercises(w).first).single;
+    expect((await store.addSet(e.id)).done, false);
+    await store.finish(w);
+    expect((await store.addSet(e.id)).done, true);
+  });
+
   group('from a saved workout', () {
     late RoutineStore routines;
     setUp(() => routines = RoutineStore(db));

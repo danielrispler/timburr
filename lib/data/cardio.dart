@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -91,7 +93,7 @@ class CardioStore {
       'rpe': rpe,
       'notes': notes,
     });
-    await onSaved?.call();
+    unawaited(onSaved?.call()); // sync in the background; the local write is done
     return id;
   }
 
@@ -101,7 +103,7 @@ class CardioStore {
       ...c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value)),
       'deleted_at': DateTime.now(),
     });
-    await onSaved?.call();
+    unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
 
   Stream<CardioData> watch(String id) => (_db.select(_db.cardio)..where((c) => c.id.equals(id))).watchSingle();
