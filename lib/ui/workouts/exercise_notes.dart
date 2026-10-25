@@ -19,11 +19,16 @@ class SupersetFrame extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.only(left: 8),
-      decoration: BoxDecoration(border: Border(left: BorderSide(color: color, width: 4))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Superset', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color)),
-        child,
-      ]),
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Superset', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color)),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -52,12 +57,17 @@ class ExerciseNotes extends StatefulWidget {
 class _ExerciseNotesState extends State<ExerciseNotes> {
   late final _sticky = TextEditingController(text: widget.stickyNote ?? '');
   late final _session = TextEditingController(text: widget.item.notes ?? '');
+  // Notes are rare: hidden behind an icon unless one already exists.
+  late bool _open = (widget.stickyNote ?? '').isNotEmpty || (widget.item.notes ?? '').isNotEmpty;
 
   @override
   void didUpdateWidget(ExerciseNotes old) {
     super.didUpdateWidget(old);
     // The catalog entry loads after the first build.
-    if (old.stickyNote == null && widget.stickyNote != null && _sticky.text.isEmpty) _sticky.text = widget.stickyNote!;
+    if (old.stickyNote == null && widget.stickyNote != null && _sticky.text.isEmpty) {
+      _sticky.text = widget.stickyNote!;
+      if (_sticky.text.isNotEmpty) setState(() => _open = true);
+    }
   }
 
   @override
@@ -72,33 +82,46 @@ class _ExerciseNotesState extends State<ExerciseNotes> {
     final e = widget.item;
     return Padding(
       padding: const EdgeInsets.only(right: 8, top: 4),
-      child: Column(children: [
-        TextField(
-          controller: _sticky,
-          maxLines: null,
-          style: const TextStyle(fontStyle: FontStyle.italic),
-          decoration: const InputDecoration(labelText: 'Sticky note (every workout)', isDense: true),
-          onChanged: (v) => widget.catalog.setStickyNote(e.exerciseId, v.isEmpty ? null : v),
-        ),
-        TextField(
-          controller: _session,
-          maxLines: null,
-          decoration: const InputDecoration(labelText: 'Session note', isDense: true),
-          // Saves the latest row so a reorder in between is not undone.
-          onChanged: (v) async {
-            final now = (await widget.store.watchExercises(e.workoutId).first).firstWhere((x) => x.id == e.id);
-            await widget.store.saveExercise(now.copyWith(notes: Value(v.isEmpty ? null : v)));
-          },
-        ),
-        if (!widget.isLast)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: const Text('Link with next (superset)'),
-            value: e.supersetWithNext,
-            onChanged: (v) => widget.store.saveExercise(e.copyWith(supersetWithNext: v)),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(_open ? Icons.edit_note : Icons.note_add_outlined),
+                tooltip: _open ? 'Hide notes' : 'Add note',
+                onPressed: () => setState(() => _open = !_open),
+              ),
+              if (!widget.isLast)
+                IconButton(
+                  icon: const Icon(Icons.link),
+                  isSelected: e.supersetWithNext,
+                  selectedIcon: Icon(Icons.link, color: Theme.of(context).colorScheme.primary),
+                  tooltip: e.supersetWithNext ? 'Unlink from next (superset)' : 'Link with next (superset)',
+                  onPressed: () => widget.store.saveExercise(e.copyWith(supersetWithNext: !e.supersetWithNext)),
+                ),
+            ],
           ),
-      ]),
+          if (_open) ...[
+            TextField(
+              controller: _sticky,
+              maxLines: null,
+              style: const TextStyle(fontStyle: FontStyle.italic),
+              decoration: const InputDecoration(labelText: 'Sticky note (every workout)', isDense: true),
+              onChanged: (v) => widget.catalog.setStickyNote(e.exerciseId, v.isEmpty ? null : v),
+            ),
+            TextField(
+              controller: _session,
+              maxLines: null,
+              decoration: const InputDecoration(labelText: 'Session note', isDense: true),
+              // Saves the latest row so a reorder in between is not undone.
+              onChanged: (v) async {
+                final now = (await widget.store.watchExercises(e.workoutId).first).firstWhere((x) => x.id == e.id);
+                await widget.store.saveExercise(now.copyWith(notes: Value(v.isEmpty ? null : v)));
+              },
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
