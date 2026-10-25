@@ -104,48 +104,51 @@ class _HealthSheetState extends State<_HealthSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  Widget _field(TextEditingController c, String label) => Expanded(
+  Widget _field(TextEditingController c, String label, {String? suffix}) => Padding(
+    padding: const EdgeInsets.only(top: 16),
     child: TextField(
       controller: c,
       keyboardType: TextInputType.number,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(labelText: label, suffixText: suffix, border: const OutlineInputBorder()),
     ),
   );
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Google Health stats', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          icon: _reading
-              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.image),
-          label: const Text('Fill from screenshot'),
-          onPressed: _reading ? null : _fromScreenshot,
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+  Widget build(BuildContext context) => SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Google Health stats', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Text(
+            'Pick a screenshot of the workout in Google Health. The text is read on the phone, then check the numbers.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-        Row(children: [_field(_hr, 'Avg HR (bpm)'), const SizedBox(width: 16), _field(_cal, 'Calories')]),
-        Row(
-          children: [
-            _field(_min, 'Duration (min)'),
-            const SizedBox(width: 16),
-            _field(_effort, 'Effort (1-10)'),
-            const SizedBox(width: 16),
-            _field(_load, 'Cardio load'),
-          ],
-        ),
-        const SizedBox(height: 16),
-        FilledButton(onPressed: _save, child: const Text('Save')),
-      ],
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            icon: _reading
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.image),
+            label: const Text('Fill from screenshot'),
+            onPressed: _reading ? null : _fromScreenshot,
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ),
+          _field(_hr, 'Average heart rate', suffix: 'bpm'),
+          _field(_cal, 'Energy burned', suffix: 'cal'),
+          _field(_min, 'Duration', suffix: 'min'),
+          _field(_effort, 'Overall effort', suffix: '1-10'),
+          _field(_load, 'Cardio load'),
+          const SizedBox(height: 24),
+          FilledButton(onPressed: _save, child: const Text('Save')),
+        ],
+      ),
     ),
   );
 }
