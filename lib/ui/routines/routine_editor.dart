@@ -51,9 +51,11 @@ class _RoutineEditorState extends State<RoutineEditor> {
     final entries = {for (final e in await catalog.list()) if (e.rowId != null) e.rowId!: e};
     // list() skips deleted exercises; the routine may still reference some.
     for (final e in await _store.watchExercises(widget.routineId).first) {
-      if (!entries.containsKey(e.exerciseId)) {
-        final d = await catalog.byId(e.exerciseId);
-        if (d != null) entries[e.exerciseId] = d;
+      for (final id in [e.exerciseId, ?e.backupExerciseId]) {
+        if (!entries.containsKey(id)) {
+          final d = await catalog.byId(id);
+          if (d != null) entries[id] = d;
+        }
       }
     }
     if (mounted) setState(() => _entries = entries);
@@ -103,6 +105,26 @@ class _RoutineEditorState extends State<RoutineEditor> {
     for (final e in picked ?? const <CatalogEntry>[]) {
       await _store.add(widget.routineId, e);
     }
+    await _loadNames();
+  }
+
+  /// Picks the slot's backup exercise, swapped in during a workout; "No backup" clears it.
+  Future<void> _pickBackup(RoutineExercise e) async {
+    final picked = await Navigator.of(context).push<(CatalogEntry?,)>(MaterialPageRoute(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: const Text('Backup exercise'), actions: [
+          if (e.backupExerciseId != null)
+            TextButton(onPressed: () => Navigator.of(context).pop((null,)), child: const Text('No backup')),
+        ]),
+        body: ExercisePicker(
+          catalog: widget.stores.catalog,
+          onSelected: (x) => Navigator.of(context).pop((x,)),
+          onAdd: (list) => Navigator.of(context).pop((list.first,)),
+        ),
+      ),
+    ));
+    if (picked == null) return;
+    await _store.setBackup(e.id, picked.$1);
     await _loadNames();
   }
 
@@ -193,7 +215,15 @@ class _RoutineEditorState extends State<RoutineEditor> {
                                 builder: (context, sets) => ListTile(
                                   leading: ExerciseThumb(_entries[e.exerciseId]),
                                   title: Text(_entries[e.exerciseId]?.name ?? '…'),
-                                  subtitle: Text(planSummary(sets.data ?? const [])),
+                                  subtitle: Text([
+                                    planSummary(sets.data ?? const []),
+                                    if (e.backupExerciseId != null) 'or ${_entries[e.backupExerciseId]?.name ?? '…'}',
+                                  ].join('\n')),
+                                  trailing: IconButton(
+                                    icon: Icon(e.backupExerciseId == null ? Icons.swap_horiz : Icons.swap_horizontal_circle),
+                                    tooltip: 'Backup exercise',
+                                    onPressed: () => _pickBackup(e),
+                                  ),
                                   onTap: _entries[e.exerciseId] == null
                                       ? null
                                       : () => Navigator.of(context).push(MaterialPageRoute(

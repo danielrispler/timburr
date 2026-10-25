@@ -55,6 +55,7 @@ android {
             signingConfig = signingConfigs.findByName("release")
                 ?: if (System.getenv("CI").isNullOrEmpty()) signingConfigs.getByName("debug")
                 else throw GradleException("CI release build has no keystore: set TIMBURR_KEYSTORE_PATH")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

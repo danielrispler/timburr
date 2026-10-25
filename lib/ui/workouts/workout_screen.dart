@@ -10,6 +10,7 @@ import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
 import '../exercises/exercise_image.dart';
 import 'exercise_notes.dart';
+import 'health_sheet.dart';
 import 'rest_bar.dart';
 
 /// Active (or past) strength workout. Every tap writes straight to the store.
@@ -96,6 +97,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       );
       if (update == true) await widget.store.updateTemplate(widget.workoutId);
     }
+    // Optional Google Health stats before finish, so the one sync carries them; History can add them later.
+    final w = await widget.store.watchWorkout(widget.workoutId).first;
+    if (mounted) await editHealth(context, widget.store, w);
     await widget.store.finish(widget.workoutId);
     if (mounted) Navigator.of(context).pop();
   }
@@ -146,50 +150,55 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 700),
-                child: ListView(
+                // Not a ListView: it disposed off-screen cards, which rebuilt empty and resized on scroll back.
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.event),
-                      title: Text(MaterialLocalizations.of(context).formatMediumDate(w.startedAt)),
-                      subtitle: Text(TimeOfDay.fromDateTime(w.startedAt).format(context)),
-                      onTap: () => _editDate(w),
-                    ),
-                    TextField(
-                      controller: _notes,
-                      maxLines: null,
-                      decoration: const InputDecoration(labelText: 'Workout note'),
-                      onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
-                    ),
-                    RoutineNote(store: widget.store, routineId: w.routineId),
-                    const SizedBox(height: 8),
-                    for (final g in supersetGroups(items))
-                      SupersetFrame(
-                        key: ValueKey(g.first.id),
-                        size: g.length,
-                        child: Column(
-                          children: [
-                            for (final e in g)
-                              _ExerciseCard(
-                                key: ValueKey(e.id),
-                                store: widget.store,
-                                catalog: widget.catalog,
-                                item: e,
-                                startedAt: w.startedAt,
-                                isFirst: e == items.first,
-                                isLast: e == items.last,
-                              ),
-                          ],
-                        ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.event),
+                        title: Text(MaterialLocalizations.of(context).formatMediumDate(w.startedAt)),
+                        subtitle: Text(TimeOfDay.fromDateTime(w.startedAt).format(context)),
+                        onTap: () => _editDate(w),
                       ),
-                    const SizedBox(height: 8),
-                    FilledButton.tonalIcon(
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add exercises'),
-                      onPressed: _addExercise,
-                    ),
-                  ],
+                      TextField(
+                        controller: _notes,
+                        maxLines: null,
+                        decoration: const InputDecoration(labelText: 'Workout note'),
+                        onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
+                      ),
+                      RoutineNote(store: widget.store, routineId: w.routineId),
+                      if (w.finishedAt != null)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.monitor_heart),
+                          title: Text(healthSummary(w) ?? 'Add Google Health stats'),
+                          onTap: () => editHealth(context, widget.store, w),
+                        ),
+                      const SizedBox(height: 8),
+                      for (final g in supersetGroups(items))
+                        SupersetFrame(
+                          key: ValueKey(g.first.id),
+                          size: g.length,
+                          child: _GroupCard(
+                            store: widget.store,
+                            catalog: widget.catalog,
+                            items: g,
+                            startedAt: w.startedAt,
+                            firstId: items.first.id,
+                            lastId: items.last.id,
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      FilledButton.tonalIcon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add exercises'),
+                        onPressed: _addExercise,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -200,32 +209,35 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   );
 }
 
-class _ExerciseCard extends StatefulWidget {
-  const _ExerciseCard({
-    super.key,
+/// One exercise, or a whole superset merged into one card: each exercise's header, then the set rows
+/// interleaved by round (A1, B1, A2, B2). Rest is offered only when a round ends.
+class _GroupCard extends StatefulWidget {
+  const _GroupCard({
     required this.store,
     required this.catalog,
-    required this.item,
+    required this.items,
     required this.startedAt,
-    required this.isFirst,
-    required this.isLast,
+    required this.firstId,
+    required this.lastId,
   });
 
   final WorkoutStore store;
   final Catalog catalog;
-  final WorkoutExercise item;
+  final List<WorkoutExercise> items;
   // Previous sessions are those started before this, so reload when it changes.
   final DateTime startedAt;
-  final bool isFirst, isLast;
+  final String firstId, lastId; // of the whole workout, for the move buttons
+  bool get isSuperset => items.length > 1;
 
   @override
-  State<_ExerciseCard> createState() => _ExerciseCardState();
+  State<_GroupCard> createState() => _GroupCardState();
 }
 
-class _ExerciseCardState extends State<_ExerciseCard> {
-  CatalogEntry? _entry;
-  List<List<WorkoutSet>> _previous = const [];
-  List<WorkoutSet> get _last => _previous.firstOrNull ?? const [];
+class _GroupCardState extends State<_GroupCard> {
+  Map<String, CatalogEntry?> _entry = {};
+  Map<String, List<List<WorkoutSet>>> _previous = {};
+  // Kept per card so a rebuild does not resubscribe (and briefly empty) the inner streams.
+  final _sets = <String, Stream<List<WorkoutSet>>>{};
 
   @override
   void initState() {
@@ -234,18 +246,19 @@ class _ExerciseCardState extends State<_ExerciseCard> {
   }
 
   @override
-  void didUpdateWidget(_ExerciseCard old) {
+  void didUpdateWidget(_GroupCard old) {
     super.didUpdateWidget(old);
-    if (old.startedAt != widget.startedAt || old.item.exerciseId != widget.item.exerciseId) _load();
+    String ids(_GroupCard c) => c.items.map((e) => e.exerciseId).join();
+    if (old.startedAt != widget.startedAt || ids(old) != ids(widget)) _load();
   }
 
   void _load() {
     () async {
-      final entry = await widget.catalog.byId(widget.item.exerciseId);
-      final previous = await widget.store.previousSessions(
-        widget.item.exerciseId,
-        excludeWorkoutId: widget.item.workoutId,
-      );
+      final entry = <String, CatalogEntry?>{}, previous = <String, List<List<WorkoutSet>>>{};
+      for (final e in widget.items) {
+        entry[e.exerciseId] = await widget.catalog.byId(e.exerciseId);
+        previous[e.exerciseId] = await widget.store.previousSessions(e.exerciseId, excludeWorkoutId: e.workoutId);
+      }
       if (!mounted) return;
       setState(() {
         _entry = entry;
@@ -254,11 +267,13 @@ class _ExerciseCardState extends State<_ExerciseCard> {
     }();
   }
 
-  Future<void> _confirmRemove() async {
+  String _loadType(WorkoutExercise e) => _entry[e.exerciseId]?.loadType ?? 'weighted';
+
+  Future<void> _confirmRemove(WorkoutExercise e) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Remove ${_entry?.name ?? 'exercise'}?'),
+        title: Text('Remove ${_entry[e.exerciseId]?.name ?? 'exercise'}?'),
         content: const Text('Its sets in this workout are removed too.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -266,99 +281,178 @@ class _ExerciseCardState extends State<_ExerciseCard> {
         ],
       ),
     );
-    if (ok == true) await widget.store.remove(widget.item.id);
+    if (ok == true) await widget.store.remove(e.id);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final e = widget.item, store = widget.store;
-    final loadType = _entry?.loadType ?? 'weighted';
-    final note = _entry?.stickyNote;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                ExerciseThumb(_entry),
-                const SizedBox(width: 16),
-                Expanded(child: Text(_entry?.name ?? '…', style: const TextStyle(fontSize: 18))),
+  Widget _header(int i, WorkoutExercise e) {
+    final store = widget.store, entry = _entry[e.exerciseId];
+    final last = _previous[e.exerciseId]?.firstOrNull ?? const [];
+    return Padding(
+      padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (widget.isSuperset) ...[_Tag(i), const SizedBox(width: 8)],
+              ExerciseThumb(entry),
+              const SizedBox(width: 16),
+              Expanded(child: Text(entry?.name ?? '…', style: const TextStyle(fontSize: 18))),
+              if (e.backupExerciseId != null)
                 IconButton(
-                  icon: const Icon(Icons.arrow_upward),
-                  tooltip: 'Move up',
-                  onPressed: widget.isFirst ? null : () => store.move(e.id, -1),
+                  icon: const Icon(Icons.swap_horiz),
+                  tooltip: 'Swap to backup exercise',
+                  onPressed: () => store.swap(e),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_downward),
-                  tooltip: 'Move down',
-                  onPressed: widget.isLast ? null : () => store.move(e.id, 1),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Remove exercise',
-                  onPressed: _confirmRemove,
-                ),
-              ],
-            ),
-            ExerciseNotes(store: store, catalog: widget.catalog, item: e, stickyNote: note, isLast: widget.isLast),
-            Text(
-              'Last time: ${_last.isEmpty ? '—' : _last.map((s) => _describe(s, loadType)).join(', ')}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            StreamBuilder<List<WorkoutSet>>(
-              stream: store.watchSets(e.id),
-              builder: (context, snap) {
-                final sets = snap.data ?? const <WorkoutSet>[];
-                final prs = _entry == null ? const <String>{} : prBadges(loadType, _previous, sets);
-                final label = Theme.of(context).textTheme.labelSmall;
-                return Column(
-                  children: [
-                    // One header instead of a unit label under every value.
-                    if (sets.isNotEmpty)
-                      Row(
-                        children: [
-                          SizedBox(width: 24, child: Text('Set', style: label)),
-                          if (loadType == 'timed')
-                            Expanded(
-                              child: Center(child: Text('sec', style: label)),
-                            )
-                          else ...[
-                            Expanded(
-                              child: Center(child: Text(loadType == 'bodyweight' ? '+kg' : 'kg', style: label)),
-                            ),
-                            Expanded(
-                              child: Center(child: Text('reps', style: label)),
-                            ),
-                          ],
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    for (final s in sets)
-                      _SetRow(
-                        key: ValueKey(s.id),
-                        store: store,
-                        set: s,
-                        loadType: loadType,
-                        pr: prs.contains(s.id),
-                        onDone: () => restTimer(widget.catalog).offer(e.exerciseId),
-                      ),
-                  ],
-                );
-              },
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add set'),
-              onPressed: () => store.addSet(e.id),
-            ),
-          ],
-        ),
+              IconButton(
+                icon: const Icon(Icons.arrow_upward),
+                tooltip: 'Move up',
+                onPressed: e.id == widget.firstId ? null : () => store.move(e.id, -1),
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_downward),
+                tooltip: 'Move down',
+                onPressed: e.id == widget.lastId ? null : () => store.move(e.id, 1),
+              ),
+              IconButton(icon: const Icon(Icons.close), tooltip: 'Remove exercise', onPressed: () => _confirmRemove(e)),
+            ],
+          ),
+          ExerciseNotes(
+            key: ValueKey('${e.id}-${e.exerciseId}'), // a swap brings the other exercise's sticky note
+            store: store,
+            catalog: widget.catalog,
+            item: e,
+            stickyNote: entry?.stickyNote,
+            isLast: e.id == widget.lastId,
+          ),
+          Text(
+            'Last time: ${last.isEmpty ? '—' : last.map((s) => _describe(s, _loadType(e))).join(', ')}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
+
+  /// Every exercise's live sets, one nested stream per exercise.
+  Widget _withSets(Widget Function(List<List<WorkoutSet>>) build, [List<List<WorkoutSet>> acc = const []]) {
+    if (acc.length == widget.items.length) return build(acc);
+    return StreamBuilder<List<WorkoutSet>>(
+      stream: _sets.putIfAbsent(widget.items[acc.length].id, () => widget.store.watchSets(widget.items[acc.length].id)),
+      builder: (context, snap) => _withSets(build, [...acc, snap.data ?? const []]),
+    );
+  }
+
+  Widget _rows(List<List<WorkoutSet>> perExercise) {
+    final items = widget.items, store = widget.store;
+    final rows = supersetRows(perExercise);
+    final prs = {
+      for (final (i, e) in items.indexed)
+        if (_entry[e.exerciseId] != null)
+          ...prBadges(_loadType(e), _previous[e.exerciseId] ?? const [], perExercise[i]),
+    };
+    final next = rows.indexWhere((r) => !r.set.done); // the row to do now, highlighted
+    final label = Theme.of(context).textTheme.labelSmall;
+    final first = _loadType(items.first);
+    // Mixed load types (timed with weighted) have no shared units, so no header.
+    final sameUnits = items.every((e) => _loadType(e) == first);
+    final ordinal = List.filled(items.length, 0);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: Column(
+        children: [
+          // One header instead of a unit label under every value.
+          if (rows.isNotEmpty && sameUnits)
+            Row(
+              children: [
+                SizedBox(width: 32, child: Text('Set', style: label)),
+                if (first == 'timed')
+                  Expanded(
+                    child: Center(child: Text('sec', style: label)),
+                  )
+                else ...[
+                  Expanded(
+                    child: Center(child: Text(first == 'bodyweight' ? '+kg' : 'kg', style: label)),
+                  ),
+                  Expanded(
+                    child: Center(child: Text('reps', style: label)),
+                  ),
+                ],
+                const SizedBox(width: 48),
+              ],
+            ),
+          for (final (k, r) in rows.indexed)
+            _SetRow(
+              key: ValueKey(r.set.id),
+              store: store,
+              set: r.set,
+              label: r.set.isDrop ? 'D' : '${widget.isSuperset ? _letter(r.exercise) : ''}${ordinal[r.exercise] += 1}',
+              tag: widget.isSuperset ? r.exercise : null,
+              loadType: _loadType(items[r.exercise]),
+              pr: prs.contains(r.set.id),
+              current: k == next,
+              // A drop chain grows from its last row only.
+              onDrop:
+                  r.set.done && !(k + 1 < rows.length && rows[k + 1].set.isDrop && rows[k + 1].exercise == r.exercise)
+                  ? () {
+                      restTimer(widget.catalog).dismiss();
+                      store.addDrop(r.set);
+                    }
+                  : null,
+              onDone: r.endsRound ? () => restTimer(widget.catalog).offer(items[r.exercise].exerciseId) : null,
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.symmetric(vertical: 4),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (i, e) in widget.items.indexed) _header(i, e),
+          _withSets(_rows),
+          TextButton.icon(
+            icon: const Icon(Icons.add),
+            label: Text(widget.isSuperset ? 'Add round' : 'Add set'),
+            onPressed: () async {
+              for (final e in widget.items) {
+                await widget.store.addSet(e.id);
+              }
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+String _letter(int i) => String.fromCharCode(65 + i);
+
+/// Colours for superset exercises A, B, C…
+Color _tagColor(BuildContext context, int i) {
+  final c = Theme.of(context).colorScheme;
+  return [c.primary, c.tertiary, c.secondary][i % 3];
+}
+
+/// Letter badge of a superset exercise.
+class _Tag extends StatelessWidget {
+  const _Tag(this.i);
+
+  final int i;
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+    radius: 12,
+    backgroundColor: _tagColor(context, i),
+    child: Text(_letter(i), style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.surface)),
+  );
 }
 
 String _describe(WorkoutSet s, String loadType) => switch (loadType) {
@@ -374,16 +468,22 @@ class _SetRow extends StatelessWidget {
     super.key,
     required this.store,
     required this.set,
+    required this.label,
+    this.tag,
     required this.loadType,
     this.pr = false,
-    required this.onDone,
+    this.current = false,
+    this.onDrop,
+    this.onDone,
   });
 
   final WorkoutStore store;
   final WorkoutSet set;
+  final String label;
+  final int? tag; // superset exercise index, colours the label
   final String loadType;
-  final bool pr;
-  final VoidCallback onDone;
+  final bool pr, current;
+  final VoidCallback? onDrop, onDone; // onDone null: no rest offered here (mid-round)
 
   @override
   Widget build(BuildContext context) {
@@ -417,46 +517,71 @@ class _SetRow extends StatelessWidget {
           ),
         );
       },
-      child: Row(
-        children: [
-          SizedBox(width: 24, child: Text('${s.setNumber}')),
-          if (loadType == 'timed')
-            Expanded(
-              child: _Stepper(
-                label: 'sec',
-                value: s.durationSec,
-                step: secStep,
-                onChanged: (v) => store.updateSet(s.copyWith(durationSec: Value(v.round()))),
-              ),
-            )
-          else ...[
-            Expanded(
-              child: _Stepper(
-                label: loadType == 'bodyweight' ? '+kg' : 'kg',
-                value: s.weightKg,
-                step: kgStep,
-                decimal: true,
-                onChanged: (v) => store.updateSet(s.copyWith(weightKg: Value(v.toDouble()))),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(left: s.isDrop ? 12 : 0),
+        decoration: BoxDecoration(
+          color: current ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35) : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: tag == null ? null : _tagColor(context, tag!),
+                  fontWeight: tag == null ? null : FontWeight.w600,
+                ),
               ),
             ),
-            Expanded(
-              child: _Stepper(
-                label: 'reps',
-                value: s.reps,
-                step: repStep,
-                onChanged: (v) => store.updateSet(s.copyWith(reps: Value(v.round()))),
+            if (loadType == 'timed')
+              Expanded(
+                child: _Stepper(
+                  label: 'sec',
+                  value: s.durationSec,
+                  step: secStep,
+                  onChanged: (v) => store.updateSet(s.copyWith(durationSec: Value(v.round()))),
+                ),
+              )
+            else ...[
+              Expanded(
+                child: _Stepper(
+                  label: loadType == 'bodyweight' ? '+kg' : 'kg',
+                  value: s.weightKg,
+                  step: kgStep,
+                  decimal: true,
+                  onChanged: (v) => store.updateSet(s.copyWith(weightKg: Value(v.toDouble()))),
+                ),
               ),
+              Expanded(
+                child: _Stepper(
+                  label: 'reps',
+                  value: s.reps,
+                  step: repStep,
+                  onChanged: (v) => store.updateSet(s.copyWith(reps: Value(v.round()))),
+                ),
+              ),
+            ],
+            if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
+            if (onDrop != null)
+              IconButton(
+                icon: const Icon(Icons.trending_down),
+                tooltip: 'Add drop set',
+                style: _compact,
+                onPressed: onDrop,
+              ),
+            Checkbox(
+              value: s.done,
+              onChanged: (v) {
+                store.updateSet(s.copyWith(done: v ?? false));
+                if (v == true) onDone?.call();
+              },
             ),
           ],
-          if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
-          Checkbox(
-            value: s.done,
-            onChanged: (v) {
-              store.updateSet(s.copyWith(done: v ?? false));
-              if (v == true) onDone();
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

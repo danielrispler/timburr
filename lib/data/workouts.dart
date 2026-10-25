@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'catalog.dart';
 import 'db.dart';
+import 'health.dart';
 import 'routines.dart';
 import 'stats.dart';
 
@@ -35,6 +36,30 @@ List<List<WorkoutExercise>> supersetGroups(List<WorkoutExercise> items) {
   return groups;
 }
 
+/// One row of a card: [set] of the card's [exercise]-th exercise. [endsRound] marks where rest is offered.
+typedef SupersetRow = ({int exercise, WorkoutSet set, bool endsRound});
+
+/// Interleaves the sets of a superset's exercises by round (A1, B1, A2, B2); a drop set stays under its set.
+/// For a single exercise each set (with its drops) is a round.
+List<SupersetRow> supersetRows(List<List<WorkoutSet>> perExercise) {
+  // Each exercise's sets chunked into rounds: a set plus the drop sets after it.
+  final rounds = [
+    for (final sets in perExercise)
+      sets.fold(<List<WorkoutSet>>[], (r, s) => r..add(s.isDrop && r.isNotEmpty ? (r.removeLast()..add(s)) : [s]))
+  ];
+  final out = <SupersetRow>[];
+  for (var n = 0; rounds.any((r) => n < r.length); n++) {
+    final round = [
+      for (final (i, r) in rounds.indexed)
+        if (n < r.length) for (final s in r[n]) (exercise: i, set: s)
+    ];
+    for (final (k, x) in round.indexed) {
+      out.add((exercise: x.exercise, set: x.set, endsRound: k == round.length - 1));
+    }
+  }
+  return out;
+}
+
 /// A strength workout session: its exercises and sets. Every edit is saved at once through [AppDb.save].
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
@@ -53,7 +78,13 @@ class WorkoutStore {
         var count = 0;
         for (final (i, p) in (routineId == null ? const <Never>[] : await RoutineStore(_db).plan(routineId)).indexed) {
           final weId = _uuid.v4();
-          await _db.save(_db.workoutExercises, {'id': weId, 'workout_id': id, 'exercise_id': p.exerciseId, 'position': i});
+          await _db.save(_db.workoutExercises, {
+            'id': weId,
+            'workout_id': id,
+            'exercise_id': p.exerciseId,
+            'backup_exercise_id': p.backupExerciseId,
+            'position': i,
+          });
           final last = await lastTime(p.exerciseId, excludeWorkoutId: id);
           for (final (n, s) in p.sets.indexed) {
             await _db.save(_db.workoutSets, {
@@ -102,6 +133,7 @@ class WorkoutStore {
         for (final e in await watchExercises(workoutId).first)
           (
             exerciseId: e.exerciseId,
+            backupExerciseId: e.backupExerciseId,
             sets: [
               for (final s in await watchSets(e.id).first) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
             ],
@@ -126,6 +158,14 @@ class WorkoutStore {
   Future<void> setStartedAt(String id, DateTime at) => _saveWorkout(
       id, (w) => w.copyWith(startedAt: at, finishedAt: Value(w.finishedAt?.add(at.difference(w.startedAt)))));
   Future<void> setNotes(String id, String? notes) => _saveWorkout(id, (w) => w.copyWith(notes: Value(notes)));
+  Future<void> setHealth(String id, HealthStats h) => _saveWorkout(
+      id,
+      (w) => w.copyWith(
+          avgHr: Value(h.avgHr),
+          calories: Value(h.calories),
+          activeSec: Value(h.activeSec),
+          effort: Value(h.effort),
+          cardioLoad: Value(h.cardioLoad)));
 
   Future<void> finish(String id) async {
     await _saveWorkout(id, (w) => w.copyWith(finishedAt: Value(DateTime.now())));
@@ -158,6 +198,11 @@ class WorkoutStore {
       'started_at': w.startedAt,
       'finished_at': w.finishedAt,
       'notes': w.notes,
+      'avg_hr': w.avgHr,
+      'calories': w.calories,
+      'active_sec': w.activeSec,
+      'effort': w.effort,
+      'cardio_load': w.cardioLoad,
       'deleted_at': w.deletedAt,
     });
   }
@@ -209,11 +254,18 @@ class WorkoutStore {
         'id': e.id,
         'workout_id': e.workoutId,
         'exercise_id': e.exerciseId,
+        'backup_exercise_id': e.backupExerciseId,
         'position': e.position,
         'notes': e.notes,
         'superset_with_next': e.supersetWithNext,
         'deleted_at': e.deletedAt,
       });
+
+  /// Swaps workout exercise [e] with its backup exercise. No-op without one.
+  Future<void> swap(WorkoutExercise e) async {
+    final b = e.backupExerciseId;
+    if (b != null) await saveExercise(e.copyWith(exerciseId: b, backupExerciseId: Value(e.exerciseId)));
+  }
 
   Stream<List<WorkoutSet>> watchSets(String workoutExerciseId) => (_db.select(_db.workoutSets)
         ..where((s) => s.workoutExerciseId.equals(workoutExerciseId) & s.deletedAt.isNull())
@@ -237,6 +289,7 @@ class WorkoutStore {
           reps: from?.reps,
           durationSec: from?.durationSec,
           done: finished, // sets added to a finished workout count as done
+          isDrop: false,
         );
         await updateSet(s);
         return s;
@@ -250,7 +303,23 @@ class WorkoutStore {
         'reps': s.reps,
         'duration_sec': s.durationSec,
         'done': s.done,
+        'is_drop': s.isDrop,
         'deleted_at': s.deletedAt,
+      });
+
+  /// Inserts a drop set right after [after] at about 80% of its weight, same reps, and renumbers the rest.
+  Future<void> addDrop(WorkoutSet after) => _db.transaction(() async {
+        for (final x in await watchSets(after.workoutExerciseId).first) {
+          if (x.setNumber > after.setNumber) await updateSet(x.copyWith(setNumber: x.setNumber + 1));
+        }
+        final kg = after.weightKg;
+        await updateSet(after.copyWith(
+          id: _uuid.v4(),
+          setNumber: after.setNumber + 1,
+          weightKg: Value(kg == null ? null : (kg * 0.8 / kgStep).round() * kgStep),
+          done: false,
+          isDrop: true,
+        ));
       });
 
   /// Soft-deletes [s] and renumbers the sets after it.

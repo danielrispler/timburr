@@ -3,7 +3,7 @@ import 'package:timburr/data/db.dart';
 import 'package:timburr/data/records.dart';
 
 var _n = 0;
-WorkoutSet s({double? kg, int? reps, int? sec, bool done = true}) => WorkoutSet(
+WorkoutSet s({double? kg, int? reps, int? sec, bool done = true, bool drop = false}) => WorkoutSet(
     id: 's${_n++}',
     createdAt: DateTime(2026),
     updatedAt: DateTime(2026),
@@ -13,7 +13,8 @@ WorkoutSet s({double? kg, int? reps, int? sec, bool done = true}) => WorkoutSet(
     weightKg: kg,
     reps: reps,
     durationSec: sec,
-    done: done);
+    done: done,
+    isDrop: drop);
 
 void main() {
   test('Epley e1RM; a 1-rep set is its weight', () {
@@ -92,5 +93,13 @@ void main() {
     expect([for (final (_, v) in series.e1rm) v.round()], [117, 120]);
     expect(series.volume, [(a, 610.0), (c, 900.0)]);
     expect(chartSeries([]).volume, isEmpty);
+  });
+
+  test('drop sets count toward volume but never set a per-set record or badge', () {
+    final prev = [[s(kg: 50, reps: 5)]];
+    final drop = s(kg: 40, reps: 20, drop: true);
+    expect(records('bodyweight', [[drop]]), isEmpty);
+    expect(prBadges('bodyweight', prev, [drop]), isEmpty);
+    expect(records('weighted', [[s(kg: 100, reps: 5), s(kg: 80, reps: 5, drop: true)]]), {'e1rm': closeTo(116.67, 0.01), 'weight': 100, 'volume': 900});
   });
 }

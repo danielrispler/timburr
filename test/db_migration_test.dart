@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/cardio.dart';
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/workouts.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -15,6 +16,7 @@ void main() {
     var db = AppDb(NativeDatabase(file));
     final ddl = (await db.customSelect("select sql from sqlite_master where name = 'cardio'").getSingle()).read<String>('sql');
     expect(ddl, contains('"distance_km" REAL NULL'));
+    await _dropV3Columns(db);
     await db.customStatement('drop table routine_sets');
     await db.customStatement('drop table cardio');
     await db.customStatement(ddl.replaceFirst('"distance_km" REAL NULL', '"distance_km" REAL NOT NULL'));
@@ -29,4 +31,34 @@ void main() {
     expect(await db.select(db.routineSets).get(), isEmpty);
     await db.close();
   });
+
+  test('v2 to v3 adds drop flag, backup exercises and health stats, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    final w = await WorkoutStore(db).start();
+    await _dropV3Columns(db);
+    await db.customStatement('pragma user_version = 2');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    final row = await WorkoutStore(db).watchWorkout(w).first;
+    expect((row.id, row.avgHr), (w, null));
+    await db.close();
+  });
+}
+
+/// Back to the v2 schema: drops the columns v3 added.
+Future<void> _dropV3Columns(AppDb db) async {
+  for (final (t, c) in [
+    ('sets', 'is_drop'),
+    ('routine_exercises', 'backup_exercise_id'),
+    ('workout_exercises', 'backup_exercise_id'),
+    ('workouts', 'avg_hr'),
+    ('workouts', 'calories'),
+    ('workouts', 'active_sec'),
+    ('workouts', 'effort'),
+    ('workouts', 'cardio_load'),
+  ]) {
+    await db.customStatement('alter table $t drop column $c');
+  }
 }

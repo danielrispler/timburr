@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -99,5 +99,25 @@ describe('002_routine_sets_and_sports.sql', () => {
     expect(await as(me, () => rows(`select distance_km from cardio where type = 'swim'`))).toEqual([{ distance_km: '1.525' }])
     await expect(add('run', null)).rejects.toThrow(/cardio_distance_check/)
     await expect(add('golf', 5)).rejects.toThrow(/cardio_type_check/)
+  })
+})
+
+describe('003_drops_backups_health.sql', () => {
+  it('stores drop sets, backup exercises and health stats', async () => {
+    const [a] = await as(me, () => rows(`insert into exercises (id, library_id) values (gen_random_uuid(), 'Pull-up') returning id`))
+    const [b] = await as(me, () => rows(`insert into exercises (id, library_id) values (gen_random_uuid(), 'Assisted Pull-up') returning id`))
+    const [r] = await as(me, () => rows(`insert into routines (id, name) values (gen_random_uuid(), 'Upper B') returning id`))
+    await as(me, () =>
+      rows(`insert into routine_exercises (id, routine_id, exercise_id, backup_exercise_id, position) values (gen_random_uuid(), $1, $2, $3, 0)`, [r.id, a.id, b.id]),
+    )
+    const [w] = await as(me, () =>
+      rows(`insert into workouts (id, started_at, avg_hr, calories, active_sec, effort, cardio_load) values (gen_random_uuid(), now(), 91, 255, 3689, 5, 5) returning id`),
+    )
+    const [we] = await as(me, () =>
+      rows(`insert into workout_exercises (id, workout_id, exercise_id, backup_exercise_id, position) values (gen_random_uuid(), $1, $2, $3, 0) returning id`, [w.id, a.id, b.id]),
+    )
+    await as(me, () => rows(`insert into sets (id, workout_exercise_id, set_number, reps, is_drop) values (gen_random_uuid(), $1, 1, 5, true)`, [we.id]))
+    expect(await as(me, () => rows('select is_drop from sets where workout_exercise_id = $1', [we.id]))).toEqual([{ is_drop: true }])
+    await expect(as(me, () => rows(`update workouts set effort = 11 where id = $1`, [w.id]))).rejects.toThrow(/effort/)
   })
 })
