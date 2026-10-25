@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
+import '../../data/stats.dart' show repMax;
 import '../../data/workouts.dart';
 import '../core/theme.dart';
 import 'exercise_image.dart';
@@ -188,6 +189,11 @@ class _Stats extends StatelessWidget {
           ListTile(dense: true, title: Text(key), trailing: Text(_num(value))),
       ]),
       if (loadType == 'weighted') ...[
+        if (rec['e1rm'] case final best? when best > 0)
+          TileGroup(title: 'Estimated rep maxes', children: [
+            for (final reps in const [1, 3, 5, 8, 10])
+              ListTile(dense: true, title: Text('${reps}RM'), trailing: Text('${_num(repMax(best, reps))} kg')),
+          ]),
         _Chart('Max weight (kg)', series.maxWeight),
         _Chart('e1RM (kg)', series.e1rm),
         _Chart('Volume (kg)', series.volume),
