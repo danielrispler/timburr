@@ -25,7 +25,7 @@ Future<DateTime?> pickDateTime(BuildContext context, DateTime initial) async {
 
 /// "Start now" opens the live workout; "I did it" asks when, then saves it as done and opens it for edits.
 Future<void> startStrength(BuildContext context, Stores s, {String? routineId, required bool now}) async {
-  final nav = Navigator.of(context);
+  final nav = Navigator.of(context, rootNavigator: true);
   void open(String id) =>
       nav.push(MaterialPageRoute(builder: (_) => WorkoutScreen(store: s.workouts, catalog: s.catalog, workoutId: id)));
   if (now) {
