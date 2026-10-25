@@ -154,3 +154,24 @@ double? e1rmTrend(List<(Workout, List<WorkoutSet>)> sessions, DateTime now, {int
   final recent = best((d) => d.isAfter(cut)), before = best((d) => d.isAfter(start) && !d.isAfter(cut));
   return recent == null || before == null || before == 0 ? null : recent / before - 1;
 }
+
+/// Daniel's split, in order. Matched to routine names ignoring case and spaces.
+// shortcut: hard-coded by routine name, so a rename drops it from the cycle; move to a routine field if the split changes.
+const splitCycle = ['Lower A', 'Upper A', 'Lower B', 'Upper B'];
+
+/// The next [splitCycle] name after the newest workout (newest first) whose routine is in it, else the first,
+/// plus the id of the routine with that name, if one exists.
+({String name, String? routineId}) nextInCycle(List<Workout> workouts, Map<String, String> routineNames) {
+  String key(String s) => s.toLowerCase().replaceAll(' ', '');
+  final keys = [for (final c in splitCycle) key(c)];
+  var next = splitCycle.first;
+  for (final w in workouts) {
+    final i = keys.indexOf(key(routineNames[w.routineId] ?? ''));
+    if (i >= 0) {
+      next = splitCycle[(i + 1) % splitCycle.length];
+      break;
+    }
+  }
+  final id = routineNames.entries.where((e) => key(e.value) == key(next)).firstOrNull?.key;
+  return (name: next, routineId: id);
+}

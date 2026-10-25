@@ -91,7 +91,7 @@ class StatsScreen extends StatelessWidget {
   Widget build(BuildContext context) => DefaultTabController(
         length: 4,
         child: Column(children: [
-          const TabBar(tabs: [Tab(text: 'Me'), Tab(text: 'Workouts'), Tab(text: 'Exercises'), Tab(text: 'Records')]),
+          const TabBar(isScrollable: true, tabAlignment: TabAlignment.center, tabs: [Tab(text: 'Me'), Tab(text: 'Workouts'), Tab(text: 'Exercises'), Tab(text: 'Records')]),
           Expanded(
             child: StatsBuilder(
               stores: stores,
