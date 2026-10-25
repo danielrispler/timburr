@@ -57,8 +57,8 @@ class ExerciseNotes extends StatefulWidget {
 class _ExerciseNotesState extends State<ExerciseNotes> {
   late final _sticky = TextEditingController(text: widget.stickyNote ?? '');
   late final _session = TextEditingController(text: widget.item.notes ?? '');
-  // Notes are rare: hidden behind an icon unless one already exists.
-  late bool _open = (widget.stickyNote ?? '').isNotEmpty || (widget.item.notes ?? '').isNotEmpty;
+  // Notes are rare: fields hidden behind an icon, written text shown read-only.
+  bool _open = false;
 
   @override
   void didUpdateWidget(ExerciseNotes old) {
@@ -66,7 +66,6 @@ class _ExerciseNotesState extends State<ExerciseNotes> {
     // The catalog entry loads after the first build.
     if (old.stickyNote == null && widget.stickyNote != null && _sticky.text.isEmpty) {
       _sticky.text = widget.stickyNote!;
-      if (_sticky.text.isNotEmpty) setState(() => _open = true);
     }
   }
 
@@ -98,6 +97,18 @@ class _ExerciseNotesState extends State<ExerciseNotes> {
                   selectedIcon: Icon(Icons.link, color: Theme.of(context).colorScheme.primary),
                   tooltip: e.supersetWithNext ? 'Unlink from next (superset)' : 'Link with next (superset)',
                   onPressed: () => widget.store.saveExercise(e.copyWith(supersetWithNext: !e.supersetWithNext)),
+                ),
+              if (!_open)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _open = true),
+                    child: Text(
+                      [_sticky.text, _session.text].where((t) => t.isNotEmpty).join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
                 ),
             ],
           ),

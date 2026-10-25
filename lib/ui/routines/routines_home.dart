@@ -32,7 +32,7 @@ class HomeScreen extends StatelessWidget {
                         leading: const IconTile(Icons.timer),
                         title: const Text('Workout in progress'),
                         subtitle: const Text('Tap to resume'),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
                             builder: (_) => WorkoutScreen(store: stores.workouts, catalog: stores.catalog, workoutId: snap.data!.id))),
                       ),
                     ]),

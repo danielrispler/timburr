@@ -283,8 +283,29 @@ class _ExerciseCardState extends State<_ExerciseCard> {
               builder: (context, snap) {
                 final sets = snap.data ?? const <WorkoutSet>[];
                 final prs = _entry == null ? const <String>{} : prBadges(loadType, _previous, sets);
+                final label = Theme.of(context).textTheme.labelSmall;
                 return Column(
                   children: [
+                    // One header instead of a unit label under every value.
+                    if (sets.isNotEmpty)
+                      Row(
+                        children: [
+                          SizedBox(width: 24, child: Text('Set', style: label)),
+                          if (loadType == 'timed')
+                            Expanded(
+                              child: Center(child: Text('sec', style: label)),
+                            )
+                          else ...[
+                            Expanded(
+                              child: Center(child: Text(loadType == 'bodyweight' ? '+kg' : 'kg', style: label)),
+                            ),
+                            Expanded(
+                              child: Center(child: Text('reps', style: label)),
+                            ),
+                          ],
+                          const SizedBox(width: 48),
+                        ],
+                      ),
                     for (final s in sets)
                       _SetRow(
                         key: ValueKey(s.id),
@@ -337,52 +358,58 @@ class _SetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = set;
-    return Row(
-      children: [
-        SizedBox(width: 24, child: Text('${s.setNumber}')),
-        if (loadType == 'timed')
-          Expanded(
-            child: _Stepper(
-              label: 'sec',
-              value: s.durationSec,
-              step: secStep,
-              onChanged: (v) => store.updateSet(s.copyWith(durationSec: Value(v.round()))),
+    // Swipe left to delete; no per-row delete button.
+    return Dismissible(
+      key: ValueKey('dismiss-${s.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        color: Theme.of(context).colorScheme.error,
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+      ),
+      onDismissed: (_) => store.removeSet(s),
+      child: Row(
+        children: [
+          SizedBox(width: 24, child: Text('${s.setNumber}')),
+          if (loadType == 'timed')
+            Expanded(
+              child: _Stepper(
+                label: 'sec',
+                value: s.durationSec,
+                step: secStep,
+                onChanged: (v) => store.updateSet(s.copyWith(durationSec: Value(v.round()))),
+              ),
+            )
+          else ...[
+            Expanded(
+              child: _Stepper(
+                label: loadType == 'bodyweight' ? '+kg' : 'kg',
+                value: s.weightKg,
+                step: kgStep,
+                decimal: true,
+                onChanged: (v) => store.updateSet(s.copyWith(weightKg: Value(v.toDouble()))),
+              ),
             ),
-          )
-        else ...[
-          Expanded(
-            child: _Stepper(
-              label: loadType == 'bodyweight' ? '+kg' : 'kg',
-              value: s.weightKg,
-              step: kgStep,
-              decimal: true,
-              onChanged: (v) => store.updateSet(s.copyWith(weightKg: Value(v.toDouble()))),
+            Expanded(
+              child: _Stepper(
+                label: 'reps',
+                value: s.reps,
+                step: repStep,
+                onChanged: (v) => store.updateSet(s.copyWith(reps: Value(v.round()))),
+              ),
             ),
-          ),
-          Expanded(
-            child: _Stepper(
-              label: 'reps',
-              value: s.reps,
-              step: repStep,
-              onChanged: (v) => store.updateSet(s.copyWith(reps: Value(v.round()))),
-            ),
+          ],
+          if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
+          Checkbox(
+            value: s.done,
+            onChanged: (v) {
+              store.updateSet(s.copyWith(done: v ?? false));
+              if (v == true) onDone();
+            },
           ),
         ],
-        if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
-        Checkbox(
-          value: s.done,
-          onChanged: (v) {
-            store.updateSet(s.copyWith(done: v ?? false));
-            if (v == true) onDone();
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.remove_circle_outline),
-          tooltip: 'Delete set',
-          visualDensity: VisualDensity.compact,
-          onPressed: () => store.removeSet(s),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -438,18 +465,13 @@ class _Stepper extends StatelessWidget {
           onTap: () => _type(context),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value == null ? '–' : (decimal ? _kg(value!.toDouble()) : '$value'),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(label, style: Theme.of(context).textTheme.labelSmall),
-              ],
+            child: Text(
+              value == null ? '–' : (decimal ? _kg(value!.toDouble()) : '$value'),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
         ),

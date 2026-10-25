@@ -79,7 +79,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       title: Text(_when(context, w.startedAt)),
       subtitle: Text(w.notes?.isNotEmpty == true ? '$mins min · ${w.notes}' : '$mins min',
           maxLines: 1, overflow: TextOverflow.ellipsis),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+      onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
           builder: (_) => WorkoutScreen(store: widget.workouts, catalog: widget.catalog, workoutId: w.id))),
     );
   }
