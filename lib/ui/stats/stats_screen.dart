@@ -11,7 +11,8 @@ import '../exercises/exercise_detail.dart';
 import '../routines/start.dart';
 
 String fmtNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
-String fmtVolume(double kg) => kg >= 1000 ? '${(kg / 1000).toStringAsFixed(1)} t' : '${kg.round()} kg';
+String fmtVolume(double kg) =>
+    '${kg.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+$)'), (_) => ',')} kg';
 String fmtDuration(Duration d) => d.inHours > 0 ? '${d.inHours}h ${d.inMinutes % 60}m' : '${d.inMinutes}m';
 String fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
@@ -140,7 +141,7 @@ class _Me extends StatelessWidget {
       ),
       _Heatmap(dayCounts(sessions), now),
       _Bars('Workouts per week', [for (final w in weeks) (w.monday, w.workouts.toDouble())]),
-      _Bars('Volume per week (t)', [for (final w in weeks) (w.monday, w.volume / 1000)]),
+      _Bars('Volume per week (kg)', [for (final w in weeks) (w.monday, w.volume)]),
       TileGroup(title: 'Most trained', children: [
         if (d.rows.isEmpty) const ListTile(title: Text('Finish a workout to see stats')),
         for (final (id, n) in topExercises(d.rows))
@@ -160,7 +161,7 @@ class StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 104,
+      width: 124,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -238,7 +239,7 @@ class _Bars extends StatelessWidget {
             titlesData: FlTitlesData(
               topTitles: const AxisTitles(),
               rightTitles: const AxisTitles(),
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 32)),
+              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
