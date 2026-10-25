@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
-import '../../data/catalog.dart';
 import '../../data/db.dart';
-import '../../data/workouts.dart';
+import '../routines/start.dart';
 import '../core/theme.dart';
 import '../cardio/activity_timer.dart';
 import '../cardio/cardio_form.dart';
@@ -13,11 +12,9 @@ enum _Type { all, strength, cardio }
 
 /// Finished workouts and cardio by date, newest first, with a type filter.
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key, required this.workouts, required this.cardio, required this.catalog});
+  const HistoryScreen({super.key, required this.stores});
 
-  final WorkoutStore workouts;
-  final CardioStore cardio;
-  final Catalog catalog;
+  final Stores stores;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -25,8 +22,9 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   _Type _type = _Type.all;
-  late final _history = widget.workouts.watchHistory();
-  late final _cardio = widget.cardio.watchAll();
+  late final _history = widget.stores.workouts.watchHistory();
+  late final _cardio = widget.stores.cardio.watchAll();
+  late final _routines = widget.stores.routines.watchRoutines();
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +46,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           stream: _history,
           builder: (context, ws) => StreamBuilder(
             stream: _cardio,
-            builder: (context, cs) {
+            builder: (context, cs) => StreamBuilder(
+              stream: _routines,
+              builder: (context, rs) {
+              final names = {for (final r in rs.data ?? const <Routine>[]) r.id: r.name};
               final items = mergeHistory(ws.data ?? const [], cs.data ?? const [],
                   strength: _type != _Type.cardio, cardio: _type != _Type.strength);
               if (items.isEmpty) return const Center(child: Text('No finished sessions yet'));
@@ -57,12 +58,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 TileGroup(children: [
                   for (final item in items)
                     switch (item) {
-                      final Workout w => _workoutTile(context, w),
+                      final Workout w => _workoutTile(context, w, names[w.routineId] ?? 'Workout'),
                       final c => _cardioTile(context, c as CardioData),
                     },
                 ]),
               ]);
-            },
+              },
+            ),
           ),
         ),
       ),
@@ -72,15 +74,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _when(BuildContext context, DateTime at) =>
       '${MaterialLocalizations.of(context).formatMediumDate(at)}, ${TimeOfDay.fromDateTime(at).format(context)}';
 
-  Widget _workoutTile(BuildContext context, Workout w) {
+  Widget _workoutTile(BuildContext context, Workout w, String name) {
     final mins = w.finishedAt!.difference(w.startedAt).inMinutes;
     return ListTile(
       leading: const IconTile(Icons.fitness_center),
-      title: Text(_when(context, w.startedAt)),
-      subtitle: Text(w.notes?.isNotEmpty == true ? '$mins min · ${w.notes}' : '$mins min',
+      title: Text(name),
+      subtitle: Text([_when(context, w.startedAt), '$mins min', if (w.notes?.isNotEmpty == true) w.notes].join(' · '),
           maxLines: 1, overflow: TextOverflow.ellipsis),
       onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-          builder: (_) => WorkoutScreen(store: widget.workouts, catalog: widget.catalog, workoutId: w.id))),
+          builder: (_) => WorkoutScreen(store: widget.stores.workouts, catalog: widget.stores.catalog, workoutId: w.id))),
     );
   }
 
@@ -94,7 +96,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
       onTap: () => Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => CardioForm(store: widget.cardio, existing: c))),
+          .push(MaterialPageRoute(builder: (_) => CardioForm(store: widget.stores.cardio, existing: c))),
     );
   }
 }

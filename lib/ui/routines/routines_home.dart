@@ -77,7 +77,16 @@ class _Summary extends StatelessWidget {
         : prEvents(sessionsByExercise(d.rows), (id) => d.exercises[id]?.loadType ?? 'weighted')
             .where((p) => p.workout.id == last.id)
             .length;
+    final (name: next, routineId: nextId) = nextInCycle(d.workouts, names);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TileGroup(title: 'Next in cycle', children: [
+        ListTile(
+          leading: const IconTile(Icons.repeat),
+          title: Text(next),
+          subtitle: Text(nextId == null ? 'No saved workout named $next' : 'Tap to start'),
+          onTap: nextId == null ? null : () => startStrength(context, stores, routineId: nextId, now: true),
+        ),
+      ]),
       if (recent.isNotEmpty)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),

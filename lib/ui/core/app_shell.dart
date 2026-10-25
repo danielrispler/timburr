@@ -100,7 +100,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _tabRoot(int i) => switch (_tabs[i].label) {
         'Home' => HomeScreen(stores: _stores),
-        'History' => HistoryScreen(workouts: widget.workouts, cardio: widget.cardio, catalog: widget.catalog),
+        'History' => HistoryScreen(stores: _stores),
         'Workouts' => WorkoutsTab(stores: _stores),
         _ => StatsScreen(stores: _stores),
       };

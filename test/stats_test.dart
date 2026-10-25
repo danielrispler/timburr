@@ -69,4 +69,13 @@ void main() {
     expect(e1rmTrend(sessions, now), closeTo(0.10, 1e-9));
     expect(e1rmTrend(sessions.sublist(1), now), isNull);
   });
+
+  test('nextInCycle follows the newest cycle workout, wraps and finds the routine', () {
+    final names = {'a': 'lower a', 'b': 'UpperB', 'x': 'Arms', 'u': 'Upper A'};
+    expect(nextInCycle([], names), (name: 'Lower A', routineId: 'a'));
+    expect(nextInCycle([w(DateTime(2026, 10, 3), routine: 'x'), w(DateTime(2026, 10, 2), routine: 'a')], names),
+        (name: 'Upper A', routineId: 'u'));
+    expect(nextInCycle([w(DateTime(2026, 10, 2), routine: 'u')], names), (name: 'Lower B', routineId: null));
+    expect(nextInCycle([w(DateTime(2026, 10, 2), routine: 'b')], names).name, 'Lower A');
+  });
 }
