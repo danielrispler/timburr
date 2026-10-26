@@ -291,7 +291,7 @@ void main() {
       expect(await store.templateChanged(w), isFalse);
       final plan = await routines.plan(r);
       expect([for (final p in plan) p.exerciseId], [libraryRowId('A'), libraryRowId('B')]);
-      expect(plan.first.sets.first.weightKg, 50);
+      expect(plan.first.sets.first.weightKg, isNull); // unpinned weight stays unpinned
       expect(plan.last.sets, isEmpty);
     });
 
@@ -306,6 +306,43 @@ void main() {
       await store.finish(w1);
       final w2 = await store.start(routineId: r);
       expect(await store.templateChanged(w2), isFalse);
+    });
+
+    test('drop sets stay out of the plan and of prefill', () async {
+      final r = await routines.create('Push');
+      final a = await routines.add(r, lib('A'));
+      await routines.saveSets(a, [for (var i = 0; i < 3; i++) (weightKg: null, reps: 5, durationSec: null)]);
+      final w1 = await store.start(routineId: r);
+      final e = (await store.watchExercises(w1).first).single;
+      for (final s in await store.watchSets(e.id).first) {
+        await store.updateSet(s.copyWith(weightKg: const Value(100), done: true));
+      }
+      await store.addDrop((await store.watchSets(e.id).first).first);
+      final drop = (await store.watchSets(e.id).first)[1];
+      await store.updateSet(drop.copyWith(weightKg: const Value(80), reps: const Value(8), done: true));
+      expect(await store.templateChanged(w1), isFalse);
+      await store.updateTemplate(w1);
+      expect((await routines.plan(r)).single.sets.length, 3);
+      await store.finish(w1);
+      final w2 = await store.start(routineId: r);
+      expect(await sets(w2), [(100.0, 5, false), (100.0, 5, false), (100.0, 5, false)]);
+    });
+
+    test('updateTemplate keeps null planned weights; weight alone is no change', () async {
+      final r = await routines.create('Push');
+      final a = await routines.add(r, lib('A'));
+      await routines.saveSets(a, [
+        (weightKg: null, reps: 5, durationSec: null),
+        (weightKg: 70, reps: 5, durationSec: null),
+      ]);
+      final w = await store.start(routineId: r);
+      final e = (await store.watchExercises(w).first).single;
+      final s1 = (await store.watchSets(e.id).first).first;
+      await store.updateSet(s1.copyWith(weightKg: const Value(90)));
+      expect(await store.templateChanged(w), isFalse);
+      await store.addSet(e.id);
+      await store.updateTemplate(w);
+      expect([for (final s in (await routines.plan(r)).single.sets) s.weightKg], [null, 70, 70]);
     });
 
     test('deleting a routine soft-deletes its exercises and sets', () async {

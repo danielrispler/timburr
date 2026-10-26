@@ -85,7 +85,7 @@ class WorkoutStore {
             'backup_exercise_id': p.backupExerciseId,
             'position': i,
           });
-          final last = await lastTime(p.exerciseId, excludeWorkoutId: id);
+          final last = (await lastTime(p.exerciseId, excludeWorkoutId: id)).where((s) => !s.isDrop).toList();
           for (final (n, s) in p.sets.indexed) {
             await _db.save(_db.workoutSets, {
               'id': _uuid.v4(),
@@ -120,10 +120,24 @@ class WorkoutStore {
         ].any((d) => d);
   }
 
-  /// Overwrites the workout's routine with what was done in this workout.
+  /// Overwrites the workout's routine with what was done in this workout. A planned set without weight
+  /// (matched by exercise position and set number) stays without weight, so it keeps taking last session's.
   Future<void> updateTemplate(String workoutId) async {
     final routineId = (await watchWorkout(workoutId).first).routineId;
-    if (routineId != null) await RoutineStore(_db).replacePlan(routineId, await _plan(workoutId));
+    if (routineId == null) return;
+    final routines = RoutineStore(_db), old = await routines.plan(routineId);
+    bool unpinned(int i, int j) => i < old.length && j < old[i].sets.length && old[i].sets[j].weightKg == null;
+    await routines.replacePlan(routineId, [
+      for (final (i, e) in (await _plan(workoutId)).indexed)
+        (
+          exerciseId: e.exerciseId,
+          backupExerciseId: e.backupExerciseId,
+          sets: [
+            for (final (j, s) in e.sets.indexed)
+              unpinned(i, j) ? (weightKg: null, reps: s.reps, durationSec: s.durationSec) : s
+          ],
+        ),
+    ]);
   }
 
   Future<bool> _routineLive(String id) async =>
@@ -135,7 +149,8 @@ class WorkoutStore {
             exerciseId: e.exerciseId,
             backupExerciseId: e.backupExerciseId,
             sets: [
-              for (final s in await watchSets(e.id).first) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
+              for (final s in await watchSets(e.id).first)
+                if (!s.isDrop) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
             ],
           ),
       ];
