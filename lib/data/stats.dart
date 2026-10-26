@@ -25,7 +25,8 @@ typedef Week = ({DateTime monday, int workouts, double volume});
 List<Week> weekly(List<Workout> workouts, Map<String, double> volumes, DateTime now, {int weeks = 12}) {
   final first = mondayOf(now).subtract(Duration(days: 7 * (weeks - 1)));
   final out = [
-    for (var i = 0; i < weeks; i++) (monday: DateTime(first.year, first.month, first.day + 7 * i), workouts: 0, volume: 0.0)
+    for (var i = 0; i < weeks; i++)
+      (monday: DateTime(first.year, first.month, first.day + 7 * i), workouts: 0, volume: 0.0),
   ];
   for (final w in workouts) {
     final i = (dayOf(mondayOf(w.startedAt)).difference(first).inHours / 24 / 7).round();
@@ -71,13 +72,14 @@ Map<DateTime, int> dayCounts(Iterable<DateTime> sessions) {
 typedef Totals = ({int workouts, double volume, Duration time, double cardioKm, int sets});
 
 Totals totals(List<Workout> workouts, Iterable<LoggedSet> rows, List<CardioData> cardio) => (
-      workouts: workouts.length,
-      volume: sessionVolume(rows.map((r) => r.set)),
-      time: workouts.fold(Duration.zero, (t, w) => t + (w.finishedAt ?? w.startedAt).difference(w.startedAt)) +
-          Duration(seconds: cardio.fold(0, (t, c) => t + c.durationSec)),
-      cardioKm: cardio.fold(0.0, (t, c) => t + (c.distanceKm ?? 0)),
-      sets: rows.where((r) => r.set.done).length,
-    );
+  workouts: workouts.length,
+  volume: sessionVolume(rows.map((r) => r.set)),
+  time:
+      workouts.fold(Duration.zero, (t, w) => t + (w.finishedAt ?? w.startedAt).difference(w.startedAt)) +
+      Duration(seconds: cardio.fold(0, (t, c) => t + c.durationSec)),
+  cardioKm: cardio.fold(0.0, (t, c) => t + (c.distanceKm ?? 0)),
+  sets: rows.where((r) => r.set.done).length,
+);
 
 /// Exercise ids by done-set count, most first, at most [n].
 List<(String, int)> topExercises(Iterable<LoggedSet> rows, {int n = 5}) {
@@ -85,7 +87,10 @@ List<(String, int)> topExercises(Iterable<LoggedSet> rows, {int n = 5}) {
   for (final r in rows.where((r) => r.set.done)) {
     count[r.exerciseId] = (count[r.exerciseId] ?? 0) + 1;
   }
-  return (count.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(n).map((e) => (e.key, e.value)).toList();
+  return (count.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+      .take(n)
+      .map((e) => (e.key, e.value))
+      .toList();
 }
 
 typedef RoutineStat = ({String routineId, int count, DateTime last, Duration avg});
@@ -103,7 +108,7 @@ List<RoutineStat> routineStats(List<Workout> workouts) {
         count: ws.length,
         last: ws.map((w) => w.startedAt).reduce((a, b) => a.isAfter(b) ? a : b),
         avg: ws.fold(Duration.zero, (t, w) => t + (w.finishedAt ?? w.startedAt).difference(w.startedAt)) ~/ ws.length,
-      )
+      ),
   ];
   return out..sort((a, b) => b.last.compareTo(a.last));
 }
@@ -123,7 +128,10 @@ typedef PrEvent = ({String exerciseId, Workout workout, double value});
 
 /// Each session whose best set beats every earlier session on the load type's main metric.
 /// The first session of an exercise is a baseline, not a PR.
-List<PrEvent> prEvents(Map<String, List<(Workout, List<WorkoutSet>)>> sessions, String Function(String exerciseId) loadType) {
+List<PrEvent> prEvents(
+  Map<String, List<(Workout, List<WorkoutSet>)>> sessions,
+  String Function(String exerciseId) loadType,
+) {
   final out = <PrEvent>[];
   for (final MapEntry(key: id, value: list) in sessions.entries) {
     final metric = setMetrics(loadType(id)).values.first;
@@ -146,7 +154,7 @@ double? e1rmTrend(List<(Workout, List<WorkoutSet>)> sessions, DateTime now, {int
   double? best(bool Function(DateTime) inWindow) {
     final sets = [
       for (final (w, sets) in sessions)
-        if (inWindow(w.startedAt)) ...sets.where((s) => s.done)
+        if (inWindow(w.startedAt)) ...sets.where((s) => s.done),
     ];
     return sets.isEmpty ? null : sets.map((s) => e1rm(s.weightKg ?? 0, s.reps ?? 0)).reduce((a, b) => a > b ? a : b);
   }
@@ -174,4 +182,18 @@ const splitCycle = ['Lower A', 'Upper A', 'Lower B', 'Upper B'];
   }
   final id = routineNames.entries.where((e) => key(e.value) == key(next)).firstOrNull?.key;
   return (name: next, routineId: id);
+}
+
+/// Library ids of the main lifts, in the order Records lists them: squat, bench press, pull-up, shoulder press, deadlift.
+// shortcut: hard-coded library ids, so a swap to another variant drops it to the alphabetical rest; move to a setting if that happens.
+const mainLifts = ['0043', '0025', '0652', '1456', '0032'];
+
+/// Main lifts first in [mainLifts] order, then the rest by name.
+int byMainLiftThenName((String? libraryId, String name) a, (String? libraryId, String name) b) {
+  int rank(String? id) => switch (mainLifts.indexOf(id ?? '')) {
+    -1 => mainLifts.length,
+    final i => i,
+  };
+  final r = rank(a.$1).compareTo(rank(b.$1));
+  return r != 0 ? r : a.$2.compareTo(b.$2);
 }
