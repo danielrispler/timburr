@@ -296,25 +296,42 @@ class _GroupCardState extends State<_GroupCard> {
             children: [
               if (widget.isSuperset) ...[_Tag(i), const SizedBox(width: 8)],
               ExerciseThumb(entry),
-              const SizedBox(width: 16),
-              Expanded(child: Text(entry?.name ?? '…', style: const TextStyle(fontSize: 18))),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entry?.name ?? '…',
+                  style: const TextStyle(fontSize: 17),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               if (e.backupExerciseId != null)
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
                   tooltip: 'Swap to backup exercise',
                   onPressed: () => store.swap(e),
                 ),
-              IconButton(
-                icon: const Icon(Icons.arrow_upward),
-                tooltip: 'Move up',
-                onPressed: e.id == widget.firstId ? null : () => store.move(e.id, -1),
+              // One menu instead of three icons, so long names keep their width.
+              PopupMenuButton<VoidCallback>(
+                tooltip: 'Exercise options',
+                onSelected: (action) => action(),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    enabled: e.id != widget.firstId,
+                    value: () => store.move(e.id, -1),
+                    child: const ListTile(leading: Icon(Icons.arrow_upward), title: Text('Move up')),
+                  ),
+                  PopupMenuItem(
+                    enabled: e.id != widget.lastId,
+                    value: () => store.move(e.id, 1),
+                    child: const ListTile(leading: Icon(Icons.arrow_downward), title: Text('Move down')),
+                  ),
+                  PopupMenuItem(
+                    value: () => _confirmRemove(e),
+                    child: const ListTile(leading: Icon(Icons.close), title: Text('Remove')),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_downward),
-                tooltip: 'Move down',
-                onPressed: e.id == widget.lastId ? null : () => store.move(e.id, 1),
-              ),
-              IconButton(icon: const Icon(Icons.close), tooltip: 'Remove exercise', onPressed: () => _confirmRemove(e)),
             ],
           ),
           ExerciseNotes(
