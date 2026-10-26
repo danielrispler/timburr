@@ -65,14 +65,14 @@ void main() {
     test('previous sessions with no done sets count as first time', () {
       expect(prBadges('weighted', [[s(kg: 50, reps: 5, done: false)]], [s(kg: 100, reps: 5)]), isEmpty);
     });
-    test('bodyweight: more reps or more added weight', () {
+    test('bodyweight: more reps, not more added weight', () {
       final p = [
         [s(kg: 0, reps: 10)]
       ];
       final x = s(kg: 0, reps: 11);
       expect(prBadges('bodyweight', p, [s(kg: 0, reps: 10), x]), {x.id});
       final y = s(kg: 5, reps: 3);
-      expect(prBadges('bodyweight', p, [y]), {y.id});
+      expect(prBadges('bodyweight', p, [y]), isEmpty);
     });
     test('timed: longer duration', () {
       final x = s(sec: 61);
@@ -93,6 +93,9 @@ void main() {
     expect([for (final (_, v) in series.e1rm) v.round()], [117, 120]);
     expect(series.volume, [(a, 610.0), (c, 900.0)]);
     expect(chartSeries([]).volume, isEmpty);
+    final d = chartSeries([(a, [s(kg: 100, reps: 5), s(kg: 60, reps: 30, drop: true)])]);
+    expect(d.e1rm.single.$2.round(), 117);
+    expect(d.volume.single.$2, 2300); // volume keeps drop sets, as in records
   });
 
   test('drop sets count toward volume but never set a per-set record or badge', () {
