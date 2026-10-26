@@ -10,12 +10,15 @@ class FakeRemote implements Remote {
   final tables = <String, Map<String, Map<String, Object?>>>{};
   final upserts = <String>[];
   final failOn = <String>{};
+  final rejectIds = <String>{};
+  Future<void> Function(String table)? onPage;
   Future<void> Function(String table)? onUpsert;
   var _clock = DateTime.utc(2026, 10, 24);
 
   @override
   Future<void> upsert(String table, List<Map<String, Object?>> rows) async {
     if (failOn.contains(table)) throw Exception('boom $table');
+    if (rows.any((r) => rejectIds.contains(r['id']))) throw Exception('rejected');
     upserts.add(table);
     await onUpsert?.call(table);
     final t = tables.putIfAbsent(table, () => {});
@@ -30,13 +33,21 @@ class FakeRemote implements Remote {
   }
 
   @override
-  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, int offset, int limit) async {
+  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, String? afterId, int limit) async {
     if (failOn.contains(table)) throw Exception('boom $table');
+    await onPage?.call(table);
+    int cmp(Map<String, Object?> r) {
+      final c = DateTime.parse(r['server_updated_at'] as String).compareTo(since!);
+      return c != 0 ? c : (afterId == null ? 0 : (r['id'] as String).compareTo(afterId));
+    }
     final rows = (tables[table]?.values ?? const <Map<String, Object?>>[])
-        .where((r) => since == null || !DateTime.parse(r['server_updated_at'] as String).isBefore(since))
+        .where((r) => since == null || (afterId == null ? cmp(r) >= 0 : cmp(r) > 0))
         .toList()
-      ..sort((a, b) => (a['server_updated_at'] as String).compareTo(b['server_updated_at'] as String));
-    return rows.skip(offset).take(limit).toList();
+      ..sort((a, b) {
+        final c = (a['server_updated_at'] as String).compareTo(b['server_updated_at'] as String);
+        return c != 0 ? c : (a['id'] as String).compareTo(b['id'] as String);
+      });
+    return rows.take(limit).toList();
   }
 }
 
@@ -149,13 +160,46 @@ void main() {
     remote.failOn.add('workouts');
     await engine.sync();
     expect(engine.error.value, contains('boom workouts'));
-    expect(remote.upserts, ['exercises']);
-    expect(await engine.pending(), 5);
+    expect(remote.upserts, ['exercises', 'workout_exercises', 'sets', 'sets']); // children reach the fake; Postgres FKs would reject them
+    expect(await engine.pending(), 1);
 
     remote.failOn.clear();
     await engine.sync();
     expect(engine.error.value, isNull);
     expect(await engine.pending(), 0);
+  });
+
+  test('a rejected row is skipped and reported; the rest sync', () async {
+    await seedWorkout(db);
+    remote.rejectIds.add('s1');
+    await engine.sync();
+    expect(remote.tables['sets']!.keys, unorderedEquals(['s0', 's2']));
+    expect(remote.tables['workout_exercises']!.keys, ['we1']);
+    expect(engine.error.value, allOf(contains('sets'), contains('s1')));
+    expect(await engine.pending(), 1);
+
+    remote.rejectIds.clear();
+    await engine.sync();
+    expect(engine.error.value, isNull);
+    expect(await engine.pending(), 0);
+  });
+
+  test('a row updated between pull pages is still fetched', () async {
+    for (final id in ['r1', 'r2', 'r3', 'r4']) {
+      await db.save(db.routines, {'id': id, 'name': id});
+    }
+    await engine.sync();
+    final other = newDb();
+    var pages = 0;
+    remote.onPage = (table) async {
+      // After page one, r1 moves to the end of the order; OFFSET paging would then skip r3.
+      if (table == 'routines' && ++pages == 2) {
+        await remote.upsert('routines', [{...remote.tables['routines']!['r1']!, 'name': 'r1b', 'updated_at': DateTime.now().toUtc().toIso8601String()}]);
+      }
+    };
+    await SyncEngine(other, remote, pageSize: 2).sync();
+    final names = (await other.select(other.routines).get()).map((r) => r.name);
+    expect(names, unorderedEquals(['r1b', 'r2', 'r3', 'r4']));
   });
 
   test('two offline devices configuring the same library exercise end with one row', () async {
