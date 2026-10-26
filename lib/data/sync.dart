@@ -65,8 +65,8 @@ class SyncEngine {
     } catch (e, st) {
       error.value = '$e';
       await errors?.record('sync', e, st);
-      return;
     }
+    // Even after a failed sync, so a sync that always fails still reports itself.
     try {
       await errors?.push(_remote);
     } catch (_) {} // stays local; the next sync retries

@@ -8,6 +8,7 @@ import 'package:timburr/data/sync.dart';
 class ErrorsRemote implements Remote {
   final pushed = <List<Map<String, Object?>>>[];
   bool fail = false;
+  bool failPull = false; // breaks sync but leaves the app_errors upsert working
 
   @override
   Future<void> upsert(String table, List<Map<String, Object?>> rows) async {
@@ -17,7 +18,7 @@ class ErrorsRemote implements Remote {
 
   @override
   Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, int offset, int limit) async {
-    if (fail) throw Exception('offline');
+    if (fail || failPull) throw Exception('offline');
     return [];
   }
 }
@@ -85,6 +86,12 @@ void main() {
     final row = remote.pushed.single.single;
     expect((row['source'], row['message']), ('sync', 'Exception: offline'));
     expect(row['stack'], isNotNull);
+  });
+
+  test('a sync that keeps failing still pushes its own error', () async {
+    remote.failPull = true;
+    await SyncEngine(db, remote, errors: log).sync();
+    expect(remote.pushed.single.single['source'], 'sync');
   });
 
   test('a failed push keeps the errors for the next one', () async {
