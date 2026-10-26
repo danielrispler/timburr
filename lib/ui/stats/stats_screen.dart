@@ -8,11 +8,11 @@ import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart';
 import '../cardio/cardio_stats.dart';
+import '../core/series_chart.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_detail.dart';
 import '../routines/start.dart';
 
-String fmtNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 String fmtVolume(double kg) => '${kg.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+$)'), (_) => ',')} kg';
 String fmtDuration(Duration d) => d.inHours > 0 ? '${d.inHours}h ${d.inMinutes % 60}m' : '${d.inMinutes}m';
 String fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
@@ -356,6 +356,7 @@ class _Routines extends StatelessWidget {
   }
 }
 
+
 class _Line extends StatelessWidget {
   const _Line(this.title, this.points);
 
@@ -363,55 +364,9 @@ class _Line extends StatelessWidget {
   final Series points;
 
   @override
-  Widget build(BuildContext context) {
-    if (points.length < 2) return const ListTile(title: Text('Needs 2 sessions for a chart'));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          AspectRatio(
-            aspectRatio: 2,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(drawVerticalLine: false),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(),
-                  rightTitles: const AxisTitles(),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 24,
-                      interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
-                      getTitlesWidget: (x, meta) {
-                        final i = x.toInt();
-                        if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
-                        final d = points[i].$1;
-                        return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    // shortcut: x is session index, not time, so gaps between sessions are evenly spaced.
-                    spots: [for (final (i, (_, v)) in points.indexed) FlSpot(i.toDouble(), v)],
-                    color: Theme.of(context).colorScheme.primary,
-                    barWidth: 3,
-                    dotData: FlDotData(show: points.length < 30),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => points.length < 2
+      ? const ListTile(title: Text('Needs 2 sessions for a chart'))
+      : SeriesChart(title, points, leftReserved: 44);
 }
 
 void _openExercise(BuildContext context, Stores stores, CatalogEntry? e) {

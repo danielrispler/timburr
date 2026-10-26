@@ -7,6 +7,7 @@ import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
+import '../routines/start.dart' show pickDateTime;
 import '../exercises/exercise_picker.dart';
 import '../exercises/exercise_image.dart';
 import 'exercise_notes.dart';
@@ -36,16 +37,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _editDate(Workout w) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: w.startedAt,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (d == null || !mounted) return;
-    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(w.startedAt));
-    if (t == null) return;
-    await widget.store.setStartedAt(widget.workoutId, DateTime(d.year, d.month, d.day, t.hour, t.minute));
+    final at = await pickDateTime(context, w.startedAt);
+    if (at != null) await widget.store.setStartedAt(widget.workoutId, at);
   }
 
   Future<void> _addExercise() async {

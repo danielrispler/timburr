@@ -40,8 +40,8 @@ class RoutineStore {
   /// Copies routine [id] with its exercises and planned sets as "`name` copy". Returns the new id.
   Future<String> duplicate(String id) => _db.transaction(() async {
         final r = await (_db.select(_db.routines)..where((r) => r.id.equals(id))).getSingle();
-        final copy = await create('${r.name} copy');
-        await update(copy, name: '${r.name} copy', stickyNote: r.stickyNote);
+        final copy = _uuid.v4();
+        await _db.save(_db.routines, {'id': copy, 'name': '${r.name} copy', 'sticky_note': r.stickyNote});
         await _writePlan(copy, await plan(id));
         return copy;
       });

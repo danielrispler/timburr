@@ -53,6 +53,9 @@ Set<String> prBadges(String loadType, Iterable<Iterable<WorkoutSet>> previous, I
   return {current.firstWhere((s) => isWorkingSet(s) && rank(s) == best).id};
 }
 
+/// Whole numbers without decimals, otherwise one decimal.
+String fmtNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
 typedef Series = List<(DateTime, double)>;
 
 /// Per-session chart points from [sessions] (date, sets), working sets only (volume keeps drop sets).

@@ -1,8 +1,8 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../core/series_chart.dart';
 import '../core/theme.dart';
 
 String _time(int sec) {
@@ -74,7 +74,7 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                       }),
                     ),
                   ]),
-                  if (pace.length >= 2) _PaceChart(pace),
+                  if (pace.length >= 2) SeriesChart('Pace (min/km)', pace, leftLabel: formatPace),
                   TileGroup(title: 'Sessions', children: [
                   if (shown.isEmpty) const ListTile(title: Text('No sessions')),
                   for (final s in shown)
@@ -96,57 +96,3 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
       );
 }
 
-class _PaceChart extends StatelessWidget {
-  const _PaceChart(this.points);
-
-  final List<(DateTime, double)> points;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Pace (min/km)', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          AspectRatio(
-            aspectRatio: 2,
-            child: LineChart(LineChartData(
-              gridData: const FlGridData(drawVerticalLine: false),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 24,
-                    interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
-                    getTitlesWidget: (x, meta) {
-                      final i = x.toInt();
-                      if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
-                      final d = points[i].$1;
-                      return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    getTitlesWidget: (y, meta) => SideTitleWidget(meta: meta, child: Text(formatPace(y))),
-                  ),
-                ),
-              ),
-              lineBarsData: [
-                LineChartBarData(
-                  // shortcut: x is session index, not time, so gaps between sessions are evenly spaced.
-                  spots: [for (final (i, (_, v)) in points.indexed) FlSpot(i.toDouble(), v)],
-                  color: Theme.of(context).colorScheme.primary,
-                  barWidth: 3,
-                  dotData: FlDotData(show: points.length < 30),
-                ),
-              ],
-            )),
-          ),
-        ]),
-      );
-}
