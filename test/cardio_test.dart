@@ -56,6 +56,18 @@ void main() {
       expect(v(rpe: '1'), isEmpty);
       expect(v(rpe: '10'), isEmpty);
     });
+    test('server column limits are rejected', () {
+      expect(v(incline: '1000').keys, ['incline']); // numeric(4, 1)
+      expect(v(incline: '999.96').keys, ['incline']); // rounds to 1000.0
+      expect(v(km: '10000').keys, ['distance']); // numeric(7, 3)
+      expect(v(km: '0.0004').keys, ['distance']); // rounds to 0
+      expect(v(hr: '2147483648').keys, ['avgHr']); // int4
+      expect(v(dur: '35791395:00').keys, ['duration']); // 2147483700 s > int4
+    });
+    test('valid edge values pass', () {
+      expect(v(incline: '999.9', km: '9999.999', hr: '2147483647', dur: '35791394:07'), isEmpty);
+      expect(v(km: '0.0005'), isEmpty);
+    });
     test('decimal comma is accepted', () => expect(v(km: '5,2'), isEmpty));
   });
 

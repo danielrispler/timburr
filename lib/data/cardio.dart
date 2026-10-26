@@ -37,6 +37,14 @@ int? parseDuration(String text) {
 /// Parses a number, accepting a decimal comma.
 double? parseNum(String text) => double.tryParse(text.trim().replaceAll(',', '.'));
 
+/// Server column caps (supabase/migrations): Postgres int, numeric(7, 3) distance, numeric(4, 1) incline.
+const int4Max = 2147483647;
+const distanceBelow = 10000;
+const inclineBelow = 1000;
+
+/// [v] rounded to [places] decimals, as a numeric(p, places) column stores it.
+double roundTo(num v, int places) => double.parse(v.toStringAsFixed(places));
+
 /// Field name to error message; empty when the form can be saved. Optional fields may be blank.
 Map<String, String> validateCardio({
   required String? type,
@@ -49,11 +57,17 @@ Map<String, String> validateCardio({
   final e = <String, String>{};
   if (!cardioTypes.contains(type)) e['type'] = 'Pick a type';
   final km = parseNum(distance);
-  if (hasDistance(type) && (km == null || km <= 0)) e['distance'] = 'Enter a distance above 0';
+  if (hasDistance(type) && (km == null || roundTo(km, 3) <= 0 || roundTo(km, 3) >= distanceBelow)) {
+    e['distance'] = 'Enter a distance above 0 and below $distanceBelow';
+  }
   final sec = parseDuration(duration);
-  if (sec == null || sec <= 0) e['duration'] = 'Enter a duration like 27:30';
-  if (avgHr.trim().isNotEmpty && ((int.tryParse(avgHr.trim()) ?? 0) <= 0)) e['avgHr'] = 'Enter a whole number above 0';
-  if (incline.trim().isNotEmpty && ((parseNum(incline) ?? -1) < 0)) e['incline'] = 'Enter 0 or more';
+  if (sec == null || sec <= 0 || sec > int4Max) e['duration'] = 'Enter a duration like 27:30';
+  final hr = int.tryParse(avgHr.trim());
+  if (avgHr.trim().isNotEmpty && (hr == null || hr <= 0 || hr > int4Max)) e['avgHr'] = 'Enter a whole number above 0';
+  final inc = parseNum(incline);
+  if (incline.trim().isNotEmpty && (inc == null || inc < 0 || roundTo(inc, 1) >= inclineBelow)) {
+    e['incline'] = 'Enter 0 to 999.9';
+  }
   if (rpe.trim().isNotEmpty) {
     final r = int.tryParse(rpe.trim());
     if (r == null || r < 1 || r > 10) e['rpe'] = 'Enter 1 to 10';

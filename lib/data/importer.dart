@@ -60,7 +60,6 @@ List<String> validateImport(Object? data) {
     if (v is! String || DateTime.tryParse(v) == null) err('$path.date', 'must be a date like 2026-10-24T16:13');
   }
 
-  const int4Max = 2147483647; // Postgres int column cap
   void whole(Map m, String path, String key, {int min = 0, int max = int4Max, bool required = false}) {
     final v = m[key];
     if (v == null && !required) return;
@@ -138,11 +137,11 @@ List<String> validateImport(Object? data) {
     fields(c, p, {'type', 'date', 'distanceKm', 'durationSec', 'avgHr', 'inclinePct', 'rpe', 'notes'});
     if (!cardioTypes.contains(c['type'])) err('$p.type', 'must be one of ${cardioTypes.join(', ')}');
     date(c, p);
-    number(c, p, 'distanceKm', positive: true, below: 10000, required: hasDistance(c['type']));
+    number(c, p, 'distanceKm', positive: true, below: distanceBelow, required: hasDistance(c['type']));
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
-    if (c['inclinePct'] != null && (c['inclinePct'] is! num || (c['inclinePct'] as num).abs() >= 1000)) {
-      err('$p.inclinePct', 'must be a number between -1000 and 1000');
+    if (c['inclinePct'] != null && (c['inclinePct'] is! num || roundTo((c['inclinePct'] as num).abs(), 1) >= inclineBelow)) {
+      err('$p.inclinePct', 'must be a number between -$inclineBelow and $inclineBelow');
     }
     whole(c, p, 'rpe', min: 1, max: 10);
     str(c, p, 'notes');
