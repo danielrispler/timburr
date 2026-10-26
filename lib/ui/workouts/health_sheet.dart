@@ -87,21 +87,30 @@ class _HealthSheetState extends State<_HealthSheet> {
     }
   }
 
-  Future<void> _save() async {
-    int? v(TextEditingController c, int max) {
-      final n = int.tryParse(c.text.trim());
-      return n == null || n < 0 || n > max ? null : n;
-    }
+  static const _max = {'hr': 300, 'cal': 20000, 'min': 24 * 60, 'effort': 10, 'load': 1000};
+  final _fieldErrors = <TextEditingController, String>{};
 
-    final effort = v(_effort, 10);
+  Future<void> _save() async {
+    final keys = {_hr: 'hr', _cal: 'cal', _min: 'min', _effort: 'effort', _load: 'load'};
+    final parsed = <TextEditingController, int?>{};
+    _fieldErrors.clear();
+    for (final MapEntry(key: c, value: k) in keys.entries) {
+      final t = c.text.trim();
+      final n = int.tryParse(t), max = _max[k]!;
+      if (t.isNotEmpty && (n == null || n < 0 || n > max)) _fieldErrors[c] = 'Enter a whole number 0-$max';
+      parsed[c] = t.isEmpty ? null : n;
+    }
+    if (_fieldErrors.isNotEmpty) return setState(() {}); // a typo must never erase a stored value
+
+    final effort = parsed[_effort], hr = parsed[_hr];
     // Minutes typed, so seconds from a screenshot are kept when the minutes still match.
-    final min = v(_min, 24 * 60), was = _sec;
+    final min = parsed[_min], was = _sec;
     await widget.store.setHealth(widget.workout.id, (
-      avgHr: v(_hr, 300) == 0 ? null : v(_hr, 300),
-      calories: v(_cal, 20000),
+      avgHr: hr == 0 ? null : hr,
+      calories: parsed[_cal],
       activeSec: min == null ? null : (was != null && (was / 60).round() == min ? was : min * 60),
       effort: effort == 0 ? null : effort,
-      cardioLoad: v(_load, 1000),
+      cardioLoad: parsed[_load],
     ));
     if (mounted) Navigator.pop(context);
   }
@@ -111,7 +120,12 @@ class _HealthSheetState extends State<_HealthSheet> {
     child: TextField(
       controller: c,
       keyboardType: TextInputType.number,
-      decoration: InputDecoration(labelText: label, suffixText: suffix, border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        errorText: _fieldErrors[c],
+        border: const OutlineInputBorder(),
+      ),
     ),
   );
 
