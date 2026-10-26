@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/records.dart';
 import 'package:timburr/data/stats.dart';
 
 var _n = 0;
@@ -12,8 +13,8 @@ Workout w(DateTime at, {String? routine, int minutes = 60}) => Workout(
   startedAt: at,
   finishedAt: at.add(Duration(minutes: minutes)),
 );
-WorkoutSet s(double kg, int reps, {bool done = true}) => WorkoutSet(
-  isDrop: false,
+WorkoutSet s(double kg, int reps, {bool done = true, bool drop = false}) => WorkoutSet(
+  isDrop: drop,
   id: 's${_n++}',
   createdAt: DateTime(2026),
   updatedAt: DateTime(2026),
@@ -80,6 +81,22 @@ void main() {
     expect([for (final p in prs) p.workout.id], [w3.id]);
     expect(topExercises(all), [('bench', 3)]);
     expect(volumeByWorkout(all)[w2.id], 500);
+  });
+
+  test('drop sets are never PRs and never count in e1rm trends', () {
+    final w1 = w(DateTime(2026, 6, 1)), w2 = w(DateTime(2026, 10, 1));
+    final all = [...rows(w1, 'bench', [s(100, 1)]), ...rows(w2, 'bench', [s(100, 1), s(60, 30, drop: true)])];
+    expect(prEvents(sessionsByExercise(all), (_) => 'weighted'), isEmpty);
+    expect(e1rmTrend(sessionsByExercise(all)['bench']!, DateTime(2026, 10, 25)), 0);
+  });
+
+  test('prBadges and prEvents agree on the same history', () {
+    final w1 = w(DateTime(2026, 1, 1)), w2 = w(DateTime(2026, 1, 8));
+    // more added weight, same reps: not a PR on bodyweight's main metric (reps)
+    final cur = s(5, 10);
+    final all = [...rows(w1, 'pullup', [s(0, 10)]), ...rows(w2, 'pullup', [cur])];
+    expect(prEvents(sessionsByExercise(all), (_) => 'bodyweight'), isEmpty);
+    expect(prBadges('bodyweight', [[s(0, 10)]], [cur]), isEmpty);
   });
 
   test('e1rm trend compares the last window with the one before', () {

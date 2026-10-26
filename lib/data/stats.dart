@@ -134,12 +134,10 @@ List<PrEvent> prEvents(
 ) {
   final out = <PrEvent>[];
   for (final MapEntry(key: id, value: list) in sessions.entries) {
-    final metric = setMetrics(loadType(id)).values.first;
     double? best;
     for (final (w, sets) in list) {
-      final done = sets.where((s) => s.done);
-      if (done.isEmpty) continue;
-      final v = done.map(metric).reduce((a, b) => a > b ? a : b);
+      final v = bestMain(loadType(id), sets);
+      if (v == null) continue;
       if (best != null && v > best) out.add((exerciseId: id, workout: w, value: v));
       if (best == null || v > best) best = v;
     }
@@ -154,7 +152,7 @@ double? e1rmTrend(List<(Workout, List<WorkoutSet>)> sessions, DateTime now, {int
   double? best(bool Function(DateTime) inWindow) {
     final sets = [
       for (final (w, sets) in sessions)
-        if (inWindow(w.startedAt)) ...sets.where((s) => s.done),
+        if (inWindow(w.startedAt)) ...sets.where(isWorkingSet),
     ];
     return sets.isEmpty ? null : sets.map((s) => e1rm(s.weightKg ?? 0, s.reps ?? 0)).reduce((a, b) => a > b ? a : b);
   }
