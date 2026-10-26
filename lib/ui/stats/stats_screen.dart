@@ -204,7 +204,7 @@ class _Heatmap extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
     final empty = Theme.of(context).colorScheme.surfaceContainerHigh;
-    final first = mondayOf(now).subtract(const Duration(days: 7 * 25));
+    final first = mondayOf(now, weeksAgo: 25);
     final today = dayOf(now);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

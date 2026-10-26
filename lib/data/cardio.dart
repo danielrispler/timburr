@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'db.dart';
 import 'records.dart' show Series;
+import 'stats.dart' show mondayOf;
 
 const distanceTypes = ['run', 'walk', 'treadmill', 'bike', 'swim'];
 const sportTypes = ['padel', 'tennis', 'soccer', 'basketball'];
@@ -171,8 +172,7 @@ Series paceSeries(List<CardioData> sessions) => [
 List<(DateTime, int, int)> weeklyTotals(List<CardioData> sessions) {
   final weeks = <DateTime, (int, int)>{};
   for (final s in sessions) {
-    final d = s.startedAt;
-    final monday = DateTime(d.year, d.month, d.day - (d.weekday - 1));
+    final monday = mondayOf(s.startedAt);
     final (sec, n) = weeks[monday] ?? (0, 0);
     weeks[monday] = (sec + s.durationSec, n + 1);
   }
