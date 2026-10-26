@@ -28,4 +28,18 @@ void main() {
     timer.dispose();
     await db.close();
   });
+
+  test('countdown starts and last rest is saved even when scheduling throws', () async {
+    final db = AppDb(NativeDatabase.memory());
+    final catalog = Catalog(db, () async => '[]');
+    final timer = RestTimer(catalog, schedule: (_) async => throw Exception('no alarm'), cancel: () async {});
+    final id = await catalog.saveCustom(name: 'Sled', loadType: 'weighted', muscles: [], equipment: 'other');
+
+    await timer.offer(id);
+    await timer.start(60);
+    expect(timer.remaining!.inSeconds, inInclusiveRange(59, 60));
+    expect((await catalog.byId(id))!.lastRestSec, 60);
+    timer.dispose();
+    await db.close();
+  });
 }

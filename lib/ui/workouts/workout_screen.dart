@@ -2,6 +2,7 @@ import 'dart:math' show min;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
+import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
@@ -56,6 +57,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           body: ExercisePicker(
             catalog: widget.catalog,
             onSelected: (e) => Navigator.of(context).pop([e]),
+            onCreate: () => Navigator.of(context)
+                .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
             onAdd: (list) => Navigator.of(context).pop(list),
           ),
         ),
