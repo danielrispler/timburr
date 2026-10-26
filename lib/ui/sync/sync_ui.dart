@@ -8,9 +8,6 @@ import '../../data/sync.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
 import '../backup/backup_screen.dart';
-import '../cardio/cardio_stats.dart';
-import '../exercises/exercise_detail.dart';
-import '../exercises/exercise_picker.dart';
 import '../import/import_screen.dart';
 
 /// Header status: `synced`, `N pending`, `offline` or `error` (tap for the message).
@@ -58,7 +55,7 @@ class _SyncBadgeState extends State<SyncBadge> {
       );
 }
 
-/// More page (gear in the header): Exercises, Import, Cardio stats, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
+/// More page (gear in the header): Import, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key, required this.engine, required this.catalog, required this.cardio, required this.workouts});
 
@@ -89,32 +86,11 @@ class MoreScreen extends StatelessWidget {
         children: [
           TileGroup(title: 'Data', children: [
           ListTile(
-            leading: const IconTile(Icons.fitness_center),
-            title: const Text('Exercises'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Scaffold(
-                appBar: AppBar(title: const Text('Exercises')),
-                body: ExercisePicker(
-                  catalog: catalog,
-                  onSelected: (e) => Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (_) => ExerciseDetail(catalog: catalog, entry: e, workouts: workouts))),
-                  onCreate: () => Navigator.of(context)
-                      .push(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: catalog))),
-                ),
-              ),
-            )),
-          ),
-          ListTile(
             leading: const IconTile(Icons.file_download),
             title: const Text('Import'),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ImportScreen(importer: Importer(catalog.db, catalog), catalog: catalog),
             )),
-          ),
-          ListTile(
-            leading: const IconTile(Icons.directions_run),
-            title: const Text('Cardio stats'),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CardioStatsScreen(cardio: cardio))),
           ),
           ListTile(
             leading: const IconTile(Icons.backup),

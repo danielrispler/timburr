@@ -438,6 +438,7 @@ class _ExercisesState extends State<_Exercises> {
             final r = mainLiftRank(d.exercises[a]?.libraryId).compareTo(mainLiftRank(d.exercises[b]?.libraryId));
             return r != 0 ? r : sessions[b]!.last.$1.startedAt.compareTo(sessions[a]!.last.$1.startedAt);
           });
+    bool isPopular(String id) => mainLiftRank(d.exercises[id]?.libraryId) < mainLifts.length;
     return _page([
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -446,42 +447,47 @@ class _ExercisesState extends State<_Exercises> {
           onChanged: (q) => setState(() => _query = q.trim()),
         ),
       ),
-      TileGroup(
-        children: [
-          if (ids.isEmpty) const ListTile(title: Text('No exercises logged')),
-          for (final id in ids)
-            () {
-              final e = d.exercises[id];
-              final loadType = e?.loadType ?? 'weighted';
-              final best = records(loadType, [for (final (_, sets) in sessions[id]!) sets]);
-              final trend = loadType == 'weighted' ? e1rmTrend(sessions[id]!, now) : null;
-              return ListTile(
-                title: Text(e?.name ?? '…'),
-                subtitle: Text('${sessions[id]!.length} sessions · last ${fmtDate(sessions[id]!.last.$1.startedAt)}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(switch (loadType) {
-                      'timed' => '${fmtNum(best['duration'] ?? 0)} s',
-                      'bodyweight' => '${fmtNum(best['reps'] ?? 0)} reps',
-                      _ => '${fmtNum(best['e1rm'] ?? 0)} kg',
-                    }),
-                    if (trend != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        trend >= 0 ? Icons.trending_up : Icons.trending_down,
-                        color: trend >= 0 ? Colors.green : Theme.of(context).colorScheme.error,
-                        size: 18,
-                      ),
-                      Text('${(trend * 100).round()}%'),
-                    ],
-                  ],
-                ),
-                onTap: () => _openExercise(context, widget.stores, e),
-              );
-            }(),
-        ],
-      ),
+      if (ids.isEmpty) const TileGroup(children: [ListTile(title: Text('No exercises logged'))]),
+      for (final (title, group) in [('Popular', ids.where(isPopular)), ('All', ids.where((id) => !isPopular(id)))])
+        if (group.isNotEmpty)
+          TileGroup(
+            title: title,
+            children: [
+              for (final id in group)
+                () {
+                  final e = d.exercises[id];
+                  final loadType = e?.loadType ?? 'weighted';
+                  final best = records(loadType, [for (final (_, sets) in sessions[id]!) sets]);
+                  final trend = loadType == 'weighted' ? e1rmTrend(sessions[id]!, now) : null;
+                  return ListTile(
+                    title: Text(e?.name ?? '…'),
+                    subtitle: Text(
+                      '${sessions[id]!.length} sessions · last ${fmtDate(sessions[id]!.last.$1.startedAt)}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(switch (loadType) {
+                          'timed' => '${fmtNum(best['duration'] ?? 0)} s',
+                          'bodyweight' => '${fmtNum(best['reps'] ?? 0)} reps',
+                          _ => '${fmtNum(best['e1rm'] ?? 0)} kg',
+                        }),
+                        if (trend != null) ...[
+                          const SizedBox(width: 8),
+                          Icon(
+                            trend >= 0 ? Icons.trending_up : Icons.trending_down,
+                            color: trend >= 0 ? Colors.green : Theme.of(context).colorScheme.error,
+                            size: 18,
+                          ),
+                          Text('${(trend * 100).round()}%'),
+                        ],
+                      ],
+                    ),
+                    onTap: () => _openExercise(context, widget.stores, e),
+                  );
+                }(),
+            ],
+          ),
     ]);
   }
 }
@@ -503,6 +509,7 @@ class _Records extends StatelessWidget {
     ];
     (String?, String) key(String id) => (d.exercises[id]?.libraryId, d.exercises[id]?.name ?? '');
     final ids = sessions.keys.toList()..sort((a, b) => byMainLiftThenName(key(a), key(b)));
+    bool isPopular(String id) => mainLiftRank(d.exercises[id]?.libraryId) < mainLifts.length;
     return _page([
       TileGroup(
         title: 'PRs in the last 30 days',
@@ -522,25 +529,31 @@ class _Records extends StatelessWidget {
             ),
         ],
       ),
-      TileGroup(
-        title: 'All-time bests',
-        children: [
-          if (ids.isEmpty) const ListTile(title: Text('No records yet')),
-          for (final id in ids)
-            ListTile(
-              title: Text(d.exercises[id]?.name ?? '…'),
-              subtitle: Text(
-                [
-                  for (final MapEntry(:key, :value) in records(loadType(id), [
-                    for (final (_, s) in sessions[id]!) s,
-                  ]).entries)
-                    '$key ${fmtNum(value)}',
-                ].join(' · '),
-              ),
-              onTap: () => _openExercise(context, stores, d.exercises[id]),
-            ),
-        ],
-      ),
+      if (ids.isEmpty)
+        const TileGroup(
+          title: 'All-time bests',
+          children: [ListTile(title: Text('No records yet'))],
+        ),
+      for (final (title, group) in [('Popular', ids.where(isPopular)), ('All', ids.where((id) => !isPopular(id)))])
+        if (group.isNotEmpty)
+          TileGroup(
+            title: title,
+            children: [
+              for (final id in group)
+                ListTile(
+                  title: Text(d.exercises[id]?.name ?? '…'),
+                  subtitle: Text(
+                    [
+                      for (final MapEntry(:key, :value) in records(loadType(id), [
+                        for (final (_, s) in sessions[id]!) s,
+                      ]).entries)
+                        '$key ${fmtNum(value)}',
+                    ].join(' · '),
+                  ),
+                  onTap: () => _openExercise(context, stores, d.exercises[id]),
+                ),
+            ],
+          ),
       TileGroup(
         children: [
           ListTile(
