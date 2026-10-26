@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -119,5 +119,29 @@ describe('003_drops_backups_health.sql', () => {
     await as(me, () => rows(`insert into sets (id, workout_exercise_id, set_number, reps, is_drop) values (gen_random_uuid(), $1, 1, 5, true)`, [we.id]))
     expect(await as(me, () => rows('select is_drop from sets where workout_exercise_id = $1', [we.id]))).toEqual([{ is_drop: true }])
     await expect(as(me, () => rows(`update workouts set effort = 11 where id = $1`, [w.id]))).rejects.toThrow(/effort/)
+  })
+})
+
+describe('004_app_errors.sql', () => {
+  it('upserts own errors, hides them from others and anon', async () => {
+    const id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    const push = (count: number) =>
+      as(me, () =>
+        rows(
+          `insert into app_errors (id, source, error_type, message, stack, context, count, first_at, last_at, app_version, os)
+           values ($1, 'sync', 'StateError', 'Bad state: boom', '#0 main', '{"table": "sets"}', $2, now(), now(), '0.1.0+1', 'android 15')
+           on conflict (id) do update set count = excluded.count, last_at = excluded.last_at`,
+          [id, count],
+        ),
+      )
+    await push(1)
+    await push(3)
+    expect(await as(me, () => rows('select user_id, count, context from app_errors'))).toEqual([{ user_id: me, count: 3, context: { table: 'sets' } }])
+    expect(await as(other, () => rows('select * from app_errors'))).toHaveLength(0)
+    await expect(push(0)).rejects.toThrow(/count/)
+
+    await db.exec('set role anon')
+    await expect(rows('select * from app_errors')).rejects.toThrow(/permission denied/)
+    await db.exec('reset role')
   })
 })

@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../data/backup.dart';
 import '../../data/db.dart';
 import '../../data/sync.dart';
+import '../../data/error_log.dart';
 import '../core/theme.dart';
 
 /// More > Backup / Restore. Export opens the share sheet; restore asks replace or merge, then confirms.
@@ -31,7 +32,8 @@ class _BackupScreenState extends State<BackupScreen> {
     setState(() => _busy = true);
     try {
       await job();
-    } catch (e) {
+    } catch (e, st) {
+      reportError('backup', e, st);
       if (mounted) _say(e is FormatException ? 'Restore failed: ${e.message}' : 'Failed: $e');
     } finally {
       if (mounted) setState(() => _busy = false);

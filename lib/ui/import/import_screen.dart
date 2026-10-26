@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
+import '../../data/error_log.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_picker.dart';
 
@@ -79,7 +80,8 @@ class _ImportScreenState extends State<ImportScreen> {
             '${(_data!['cardio'] as List?)?.length ?? 0} cardio'),
       ));
       nav.pop();
-    } catch (e) {
+    } catch (e, st) {
+      reportError('import', e, st, {'workouts': (_data!['workouts'] as List?)?.length, 'cardio': (_data!['cardio'] as List?)?.length});
       setState(() => _errors = ['Nothing saved: $e']);
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -116,12 +116,31 @@ class SyncCursors extends Table {
   Set<Column> get primaryKey => {syncedTable};
 }
 
-@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, SyncCursors])
+/// Local only: caught errors waiting to be pushed to `app_errors`. See error_log.dart.
+@DataClassName('ErrorEntry')
+class ErrorLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get source => text()();
+  TextColumn get errorType => text()();
+  TextColumn get message => text()();
+  TextColumn get stack => text().nullable()();
+  TextColumn get context => text().withDefault(const Constant('{}'))(); // JSON object
+  IntColumn get occurrences => integer().withDefault(const Constant(1))(); // `count` remotely
+  DateTimeColumn get firstAt => dateTime()();
+  DateTimeColumn get lastAt => dateTime()();
+  TextColumn get appVersion => text().nullable()();
+  TextColumn get os => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, SyncCursors, ErrorLogs])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -138,6 +157,7 @@ class AppDb extends _$AppDb {
               await m.addColumn(workouts, c);
             }
           }
+          if (from < 4) await m.createTable(errorLogs);
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );

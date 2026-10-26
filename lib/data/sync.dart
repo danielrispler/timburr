@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'db.dart';
+import 'error_log.dart';
 
 /// The narrow slice of Supabase sync needs. Rows are JSON maps keyed by SQL column name.
 abstract class Remote {
@@ -16,12 +17,13 @@ abstract class Remote {
 
 /// Push then pull, one table at a time in dependency order. See docs/design.md, Sync.
 class SyncEngine {
-  SyncEngine(this._db, this._remote, {Future<bool> Function()? isOnline, this.pageSize = 1000, this.chunkSize = 500})
+  SyncEngine(this._db, this._remote, {Future<bool> Function()? isOnline, this.errors, this.pageSize = 1000, this.chunkSize = 500})
       : _isOnline = isOnline ?? (() async => true);
 
   final AppDb _db;
   final Remote _remote;
   final Future<bool> Function() _isOnline;
+  final ErrorLog? errors;
   final int pageSize, chunkSize;
 
   final error = ValueNotifier<String?>(null);
@@ -60,9 +62,14 @@ class SyncEngine {
         await _pull(t);
       }
       error.value = null;
-    } catch (e) {
+    } catch (e, st) {
       error.value = '$e';
+      await errors?.record('sync', e, st);
+      return;
     }
+    try {
+      await errors?.push(_remote);
+    } catch (_) {} // stays local; the next sync retries
   }
 
   Future<void> _push(TableInfo table) async {
