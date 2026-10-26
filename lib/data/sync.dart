@@ -11,8 +11,9 @@ import 'error_log.dart';
 abstract class Remote {
   Future<void> upsert(String table, List<Map<String, Object?>> rows);
 
-  /// Rows with `server_updated_at >= since` (all when null), ordered by `server_updated_at`.
-  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, int offset, int limit);
+  /// Up to [limit] rows ordered by (`server_updated_at`, `id`): all when [since] is null,
+  /// `server_updated_at >= since` when [afterId] is null, else strictly after the key (since, afterId).
+  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, String? afterId, int limit);
 }
 
 /// Push then pull, one table at a time in dependency order. See docs/design.md, Sync.
@@ -51,9 +52,12 @@ class SyncEngine {
         .whenComplete(() => _running = null);
   }
 
+  final _rejected = <String>[];
+
   Future<void> _once() async {
     offline.value = !await _isOnline();
     if (offline.value) return;
+    _rejected.clear();
     try {
       for (final t in _tables) {
         await _push(t);
@@ -61,7 +65,7 @@ class SyncEngine {
       for (final t in _tables) {
         await _pull(t);
       }
-      error.value = null;
+      error.value = _rejected.isEmpty ? null : 'Rejected: ${_rejected.join(', ')}';
     } catch (e, st) {
       error.value = '$e';
       await errors?.record('sync', e, st);
@@ -77,9 +81,24 @@ class SyncEngine {
     final rows = await _db.customSelect('select * from $name where dirty = 1', readsFrom: {table}).get();
     for (var i = 0; i < rows.length; i += chunkSize) {
       final chunk = rows.sublist(i, (i + chunkSize).clamp(0, rows.length));
-      await _remote.upsert(name, [for (final r in chunk) _toRemote(table, r.data)]);
+      var pushed = chunk;
+      try {
+        await _remote.upsert(name, [for (final r in chunk) _toRemote(table, r.data)]);
+      } catch (_) {
+        // One bad row must not block the rest: retry singly, skip and report what still fails. It stays dirty.
+        pushed = [];
+        for (final r in chunk) {
+          try {
+            await _remote.upsert(name, [_toRemote(table, r.data)]);
+            pushed.add(r);
+          } catch (e, st) {
+            _rejected.add('$name ${r.data['id']}');
+            await errors?.record('sync', e, st, {'table': name, 'id': r.data['id']});
+          }
+        }
+      }
       // Only rows untouched since we read them; an edit made mid-push keeps dirty = 1.
-      for (final r in chunk) {
+      for (final r in pushed) {
         await _db.customUpdate('update $name set dirty = 0 where id = ? and updated_at = ?',
             variables: [Variable(r.data['id']), Variable(r.data['updated_at'])], updates: {table});
       }
@@ -90,9 +109,11 @@ class SyncEngine {
     final name = table.actualTableName;
     final cursorRow = await (_db.select(_db.syncCursors)..where((c) => c.syncedTable.equals(name))).getSingleOrNull();
     final since = cursorRow?.cursor?.subtract(overlap);
-    DateTime? newest = cursorRow?.cursor;
-    for (var offset = 0;; offset += pageSize) {
-      final page = await _remote.changedSince(name, since, offset, pageSize);
+    DateTime? newest = cursorRow?.cursor, key = since;
+    String? afterId;
+    while (true) {
+      // Keyset, not OFFSET: a row bumped mid-pull moves behind the key and is still reached.
+      final page = await _remote.changedSince(name, key, afterId, pageSize);
       await _db.transaction(() async {
         for (final r in page) {
           await _apply(table, r);
@@ -101,6 +122,8 @@ class SyncEngine {
         }
       });
       if (page.length < pageSize) break;
+      key = DateTime.parse(page.last['server_updated_at'] as String);
+      afterId = page.last['id'] as String;
     }
     if (newest != null) {
       await _db.into(_db.syncCursors).insertOnConflictUpdate(SyncCursorsCompanion.insert(syncedTable: name, cursor: Value(newest)));
