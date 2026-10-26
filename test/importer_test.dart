@@ -127,6 +127,22 @@ void main() {
     expect((c.type, c.distanceKm, c.durationSec, c.avgHr, c.rpe), ('run', 5.0, 1680, 158, 7));
   });
 
+  test('Z dates import as local time and sort among local rows', () async {
+    final utc = DateTime.utc(2026, 10, 24, 16, 13);
+    final d = _doc();
+    d['workouts'][0]['date'] = '2026-10-24T16:13:00Z';
+    d['cardio'][0]['date'] = '2026-10-24T16:13:00Z';
+    await importer.save(d);
+    // A local-time row one minute later, written the way the app writes it.
+    final later = _doc()..remove('cardio');
+    later['workouts'][0]['date'] = utc.add(const Duration(minutes: 1)).toLocal().toIso8601String();
+    await importer.save(later);
+    final ws = await (db.select(db.workouts)..orderBy([(w) => OrderingTerm(expression: w.startedAt)])).get();
+    expect([for (final w in ws) (w.startedAt.isUtc, w.startedAt)], [(false, utc.toLocal()), (false, utc.add(const Duration(minutes: 1)).toLocal())]);
+    final c = await db.select(db.cardio).getSingle();
+    expect((c.startedAt.isUtc, c.startedAt), (false, utc.toLocal()));
+  });
+
   test('an unknown name can be mapped to an existing exercise', () async {
     await importer.save(_doc(), mapping: {'plank': (await catalog.list(query: 'pushups')).single});
     expect(await catalog.list(query: 'plank'), isEmpty);

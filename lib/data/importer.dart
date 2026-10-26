@@ -222,7 +222,7 @@ class Importer {
       }
 
       for (final w in data['workouts'] as List? ?? const []) {
-        final id = _uuid.v4(), at = DateTime.parse(w['date'] as String);
+        final id = _uuid.v4(), at = DateTime.parse(w['date'] as String).toLocal(); // stored local, as sync does, so text sort works
         final routineName = (w['routine'] as String?)?.trim() ?? '';
         final Plan? plan = saveRoutines && routineName.isNotEmpty && !routines.containsKey(routineName.toLowerCase()) ? [] : null;
         if (plan != null) routines[routineName.toLowerCase()] = await RoutineStore(_db).create(routineName);
@@ -269,7 +269,7 @@ class Importer {
         await _db.save(_db.cardio, {
           'id': _uuid.v4(),
           'type': c['type'],
-          'started_at': DateTime.parse(c['date'] as String),
+          'started_at': DateTime.parse(c['date'] as String).toLocal(),
           'distance_km': (c['distanceKm'] as num?)?.toDouble(),
           'duration_sec': c['durationSec'],
           'avg_hr': c['avgHr'],
