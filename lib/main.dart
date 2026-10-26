@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'data/cardio.dart';
 import 'data/catalog.dart';
 import 'data/db.dart';
+import 'data/error_log.dart';
 import 'data/supabase_remote.dart';
 import 'data/sync.dart';
 import 'data/routines.dart';
@@ -19,12 +22,23 @@ import 'ui/sync/sync_ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = AppDb();
+  final info = await PackageInfo.fromPlatform();
+  final errors = errorLog = ErrorLog(db, appVersion: '${info.version}+${info.buildNumber}${kReleaseMode ? '' : ' debug'}');
+  FlutterError.onError = (d) {
+    FlutterError.presentError(d);
+    errors.record('flutter', d.exception, d.stack, {'library': d.library, 'context': d.context?.toString(), 'silent': d.silent});
+  };
+  PlatformDispatcher.instance.onError = (e, st) {
+    errors.record('platform', e, st);
+    return true;
+  };
   SyncEngine? sync;
   if (supabaseUrl.isNotEmpty) {
     await Supabase.initialize(url: supabaseUrl, publishableKey: supabasePublishableKey);
     sync = SyncEngine(
       db,
       SupabaseRemote(Supabase.instance.client),
+      errors: errors,
       isOnline: () async => !(await Connectivity().checkConnectivity()).contains(ConnectivityResult.none),
     );
   }

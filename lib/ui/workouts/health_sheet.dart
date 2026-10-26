@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../data/db.dart';
 import '../../data/health.dart';
 import '../../data/workouts.dart';
+import '../../data/error_log.dart';
 
 /// Optional Google Health stats for a strength workout: read from a screenshot, checked, then saved.
 Future<void> editHealth(BuildContext context, WorkoutStore store, Workout w) => showModalBottomSheet<void>(
@@ -77,7 +78,8 @@ class _HealthSheetState extends State<_HealthSheet> {
       _error = [h.avgHr, h.calories, h.activeSec, h.effort, h.cardioLoad].every((v) => v == null)
           ? 'No Google Health numbers found in that image'
           : null;
-    } catch (e) {
+    } catch (e, st) {
+      reportError('health_ocr', e, st);
       _error = 'Could not read that image: $e';
     } finally {
       await recognizer.close();
