@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'catalog.dart';
+import 'error_log.dart';
 
 const restChoices = [60, 90, 120, 150];
 
@@ -46,10 +47,14 @@ class RestTimer extends ChangeNotifier {
 
   Future<void> start(int sec) async {
     final id = _exerciseId;
-    await cancel();
-    await schedule(Duration(seconds: sec));
     _endsAt = DateTime.now().add(Duration(seconds: sec));
     if (id != null) await _catalog.setLastRest(id, sec);
+    try {
+      await cancel();
+      await schedule(Duration(seconds: sec));
+    } catch (e, st) {
+      reportError('rest_timer.schedule', e, st); // the in-app countdown still runs
+    }
     _tick?.cancel();
     _tick = Timer.periodic(const Duration(seconds: 1), (t) {
       if (remaining == null) t.cancel();

@@ -17,7 +17,7 @@ class ErrorsRemote implements Remote {
   }
 
   @override
-  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, int offset, int limit) async {
+  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, String? afterId, int limit) async {
     if (fail || failPull) throw Exception('offline');
     return [];
   }

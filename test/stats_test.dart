@@ -35,6 +35,17 @@ void main() {
     expect(repMax(120, 5), closeTo(102.86, 0.01));
   });
 
+  test('week starts stay Monday 00:00 across both DST changes (run with TZ=Asia/Jerusalem)', () {
+    final now = DateTime(2026, 11, 4); // weeks span Mar 27 and Oct 25 2026 Jerusalem DST changes
+    final weeks = weekly([w(DateTime(2026, 3, 30, 0, 30)), w(DateTime(2026, 10, 26, 0, 30))], {}, now, weeks: 40);
+    for (final wk in weeks) {
+      expect((wk.monday.weekday, wk.monday.hour), (DateTime.monday, 0), reason: '${wk.monday}');
+    }
+    expect(weeks.where((wk) => wk.workouts == 1).map((wk) => wk.monday),
+        [DateTime(2026, 3, 30), DateTime(2026, 10, 26)]);
+    expect(mondayOf(now, weeksAgo: 25), DateTime(2026, 5, 11));
+  });
+
   test('weekly buckets the last weeks with empty ones and volumes', () {
     final now = DateTime(2026, 10, 25); // Sunday
     final a = w(DateTime(2026, 10, 20)), b = w(DateTime(2026, 10, 13)), old = w(DateTime(2026, 1, 1));
