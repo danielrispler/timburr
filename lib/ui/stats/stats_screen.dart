@@ -433,7 +433,11 @@ class _ExercisesState extends State<_Exercises> {
     final sessions = sessionsByExercise(d.rows);
     final ids =
         sessions.keys.where((id) => (d.exercises[id]?.name ?? '').toLowerCase().contains(_query.toLowerCase())).toList()
-          ..sort((a, b) => sessions[b]!.last.$1.startedAt.compareTo(sessions[a]!.last.$1.startedAt));
+          // Main lifts on top, then the most recently done.
+          ..sort((a, b) {
+            final r = mainLiftRank(d.exercises[a]?.libraryId).compareTo(mainLiftRank(d.exercises[b]?.libraryId));
+            return r != 0 ? r : sessions[b]!.last.$1.startedAt.compareTo(sessions[a]!.last.$1.startedAt);
+          });
     return _page([
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

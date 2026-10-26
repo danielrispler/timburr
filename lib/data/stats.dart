@@ -188,12 +188,14 @@ const splitCycle = ['Lower A', 'Upper A', 'Lower B', 'Upper B'];
 // shortcut: hard-coded library ids, so a swap to another variant drops it to the alphabetical rest; move to a setting if that happens.
 const mainLifts = ['0043', '0025', '0652', '1456', '0032'];
 
+/// Position of [libraryId] in [mainLifts]; every other exercise ranks after them all.
+int mainLiftRank(String? libraryId) => switch (mainLifts.indexOf(libraryId ?? '')) {
+  -1 => mainLifts.length,
+  final i => i,
+};
+
 /// Main lifts first in [mainLifts] order, then the rest by name.
 int byMainLiftThenName((String? libraryId, String name) a, (String? libraryId, String name) b) {
-  int rank(String? id) => switch (mainLifts.indexOf(id ?? '')) {
-    -1 => mainLifts.length,
-    final i => i,
-  };
-  final r = rank(a.$1).compareTo(rank(b.$1));
+  final r = mainLiftRank(a.$1).compareTo(mainLiftRank(b.$1));
   return r != 0 ? r : a.$2.compareTo(b.$2);
 }
