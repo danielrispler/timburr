@@ -4,26 +4,29 @@ import 'package:timburr/data/stats.dart';
 
 var _n = 0;
 Workout w(DateTime at, {String? routine, int minutes = 60}) => Workout(
-    id: 'w${_n++}',
-    createdAt: at,
-    updatedAt: at,
-    dirty: 0,
-    routineId: routine,
-    startedAt: at,
-    finishedAt: at.add(Duration(minutes: minutes)));
+  id: 'w${_n++}',
+  createdAt: at,
+  updatedAt: at,
+  dirty: 0,
+  routineId: routine,
+  startedAt: at,
+  finishedAt: at.add(Duration(minutes: minutes)),
+);
 WorkoutSet s(double kg, int reps, {bool done = true}) => WorkoutSet(
-    isDrop: false,
-    id: 's${_n++}',
-    createdAt: DateTime(2026),
-    updatedAt: DateTime(2026),
-    dirty: 0,
-    workoutExerciseId: 'we',
-    setNumber: 1,
-    weightKg: kg,
-    reps: reps,
-    done: done);
-List<LoggedSet> rows(Workout wk, String ex, List<WorkoutSet> sets) =>
-    [for (final x in sets) (workout: wk, exerciseId: ex, set: x)];
+  isDrop: false,
+  id: 's${_n++}',
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
+  dirty: 0,
+  workoutExerciseId: 'we',
+  setNumber: 1,
+  weightKg: kg,
+  reps: reps,
+  done: done,
+);
+List<LoggedSet> rows(Workout wk, String ex, List<WorkoutSet> sets) => [
+  for (final x in sets) (workout: wk, exerciseId: ex, set: x),
+];
 
 void main() {
   test('repMax inverts Epley', () {
@@ -42,14 +45,25 @@ void main() {
 
   test('week streaks: current survives an empty current week; longest finds the best run', () {
     final now = DateTime(2026, 10, 22);
-    final days = [DateTime(2026, 10, 13), DateTime(2026, 10, 6), DateTime(2026, 9, 1), DateTime(2026, 8, 25), DateTime(2026, 8, 18), DateTime(2026, 8, 11)];
+    final days = [
+      DateTime(2026, 10, 13),
+      DateTime(2026, 10, 6),
+      DateTime(2026, 9, 1),
+      DateTime(2026, 8, 25),
+      DateTime(2026, 8, 18),
+      DateTime(2026, 8, 11),
+    ];
     expect(weekStreaks(days, now), (current: 2, longest: 4));
     expect(weekStreaks([DateTime(2026, 9, 1)], now).current, 0);
     expect(weekStreaks([], now), (current: 0, longest: 0));
   });
 
   test('routine stats count, last date and average duration', () {
-    final r = routineStats([w(DateTime(2026, 1, 1), routine: 'A', minutes: 40), w(DateTime(2026, 2, 1), routine: 'A', minutes: 60), w(DateTime(2026, 3, 1))]);
+    final r = routineStats([
+      w(DateTime(2026, 1, 1), routine: 'A', minutes: 40),
+      w(DateTime(2026, 2, 1), routine: 'A', minutes: 60),
+      w(DateTime(2026, 3, 1)),
+    ]);
     expect(r.single.count, 2);
     expect(r.single.last, DateTime(2026, 2, 1));
     expect(r.single.avg, const Duration(minutes: 50));
@@ -57,7 +71,11 @@ void main() {
 
   test('PR events skip the baseline and only count strict improvements', () {
     final w1 = w(DateTime(2026, 1, 1)), w2 = w(DateTime(2026, 1, 8)), w3 = w(DateTime(2026, 1, 15));
-    final all = [...rows(w1, 'bench', [s(100, 5)]), ...rows(w2, 'bench', [s(100, 5), s(200, 5, done: false)]), ...rows(w3, 'bench', [s(105, 5)])];
+    final all = [
+      ...rows(w1, 'bench', [s(100, 5)]),
+      ...rows(w2, 'bench', [s(100, 5), s(200, 5, done: false)]),
+      ...rows(w3, 'bench', [s(105, 5)]),
+    ];
     final prs = prEvents(sessionsByExercise(all), (_) => 'weighted');
     expect([for (final p in prs) p.workout.id], [w3.id]);
     expect(topExercises(all), [('bench', 3)]);
@@ -66,7 +84,10 @@ void main() {
 
   test('e1rm trend compares the last window with the one before', () {
     final now = DateTime(2026, 10, 25);
-    final sessions = [(w(DateTime(2026, 6, 1)), [s(100, 1)]), (w(DateTime(2026, 10, 1)), [s(110, 1)])];
+    final sessions = [
+      (w(DateTime(2026, 6, 1)), [s(100, 1)]),
+      (w(DateTime(2026, 10, 1)), [s(110, 1)]),
+    ];
     expect(e1rmTrend(sessions, now), closeTo(0.10, 1e-9));
     expect(e1rmTrend(sessions.sublist(1), now), isNull);
   });
@@ -74,9 +95,35 @@ void main() {
   test('nextInCycle follows the newest cycle workout, wraps and finds the routine', () {
     final names = {'a': 'lower a', 'b': 'UpperB', 'x': 'Arms', 'u': 'Upper A'};
     expect(nextInCycle([], names), (name: 'Lower A', routineId: 'a'));
-    expect(nextInCycle([w(DateTime(2026, 10, 3), routine: 'x'), w(DateTime(2026, 10, 2), routine: 'a')], names),
-        (name: 'Upper A', routineId: 'u'));
+    expect(nextInCycle([w(DateTime(2026, 10, 3), routine: 'x'), w(DateTime(2026, 10, 2), routine: 'a')], names), (
+      name: 'Upper A',
+      routineId: 'u',
+    ));
     expect(nextInCycle([w(DateTime(2026, 10, 2), routine: 'u')], names), (name: 'Lower B', routineId: null));
     expect(nextInCycle([w(DateTime(2026, 10, 2), routine: 'b')], names).name, 'Lower A');
+  });
+
+  test('records order: squat, bench, pull-up, shoulder press, deadlift, then the rest by name', () {
+    final list = [
+      ('x', 'Zottman Curl'),
+      ('0032', 'Barbell Deadlift'),
+      (null, 'Arnold Press'),
+      ('0043', 'Barbell Full Squat'),
+      ('1456', 'Military Press'),
+      ('0652', 'Pull-Up'),
+      ('0025', 'Barbell Bench Press'),
+    ]..sort(byMainLiftThenName);
+    expect(
+      [for (final e in list) e.$2],
+      [
+        'Barbell Full Squat',
+        'Barbell Bench Press',
+        'Pull-Up',
+        'Military Press',
+        'Barbell Deadlift',
+        'Arnold Press',
+        'Zottman Curl',
+      ],
+    );
   });
 }
