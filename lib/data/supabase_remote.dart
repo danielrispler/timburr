@@ -17,10 +17,12 @@ class SupabaseRemote implements Remote {
       .upsert([for (final r in rows) {...r, 'user_id': r['user_id'] ?? userId ?? _client.auth.currentUser!.id}]);
 
   @override
-  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, int offset, int limit) {
+  Future<List<Map<String, Object?>>> changedSince(String table, DateTime? since, String? afterId, int limit) {
     var q = _client.from(table).select();
     if (userId != null) q = q.eq('user_id', userId!);
-    if (since != null) q = q.gte('server_updated_at', since.toUtc().toIso8601String());
-    return q.order('server_updated_at', ascending: true).order('id', ascending: true).range(offset, offset + limit - 1);
+    final s = since?.toUtc().toIso8601String();
+    if (s != null && afterId == null) q = q.gte('server_updated_at', s);
+    if (s != null && afterId != null) q = q.or('server_updated_at.gt.$s,and(server_updated_at.eq.$s,id.gt.$afterId)');
+    return q.order('server_updated_at', ascending: true).order('id', ascending: true).limit(limit);
   }
 }
