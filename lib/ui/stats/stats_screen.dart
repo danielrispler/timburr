@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -6,11 +8,11 @@ import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart';
 import '../cardio/cardio_stats.dart';
+import '../core/series_chart.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_detail.dart';
 import '../routines/start.dart';
 
-String fmtNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 String fmtVolume(double kg) => '${kg.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+$)'), (_) => ',')} kg';
 String fmtDuration(Duration d) => d.inHours > 0 ? '${d.inHours}h ${d.inMinutes % 60}m' : '${d.inMinutes}m';
 String fmtDate(DateTime d) => '${d.day}/${d.month}/${d.year}';
@@ -24,65 +26,73 @@ typedef StatsData = ({
   Map<String, CatalogEntry> exercises,
 });
 
-/// Rebuilds [builder] whenever history, sets, cardio or routines change.
-class StatsBuilder extends StatefulWidget {
+final _feeds = Expando<Stream<StatsData>>();
+
+/// The one stats stream for [s]: shared by Home and Stats, so each change runs one set of full-history queries.
+/// Late listeners get the latest value at once. Exercise entries reload whenever the exercises table changes.
+Stream<StatsData> watchStats(Stores s) => _feeds[s.workouts] ??= _statsFeed(s);
+
+Stream<StatsData> _statsFeed(Stores s) {
+  StatsData? last;
+  final out = StreamController<StatsData>.broadcast();
+  List<Workout>? workouts;
+  List<LoggedSet>? rows;
+  List<CardioData>? cardio;
+  List<Routine>? routines;
+  var entries = <String, CatalogEntry>{};
+  var gen = 0;
+  Future<void> emit({bool exercisesChanged = false}) async {
+    if ((workouts, rows, cardio, routines) case (final w?, final r?, final c?, final ro?)) {
+      final my = ++gen;
+      final fresh = exercisesChanged ? <String, CatalogEntry>{} : {...entries};
+      for (final id in r.map((x) => x.exerciseId).toSet().difference(fresh.keys.toSet())) {
+        fresh[id] = await s.catalog.byId(id) ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
+      }
+      if (my != gen) return; // a newer change superseded this one
+      entries = fresh;
+      out.add(last = (workouts: w, rows: r, cardio: c, routines: ro, exercises: entries));
+    }
+  }
+
+  final db = s.catalog.db;
+  // Subscribed once for the app's life; the stores live as long as the app.
+  s.workouts.watchHistory().listen((v) {
+    workouts = v;
+    emit();
+  });
+  s.workouts.watchLogged().listen((v) {
+    rows = v;
+    emit();
+  });
+  s.cardio.watchAll().listen((v) {
+    cardio = v;
+    emit();
+  });
+  s.routines.watchRoutines().listen((v) {
+    routines = v;
+    emit();
+  });
+  db.select(db.exercises).watch().listen((_) => emit(exercisesChanged: true));
+  return Stream.multi((c) {
+    if (last case final l?) c.add(l);
+    final sub = out.stream.listen(c.add);
+    c.onCancel = sub.cancel;
+  });
+}
+
+/// Rebuilds [builder] whenever history, sets, cardio, routines or exercises change.
+class StatsBuilder extends StatelessWidget {
   const StatsBuilder({super.key, required this.stores, required this.builder});
 
   final Stores stores;
   final Widget Function(BuildContext, StatsData) builder;
 
   @override
-  State<StatsBuilder> createState() => _StatsBuilderState();
-}
-
-class _StatsBuilderState extends State<StatsBuilder> {
-  late final s = widget.stores;
-  late final _history = s.workouts.watchHistory(), _logged = s.workouts.watchLogged();
-  late final _cardio = s.cardio.watchAll(), _routines = s.routines.watchRoutines();
-  final _entries = <String, CatalogEntry>{};
-  final _loading = <String>{};
-
-  /// Loads catalog entries for exercise ids not seen yet, then rebuilds.
-  void _resolve(Iterable<String> ids) {
-    final missing = ids.toSet().difference(_entries.keys.toSet()).difference(_loading);
-    if (missing.isEmpty) return;
-    _loading.addAll(missing);
-    Future.wait([for (final id in missing) s.catalog.byId(id).then((e) => (id, e))]).then((found) {
-      if (!mounted) return;
-      setState(() {
-        for (final (id, e) in found) {
-          _entries[id] = e ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
-        }
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => StreamBuilder<List<Workout>>(
-    stream: _history,
-    builder: (context, w) => StreamBuilder<List<LoggedSet>>(
-      stream: _logged,
-      builder: (context, l) => StreamBuilder<List<CardioData>>(
-        stream: _cardio,
-        builder: (context, c) => StreamBuilder<List<Routine>>(
-          stream: _routines,
-          builder: (context, r) {
-            if (w.data == null || l.data == null || c.data == null || r.data == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            _resolve(l.data!.map((x) => x.exerciseId));
-            return widget.builder(context, (
-              workouts: w.data!,
-              rows: l.data!,
-              cardio: c.data!,
-              routines: r.data!,
-              exercises: _entries,
-            ));
-          },
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => StreamBuilder<StatsData>(
+        stream: watchStats(stores),
+        builder: (context, d) =>
+            d.data == null ? const Center(child: CircularProgressIndicator()) : builder(context, d.data!),
+      );
 }
 
 /// Stats tab: Me, Workouts, Exercises and Records.
@@ -204,7 +214,7 @@ class _Heatmap extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
     final empty = Theme.of(context).colorScheme.surfaceContainerHigh;
-    final first = mondayOf(now).subtract(const Duration(days: 7 * 25));
+    final first = mondayOf(now, weeksAgo: 25);
     final today = dayOf(now);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -347,6 +357,7 @@ class _Routines extends StatelessWidget {
   }
 }
 
+
 class _Line extends StatelessWidget {
   const _Line(this.title, this.points);
 
@@ -354,55 +365,9 @@ class _Line extends StatelessWidget {
   final Series points;
 
   @override
-  Widget build(BuildContext context) {
-    if (points.length < 2) return const ListTile(title: Text('Needs 2 sessions for a chart'));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          AspectRatio(
-            aspectRatio: 2,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(drawVerticalLine: false),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(),
-                  rightTitles: const AxisTitles(),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 24,
-                      interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
-                      getTitlesWidget: (x, meta) {
-                        final i = x.toInt();
-                        if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
-                        final d = points[i].$1;
-                        return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    // shortcut: x is session index, not time, so gaps between sessions are evenly spaced.
-                    spots: [for (final (i, (_, v)) in points.indexed) FlSpot(i.toDouble(), v)],
-                    color: Theme.of(context).colorScheme.primary,
-                    barWidth: 3,
-                    dotData: FlDotData(show: points.length < 30),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => points.length < 2
+      ? const ListTile(title: Text('Needs 2 sessions for a chart'))
+      : SeriesChart(title, points, leftReserved: 44);
 }
 
 void _openExercise(BuildContext context, Stores stores, CatalogEntry? e) {

@@ -7,6 +7,16 @@ double e1rm(double weightKg, int reps) => reps <= 0 ? 0 : (reps == 1 ? weightKg 
 double sessionVolume(Iterable<WorkoutSet> sets) =>
     sets.where((s) => s.done).fold(0, (t, s) => t + (s.weightKg ?? 0) * (s.reps ?? 0));
 
+/// A set that counts for PRs, e1RM and charts: done and not a drop set.
+bool isWorkingSet(WorkoutSet s) => s.done && !s.isDrop;
+
+/// Best main-metric value over [sets]' working sets, or null when there is none.
+/// The one PR rule: a set is a PR when it beats the previous best of this.
+double? bestMain(String loadType, Iterable<WorkoutSet> sets) {
+  final metric = setMetrics(loadType).values.first;
+  return sets.where(isWorkingSet).map(metric).fold<double?>(null, (a, b) => a == null || b > a ? b : a);
+}
+
 /// Per-set metrics by load type; the first is the one that ranks a session's best set.
 Map<String, double Function(WorkoutSet)> setMetrics(String loadType) => switch (loadType) {
       'timed' => {'duration': (s) => (s.durationSec ?? 0).toDouble()},
@@ -19,7 +29,7 @@ Map<String, double Function(WorkoutSet)> setMetrics(String loadType) => switch (
 Map<String, double> records(String loadType, Iterable<Iterable<WorkoutSet>> sessions) {
   final out = <String, double>{};
   for (final sets in sessions) {
-    for (final s in sets.where((s) => s.done && !s.isDrop)) {
+    for (final s in sets.where(isWorkingSet)) {
       for (final MapEntry(:key, :value) in setMetrics(loadType).entries) {
         final v = value(s);
         if (v > (out[key] ?? double.negativeInfinity)) out[key] = v;
@@ -34,31 +44,30 @@ Map<String, double> records(String loadType, Iterable<Iterable<WorkoutSet>> sess
 }
 
 /// Ids of [current] sets that get the PR badge: at most one, the best done set that strictly
-/// beats a per-set record from [previous]. None when [previous] has no done sets.
+/// beats the main-metric record from [previous]. None when [previous] has no done sets.
 Set<String> prBadges(String loadType, Iterable<Iterable<WorkoutSet>> previous, Iterable<WorkoutSet> current) {
-  final rec = records(loadType, previous);
-  if (rec.isEmpty) return {};
-  final metrics = setMetrics(loadType);
-  final beats = current
-      .where((s) => s.done && !s.isDrop && metrics.entries.any((m) => m.value(s) > (rec[m.key] ?? double.negativeInfinity)))
-      .toList();
-  if (beats.isEmpty) return {};
-  final rank = metrics.values.first;
-  return {beats.reduce((a, b) => rank(b) > rank(a) ? b : a).id};
+  final rec = bestMain(loadType, previous.expand((s) => s));
+  final best = bestMain(loadType, current);
+  if (rec == null || best == null || best <= rec) return {};
+  final rank = setMetrics(loadType).values.first;
+  return {current.firstWhere((s) => isWorkingSet(s) && rank(s) == best).id};
 }
+
+/// Whole numbers without decimals, otherwise one decimal.
+String fmtNum(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
 typedef Series = List<(DateTime, double)>;
 
-/// Per-session chart points from [sessions] (date, sets), done sets only.
-/// Sessions with no done set get no point.
+/// Per-session chart points from [sessions] (date, sets), working sets only (volume keeps drop sets).
+/// Sessions with no working set get no point.
 ({Series maxWeight, Series e1rm, Series volume}) chartSeries(Iterable<(DateTime, Iterable<WorkoutSet>)> sessions) {
   final Series w = [], e = [], v = [];
   for (final (at, sets) in sessions) {
-    final done = sets.where((s) => s.done);
+    final done = sets.where(isWorkingSet);
     if (done.isEmpty) continue;
     w.add((at, done.map((s) => s.weightKg ?? 0).reduce((a, b) => a > b ? a : b)));
     e.add((at, done.map((s) => e1rm(s.weightKg ?? 0, s.reps ?? 0)).reduce((a, b) => a > b ? a : b)));
-    v.add((at, sessionVolume(done)));
+    v.add((at, sessionVolume(sets))); // volume keeps drop sets, as in records
   }
   return (maxWeight: w, e1rm: e, volume: v);
 }

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
 import '../../data/sync.dart';
-import '../../data/workouts.dart';
 import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../import/import_screen.dart';
@@ -57,10 +55,8 @@ class _SyncBadgeState extends State<SyncBadge> {
 
 /// More page (gear in the header): Import, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.engine, required this.catalog, required this.cardio, required this.workouts});
+  const MoreScreen({super.key, required this.engine, required this.catalog});
 
-  final CardioStore cardio;
-  final WorkoutStore workouts;
   final SyncEngine? engine; // null when no Supabase project is configured
   final Catalog catalog;
 

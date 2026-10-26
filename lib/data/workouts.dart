@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -61,6 +62,9 @@ List<SupersetRow> supersetRows(List<List<WorkoutSet>> perExercise) {
 }
 
 /// A strength workout session: its exercises and sets. Every edit is saved at once through [AppDb.save].
+/// The set columns [WorkoutStore.stepSet] can move.
+enum SetField { weightKg, reps, durationSec }
+
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
   final AppDb _db;
@@ -85,7 +89,7 @@ class WorkoutStore {
             'backup_exercise_id': p.backupExerciseId,
             'position': i,
           });
-          final last = await lastTime(p.exerciseId, excludeWorkoutId: id);
+          final last = (await lastTime(p.exerciseId, excludeWorkoutId: id)).where((s) => !s.isDrop).toList();
           for (final (n, s) in p.sets.indexed) {
             await _db.save(_db.workoutSets, {
               'id': _uuid.v4(),
@@ -120,10 +124,24 @@ class WorkoutStore {
         ].any((d) => d);
   }
 
-  /// Overwrites the workout's routine with what was done in this workout.
+  /// Overwrites the workout's routine with what was done in this workout. A planned set without weight
+  /// (matched by exercise position and set number) stays without weight, so it keeps taking last session's.
   Future<void> updateTemplate(String workoutId) async {
     final routineId = (await watchWorkout(workoutId).first).routineId;
-    if (routineId != null) await RoutineStore(_db).replacePlan(routineId, await _plan(workoutId));
+    if (routineId == null) return;
+    final routines = RoutineStore(_db), old = await routines.plan(routineId);
+    bool unpinned(int i, int j) => i < old.length && j < old[i].sets.length && old[i].sets[j].weightKg == null;
+    await routines.replacePlan(routineId, [
+      for (final (i, e) in (await _plan(workoutId)).indexed)
+        (
+          exerciseId: e.exerciseId,
+          backupExerciseId: e.backupExerciseId,
+          sets: [
+            for (final (j, s) in e.sets.indexed)
+              unpinned(i, j) ? (weightKg: null, reps: s.reps, durationSec: s.durationSec) : s
+          ],
+        ),
+    ]);
   }
 
   Future<bool> _routineLive(String id) async =>
@@ -135,7 +153,8 @@ class WorkoutStore {
             exerciseId: e.exerciseId,
             backupExerciseId: e.backupExerciseId,
             sets: [
-              for (final s in await watchSets(e.id).first) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
+              for (final s in await watchSets(e.id).first)
+                if (!s.isDrop) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
             ],
           ),
       ];
@@ -223,7 +242,11 @@ class WorkoutStore {
   Future<void> move(String id, int delta) => _edit(id, (items, i) {
         final j = i + delta;
         if (j < 0 || j >= items.length) return;
-        items.insert(j, items.removeAt(i));
+        // Links belong to the slot, not the card, so groups keep their shape.
+        final (li, lj) = (items[i].supersetWithNext, items[j].supersetWithNext);
+        final e = items[i];
+        items[i] = items[j].copyWith(supersetWithNext: li);
+        items[j] = e.copyWith(supersetWithNext: lj);
       });
 
   /// Soft-deletes workout exercise [id] and closes the gap.
@@ -307,6 +330,38 @@ class WorkoutStore {
         'deleted_at': s.deletedAt,
       });
 
+  /// Writes only the given columns of set [id], so stale row snapshots in the UI never revert other edits.
+  Future<void> patchSet(
+    String id, {
+    Value<double?> weightKg = const Value.absent(),
+    Value<int?> reps = const Value.absent(),
+    Value<int?> durationSec = const Value.absent(),
+    bool? done,
+    int? setNumber,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) =>
+      (_db.update(_db.workoutSets)..where((t) => t.id.equals(id))).write(WorkoutSetsCompanion(
+        weightKg: weightKg,
+        reps: reps,
+        durationSec: durationSec,
+        done: Value.absentIfNull(done),
+        setNumber: Value.absentIfNull(setNumber),
+        deletedAt: deletedAt,
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(1),
+      ));
+
+  /// Moves [field] of set [id] by [delta] from its stored value, within 0..9999.
+  Future<void> stepSet(String id, SetField field, num delta) => _db.transaction(() async {
+        final s = await (_db.select(_db.workoutSets)..where((t) => t.id.equals(id))).getSingle();
+        num next(num? v) => min(stepped(v, delta), 9999);
+        await switch (field) {
+          SetField.weightKg => patchSet(id, weightKg: Value(next(s.weightKg).toDouble())),
+          SetField.reps => patchSet(id, reps: Value(next(s.reps).round())),
+          SetField.durationSec => patchSet(id, durationSec: Value(next(s.durationSec).round())),
+        };
+      });
+
   /// Inserts a drop set right after [after] at about 80% of its weight, same reps, and renumbers the rest.
   Future<void> addDrop(WorkoutSet after) => _db.transaction(() async {
         for (final x in await watchSets(after.workoutExerciseId).first) {
@@ -324,9 +379,9 @@ class WorkoutStore {
 
   /// Soft-deletes [s] and renumbers the sets after it.
   Future<void> removeSet(WorkoutSet s) => _db.transaction(() async {
-        await updateSet(s.copyWith(deletedAt: Value(DateTime.now())));
+        await patchSet(s.id, deletedAt: Value(DateTime.now()));
         for (final (i, x) in (await watchSets(s.workoutExerciseId).first).indexed) {
-          if (x.setNumber != i + 1) await updateSet(x.copyWith(setNumber: i + 1));
+          if (x.setNumber != i + 1) await patchSet(x.id, setNumber: i + 1);
         }
       });
 

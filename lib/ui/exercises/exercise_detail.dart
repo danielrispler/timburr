@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,6 +6,7 @@ import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart' show repMax;
 import '../../data/workouts.dart';
+import '../core/series_chart.dart';
 import '../core/theme.dart';
 import 'exercise_image.dart';
 
@@ -154,7 +154,6 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
   }
 }
 
-String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 String _date(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// Last session, records and per-session charts.
@@ -179,81 +178,29 @@ class _Stats extends StatelessWidget {
           dense: true,
           title: Text(switch (loadType) {
             'timed' => '${s.durationSec ?? 0} s',
-            'bodyweight' => '${s.reps ?? 0} reps${(s.weightKg ?? 0) > 0 ? ' +${_num(s.weightKg!)} kg' : ''}',
-            _ => '${_num(s.weightKg ?? 0)} kg × ${s.reps ?? 0}',
+            'bodyweight' => '${s.reps ?? 0} reps${(s.weightKg ?? 0) > 0 ? ' +${fmtNum(s.weightKg!)} kg' : ''}',
+            _ => '${fmtNum(s.weightKg ?? 0)} kg × ${s.reps ?? 0}',
           }),
         ),
       ]),
       TileGroup(title: 'Records', children: [
         for (final MapEntry(:key, :value) in rec.entries)
-          ListTile(dense: true, title: Text(key), trailing: Text(_num(value))),
+          ListTile(dense: true, title: Text(key), trailing: Text(fmtNum(value))),
       ]),
       if (loadType == 'weighted') ...[
         if (rec['e1rm'] case final best? when best > 0)
           TileGroup(title: 'Estimated rep maxes', children: [
             for (final reps in const [1, 3, 5, 8, 10])
-              ListTile(dense: true, title: Text('${reps}RM'), trailing: Text('${_num(repMax(best, reps))} kg')),
+              ListTile(dense: true, title: Text('${reps}RM'), trailing: Text('${fmtNum(repMax(best, reps))} kg')),
           ]),
-        _Chart('Max weight (kg)', series.maxWeight),
-        _Chart('e1RM (kg)', series.e1rm),
-        _Chart('Volume (kg)', series.volume),
+        SeriesChart('Max weight (kg)', series.maxWeight),
+        SeriesChart('e1RM (kg)', series.e1rm),
+        SeriesChart('Volume (kg)', series.volume),
       ],
     ]);
   }
 }
 
-class _Chart extends StatelessWidget {
-  const _Chart(this.title, this.points);
-
-  final String title;
-  final Series points;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        AspectRatio(
-          aspectRatio: 2,
-          child: LineChart(LineChartData(
-            gridData: const FlGridData(drawVerticalLine: false),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(),
-              rightTitles: const AxisTitles(),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 24,
-                  interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
-                  getTitlesWidget: (x, meta) {
-                    final i = x.toInt();
-                    if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
-                    final d = points[i].$1;
-                    return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                  },
-                ),
-              ),
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                // shortcut: x is session index, not time, so gaps between sessions are evenly spaced.
-                spots: [for (final (i, (_, v)) in points.indexed) FlSpot(i.toDouble(), v)],
-                color: color,
-                barWidth: 3,
-                dotData: FlDotData(show: points.length < 30),
-              ),
-            ],
-          )),
-        ),
-      ]),
-    );
-  }
-}
 
 /// Create (no [entry]) or edit a custom exercise.
 class CustomExerciseForm extends StatefulWidget {

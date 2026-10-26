@@ -7006,6 +7006,38 @@ abstract class _$AppDb extends GeneratedDatabase {
   late final $CardioTable cardio = $CardioTable(this);
   late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final $ErrorLogsTable errorLogs = $ErrorLogsTable(this);
+  late final Index exercisesDirty = Index(
+    'exercises_dirty',
+    'CREATE INDEX exercises_dirty ON exercises (dirty)',
+  );
+  late final Index routinesDirty = Index(
+    'routines_dirty',
+    'CREATE INDEX routines_dirty ON routines (dirty)',
+  );
+  late final Index routineExercisesDirty = Index(
+    'routine_exercises_dirty',
+    'CREATE INDEX routine_exercises_dirty ON routine_exercises (dirty)',
+  );
+  late final Index routineSetsDirty = Index(
+    'routine_sets_dirty',
+    'CREATE INDEX routine_sets_dirty ON routine_sets (dirty)',
+  );
+  late final Index workoutsDirty = Index(
+    'workouts_dirty',
+    'CREATE INDEX workouts_dirty ON workouts (dirty)',
+  );
+  late final Index workoutExercisesDirty = Index(
+    'workout_exercises_dirty',
+    'CREATE INDEX workout_exercises_dirty ON workout_exercises (dirty)',
+  );
+  late final Index setsDirty = Index(
+    'sets_dirty',
+    'CREATE INDEX sets_dirty ON sets (dirty)',
+  );
+  late final Index cardioDirty = Index(
+    'cardio_dirty',
+    'CREATE INDEX cardio_dirty ON cardio (dirty)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7021,6 +7053,14 @@ abstract class _$AppDb extends GeneratedDatabase {
     cardio,
     syncCursors,
     errorLogs,
+    exercisesDirty,
+    routinesDirty,
+    routineExercisesDirty,
+    routineSetsDirty,
+    workoutsDirty,
+    workoutExercisesDirty,
+    setsDirty,
+    cardioDirty,
   ];
   @override
   DriftDatabaseOptions get options =>

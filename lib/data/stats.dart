@@ -8,7 +8,9 @@ typedef LoggedSet = ({Workout workout, String exerciseId, WorkoutSet set});
 double repMax(double oneRm, int reps) => reps <= 1 ? oneRm : oneRm / (1 + reps / 30);
 
 DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
-DateTime mondayOf(DateTime d) => DateTime(d.year, d.month, d.day - (d.weekday - 1));
+/// Monday 00:00 of [d]'s week, [weeksAgo] weeks back. Built from calendar fields so DST never shifts it.
+DateTime mondayOf(DateTime d, {int weeksAgo = 0}) =>
+    DateTime(d.year, d.month, d.day - (d.weekday - 1) - 7 * weeksAgo);
 
 /// Done-set volume per workout id.
 Map<String, double> volumeByWorkout(Iterable<LoggedSet> rows) {
@@ -23,14 +25,13 @@ typedef Week = ({DateTime monday, int workouts, double volume});
 
 /// The last [weeks] weeks up to [now], oldest first, empty weeks included.
 List<Week> weekly(List<Workout> workouts, Map<String, double> volumes, DateTime now, {int weeks = 12}) {
-  final first = mondayOf(now).subtract(Duration(days: 7 * (weeks - 1)));
   final out = [
-    for (var i = 0; i < weeks; i++)
-      (monday: DateTime(first.year, first.month, first.day + 7 * i), workouts: 0, volume: 0.0),
+    for (var i = weeks - 1; i >= 0; i--) (monday: mondayOf(now, weeksAgo: i), workouts: 0, volume: 0.0),
   ];
+  final index = {for (var i = 0; i < weeks; i++) out[i].monday: i};
   for (final w in workouts) {
-    final i = (dayOf(mondayOf(w.startedAt)).difference(first).inHours / 24 / 7).round();
-    if (i < 0 || i >= weeks) continue;
+    final i = index[mondayOf(w.startedAt)];
+    if (i == null) continue;
     final o = out[i];
     out[i] = (monday: o.monday, workouts: o.workouts + 1, volume: o.volume + (volumes[w.id] ?? 0));
   }
@@ -134,12 +135,10 @@ List<PrEvent> prEvents(
 ) {
   final out = <PrEvent>[];
   for (final MapEntry(key: id, value: list) in sessions.entries) {
-    final metric = setMetrics(loadType(id)).values.first;
     double? best;
     for (final (w, sets) in list) {
-      final done = sets.where((s) => s.done);
-      if (done.isEmpty) continue;
-      final v = done.map(metric).reduce((a, b) => a > b ? a : b);
+      final v = bestMain(loadType(id), sets);
+      if (v == null) continue;
       if (best != null && v > best) out.add((exerciseId: id, workout: w, value: v));
       if (best == null || v > best) best = v;
     }
@@ -154,7 +153,7 @@ double? e1rmTrend(List<(Workout, List<WorkoutSet>)> sessions, DateTime now, {int
   double? best(bool Function(DateTime) inWindow) {
     final sets = [
       for (final (w, sets) in sessions)
-        if (inWindow(w.startedAt)) ...sets.where((s) => s.done),
+        if (inWindow(w.startedAt)) ...sets.where(isWorkingSet),
     ];
     return sets.isEmpty ? null : sets.map((s) => e1rm(s.weightKg ?? 0, s.reps ?? 0)).reduce((a, b) => a > b ? a : b);
   }

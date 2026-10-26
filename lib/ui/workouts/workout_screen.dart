@@ -1,12 +1,13 @@
-import 'dart:math' show min;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
+import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
 import '../core/theme.dart';
+import '../routines/start.dart' show pickDateTime;
 import '../exercises/exercise_picker.dart';
 import '../exercises/exercise_image.dart';
 import 'exercise_notes.dart';
@@ -36,16 +37,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _editDate(Workout w) async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: w.startedAt,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (d == null || !mounted) return;
-    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(w.startedAt));
-    if (t == null) return;
-    await widget.store.setStartedAt(widget.workoutId, DateTime(d.year, d.month, d.day, t.hour, t.minute));
+    final at = await pickDateTime(context, w.startedAt);
+    if (at != null) await widget.store.setStartedAt(widget.workoutId, at);
   }
 
   Future<void> _addExercise() async {
@@ -56,6 +49,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           body: ExercisePicker(
             catalog: widget.catalog,
             onSelected: (e) => Navigator.of(context).pop([e]),
+            onCreate: () => Navigator.of(context)
+                .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
             onAdd: (list) => Navigator.of(context).pop(list),
           ),
         ),
@@ -526,9 +521,9 @@ class _SetRow extends StatelessWidget {
               onPressed: () async {
                 // removeSet shifted later sets down by one; shift them back, then undelete.
                 for (final x in await store.watchSets(s.workoutExerciseId).first) {
-                  if (x.setNumber >= s.setNumber) await store.updateSet(x.copyWith(setNumber: x.setNumber + 1));
+                  if (x.setNumber >= s.setNumber) await store.patchSet(x.id, setNumber: x.setNumber + 1);
                 }
-                await store.updateSet(s.copyWith(deletedAt: const Value(null)));
+                await store.patchSet(s.id, deletedAt: const Value(null));
               },
             ),
           ),
@@ -560,7 +555,8 @@ class _SetRow extends StatelessWidget {
                   label: 'sec',
                   value: s.durationSec,
                   step: secStep,
-                  onChanged: (v) => store.updateSet(s.copyWith(durationSec: Value(v.round()))),
+                  onChanged: (v) => store.patchSet(s.id, durationSec: Value(v.round())),
+                  onStep: (d) => store.stepSet(s.id, SetField.durationSec, d),
                 ),
               )
             else ...[
@@ -570,7 +566,8 @@ class _SetRow extends StatelessWidget {
                   value: s.weightKg,
                   step: kgStep,
                   decimal: true,
-                  onChanged: (v) => store.updateSet(s.copyWith(weightKg: Value(v.toDouble()))),
+                  onChanged: (v) => store.patchSet(s.id, weightKg: Value(v.toDouble())),
+                  onStep: (d) => store.stepSet(s.id, SetField.weightKg, d),
                 ),
               ),
               Expanded(
@@ -578,7 +575,8 @@ class _SetRow extends StatelessWidget {
                   label: 'reps',
                   value: s.reps,
                   step: repStep,
-                  onChanged: (v) => store.updateSet(s.copyWith(reps: Value(v.round()))),
+                  onChanged: (v) => store.patchSet(s.id, reps: Value(v.round())),
+                  onStep: (d) => store.stepSet(s.id, SetField.reps, d),
                 ),
               ),
             ],
@@ -593,7 +591,7 @@ class _SetRow extends StatelessWidget {
             Checkbox(
               value: s.done,
               onChanged: (v) {
-                store.updateSet(s.copyWith(done: v ?? false));
+                store.patchSet(s.id, done: v ?? false);
                 if (v == true) onDone?.call();
               },
             ),
@@ -611,6 +609,7 @@ class _Stepper extends StatelessWidget {
     required this.value,
     required this.step,
     required this.onChanged,
+    required this.onStep,
     this.decimal = false,
   });
 
@@ -619,6 +618,8 @@ class _Stepper extends StatelessWidget {
   final num step;
   final bool decimal;
   final ValueChanged<num> onChanged;
+  // +/- add to the stored value, so taps faster than the rebuild still count.
+  final ValueChanged<num> onStep;
 
   Future<void> _type(BuildContext context) async {
     final c = TextEditingController(text: value?.toString() ?? '');
@@ -649,7 +650,7 @@ class _Stepper extends StatelessWidget {
         icon: const Icon(Icons.remove),
         tooltip: '− $label',
         style: _compact,
-        onPressed: () => onChanged(stepped(value, -step)),
+        onPressed: () => onStep(-step),
       ),
       Flexible(
         child: InkWell(
@@ -671,7 +672,7 @@ class _Stepper extends StatelessWidget {
         icon: const Icon(Icons.add),
         tooltip: '+ $label',
         style: _compact,
-        onPressed: () => onChanged(min(stepped(value, step), 9999)),
+        onPressed: () => onStep(step),
       ),
     ],
   );

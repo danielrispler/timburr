@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
@@ -98,6 +99,8 @@ class _RoutineEditorState extends State<RoutineEditor> {
         body: ExercisePicker(
           catalog: widget.stores.catalog,
           onSelected: (e) => Navigator.of(context).pop([e]),
+          onCreate: () => Navigator.of(context)
+              .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.stores.catalog))),
           onAdd: (list) => Navigator.of(context).pop(list),
         ),
       ),

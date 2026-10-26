@@ -28,6 +28,7 @@ class StringList extends TypeConverter<List<String>, String> {
   String toSql(List<String> value) => jsonEncode(value);
 }
 
+@TableIndex(name: 'exercises_dirty', columns: {#dirty})
 class Exercises extends Table with Synced {
   TextColumn get libraryId => text().nullable().unique()();
   TextColumn get name => text().nullable()();
@@ -38,11 +39,13 @@ class Exercises extends Table with Synced {
   IntColumn get lastRestSec => integer().nullable()();
 }
 
+@TableIndex(name: 'routines_dirty', columns: {#dirty})
 class Routines extends Table with Synced {
   TextColumn get name => text()();
   TextColumn get stickyNote => text().nullable()();
 }
 
+@TableIndex(name: 'routine_exercises_dirty', columns: {#dirty})
 class RoutineExercises extends Table with Synced {
   TextColumn get routineId => text().references(Routines, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
@@ -51,6 +54,7 @@ class RoutineExercises extends Table with Synced {
 }
 
 /// Planned sets of a routine exercise; starting the routine copies them into `sets`.
+@TableIndex(name: 'routine_sets_dirty', columns: {#dirty})
 @DataClassName('RoutineSet')
 class RoutineSets extends Table with Synced {
   TextColumn get routineExerciseId => text().references(RoutineExercises, #id)();
@@ -60,6 +64,7 @@ class RoutineSets extends Table with Synced {
   IntColumn get durationSec => integer().nullable()();
 }
 
+@TableIndex(name: 'workouts_dirty', columns: {#dirty})
 class Workouts extends Table with Synced {
   TextColumn get routineId => text().nullable().references(Routines, #id)();
   DateTimeColumn get startedAt => dateTime()();
@@ -73,6 +78,7 @@ class Workouts extends Table with Synced {
   IntColumn get cardioLoad => integer().nullable()();
 }
 
+@TableIndex(name: 'workout_exercises_dirty', columns: {#dirty})
 class WorkoutExercises extends Table with Synced {
   TextColumn get workoutId => text().references(Workouts, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
@@ -82,6 +88,7 @@ class WorkoutExercises extends Table with Synced {
   BoolColumn get supersetWithNext => boolean().withDefault(const Constant(false))();
 }
 
+@TableIndex(name: 'sets_dirty', columns: {#dirty})
 @DataClassName('WorkoutSet')
 class WorkoutSets extends Table with Synced {
   @override
@@ -96,6 +103,7 @@ class WorkoutSets extends Table with Synced {
   BoolColumn get isDrop => boolean().withDefault(const Constant(false))(); // a drop set of the set before it
 }
 
+@TableIndex(name: 'cardio_dirty', columns: {#dirty})
 class Cardio extends Table with Synced {
   TextColumn get type => text()();
   DateTimeColumn get startedAt => dateTime()();
@@ -140,7 +148,7 @@ class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -158,6 +166,13 @@ class AppDb extends _$AppDb {
             }
           }
           if (from < 4) await m.createTable(errorLogs);
+          if (from < 5) {
+            // Drop first: a file may already hold them (older test fixtures are built from today's schema).
+            for (final i in allSchemaEntities.whereType<Index>()) {
+              await customStatement('DROP INDEX IF EXISTS ${i.entityName}');
+              await m.createIndex(i);
+            }
+          }
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
