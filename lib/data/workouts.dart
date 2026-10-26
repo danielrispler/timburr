@@ -62,6 +62,9 @@ List<SupersetRow> supersetRows(List<List<WorkoutSet>> perExercise) {
 }
 
 /// A strength workout session: its exercises and sets. Every edit is saved at once through [AppDb.save].
+/// The set columns [WorkoutStore.stepSet] can move.
+enum SetField { weightKg, reps, durationSec }
+
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
   final AppDb _db;
@@ -348,15 +351,14 @@ class WorkoutStore {
         dirty: const Value(1),
       ));
 
-  /// Moves [column] (`weight_kg`, `reps` or `duration_sec`) of set [id] by [delta] from its stored value, within 0..9999.
-  Future<void> stepSet(String id, String column, num delta) => _db.transaction(() async {
+  /// Moves [field] of set [id] by [delta] from its stored value, within 0..9999.
+  Future<void> stepSet(String id, SetField field, num delta) => _db.transaction(() async {
         final s = await (_db.select(_db.workoutSets)..where((t) => t.id.equals(id))).getSingle();
         num next(num? v) => min(stepped(v, delta), 9999);
-        await switch (column) {
-          'weight_kg' => patchSet(id, weightKg: Value(next(s.weightKg).toDouble())),
-          'reps' => patchSet(id, reps: Value(next(s.reps).round())),
-          'duration_sec' => patchSet(id, durationSec: Value(next(s.durationSec).round())),
-          _ => throw ArgumentError.value(column, 'column'),
+        await switch (field) {
+          SetField.weightKg => patchSet(id, weightKg: Value(next(s.weightKg).toDouble())),
+          SetField.reps => patchSet(id, reps: Value(next(s.reps).round())),
+          SetField.durationSec => patchSet(id, durationSec: Value(next(s.durationSec).round())),
         };
       });
 

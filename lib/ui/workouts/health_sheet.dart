@@ -87,16 +87,15 @@ class _HealthSheetState extends State<_HealthSheet> {
     }
   }
 
-  static const _max = {'hr': 300, 'cal': 20000, 'min': 24 * 60, 'effort': 10, 'load': 1000};
   final _fieldErrors = <TextEditingController, String>{};
 
   Future<void> _save() async {
-    final keys = {_hr: 'hr', _cal: 'cal', _min: 'min', _effort: 'effort', _load: 'load'};
+    final maxes = {_hr: 300, _cal: 20000, _min: 24 * 60, _effort: 10, _load: 1000};
     final parsed = <TextEditingController, int?>{};
     _fieldErrors.clear();
-    for (final MapEntry(key: c, value: k) in keys.entries) {
+    for (final MapEntry(key: c, value: max) in maxes.entries) {
       final t = c.text.trim();
-      final n = int.tryParse(t), max = _max[k]!;
+      final n = int.tryParse(t);
       if (t.isNotEmpty && (n == null || n < 0 || n > max)) _fieldErrors[c] = 'Enter a whole number 0-$max';
       parsed[c] = t.isEmpty ? null : n;
     }

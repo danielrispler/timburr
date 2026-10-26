@@ -35,43 +35,44 @@ Stream<StatsData> watchStats(Stores s) => _feeds[s.workouts] ??= _statsFeed(s);
 Stream<StatsData> _statsFeed(Stores s) {
   StatsData? last;
   final out = StreamController<StatsData>.broadcast();
-  final latest = List<Object?>.filled(5, null);
+  List<Workout>? workouts;
+  List<LoggedSet>? rows;
+  List<CardioData>? cardio;
+  List<Routine>? routines;
   var entries = <String, CatalogEntry>{};
   var gen = 0;
   Future<void> emit({bool exercisesChanged = false}) async {
-    if (latest.contains(null)) return;
-    final my = ++gen;
-    final rows = latest[1] as List<LoggedSet>;
-    final fresh = exercisesChanged ? <String, CatalogEntry>{} : {...entries};
-    for (final id in rows.map((x) => x.exerciseId).toSet().difference(fresh.keys.toSet())) {
-      fresh[id] = await s.catalog.byId(id) ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
+    if ((workouts, rows, cardio, routines) case (final w?, final r?, final c?, final ro?)) {
+      final my = ++gen;
+      final fresh = exercisesChanged ? <String, CatalogEntry>{} : {...entries};
+      for (final id in r.map((x) => x.exerciseId).toSet().difference(fresh.keys.toSet())) {
+        fresh[id] = await s.catalog.byId(id) ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
+      }
+      if (my != gen) return; // a newer change superseded this one
+      entries = fresh;
+      out.add(last = (workouts: w, rows: r, cardio: c, routines: ro, exercises: entries));
     }
-    if (my != gen) return; // a newer change superseded this one
-    entries = fresh;
-    out.add(last = (
-      workouts: latest[0] as List<Workout>,
-      rows: rows,
-      cardio: latest[2] as List<CardioData>,
-      routines: latest[3] as List<Routine>,
-      exercises: entries,
-    ));
   }
 
   final db = s.catalog.db;
-  final sources = <Stream<Object>>[
-    s.workouts.watchHistory(),
-    s.workouts.watchLogged(),
-    s.cardio.watchAll(),
-    s.routines.watchRoutines(),
-    db.select(db.exercises).watch(),
-  ];
   // Subscribed once for the app's life; the stores live as long as the app.
-  for (var i = 0; i < sources.length; i++) {
-    sources[i].listen((v) {
-      latest[i] = v;
-      emit(exercisesChanged: i == 4);
-    });
-  }
+  s.workouts.watchHistory().listen((v) {
+    workouts = v;
+    emit();
+  });
+  s.workouts.watchLogged().listen((v) {
+    rows = v;
+    emit();
+  });
+  s.cardio.watchAll().listen((v) {
+    cardio = v;
+    emit();
+  });
+  s.routines.watchRoutines().listen((v) {
+    routines = v;
+    emit();
+  });
+  db.select(db.exercises).watch().listen((_) => emit(exercisesChanged: true));
   return Stream.multi((c) {
     if (last case final l?) c.add(l);
     final sub = out.stream.listen(c.add);

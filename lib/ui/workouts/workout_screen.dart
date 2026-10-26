@@ -556,7 +556,7 @@ class _SetRow extends StatelessWidget {
                   value: s.durationSec,
                   step: secStep,
                   onChanged: (v) => store.patchSet(s.id, durationSec: Value(v.round())),
-                  onStep: (d) => store.stepSet(s.id, 'duration_sec', d),
+                  onStep: (d) => store.stepSet(s.id, SetField.durationSec, d),
                 ),
               )
             else ...[
@@ -567,7 +567,7 @@ class _SetRow extends StatelessWidget {
                   step: kgStep,
                   decimal: true,
                   onChanged: (v) => store.patchSet(s.id, weightKg: Value(v.toDouble())),
-                  onStep: (d) => store.stepSet(s.id, 'weight_kg', d),
+                  onStep: (d) => store.stepSet(s.id, SetField.weightKg, d),
                 ),
               ),
               Expanded(
@@ -576,7 +576,7 @@ class _SetRow extends StatelessWidget {
                   value: s.reps,
                   step: repStep,
                   onChanged: (v) => store.patchSet(s.id, reps: Value(v.round())),
-                  onStep: (d) => store.stepSet(s.id, 'reps', d),
+                  onStep: (d) => store.stepSet(s.id, SetField.reps, d),
                 ),
               ),
             ],

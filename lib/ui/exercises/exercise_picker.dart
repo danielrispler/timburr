@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
 import '../core/theme.dart';
+import 'exercise_detail.dart';
 import 'exercise_image.dart';
 
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
@@ -123,12 +124,23 @@ class _ExercisePickerState extends State<ExercisePicker> {
                                   leading: ExerciseThumb(e),
                                   title: Text(e.label),
                                   subtitle: Text([...e.muscles, ?e.equipment].join(' · ')),
-                                  trailing: widget.onAdd == null
-                                      ? null
-                                      : Checkbox(
-                                          value: _ticked.containsKey(key),
-                                          onChanged: (v) => setState(() => v! ? _ticked[key] = e : _ticked.remove(key)),
-                                        ),
+                                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    // Load type and note are editable before an exercise's first workout.
+                                    IconButton(
+                                      icon: const Icon(Icons.info_outline),
+                                      tooltip: 'Details',
+                                      onPressed: () async {
+                                        await Navigator.push(context, MaterialPageRoute(
+                                            builder: (_) => ExerciseDetail(catalog: widget.catalog, entry: e)));
+                                        _reload();
+                                      },
+                                    ),
+                                    if (widget.onAdd != null)
+                                      Checkbox(
+                                        value: _ticked.containsKey(key),
+                                        onChanged: (v) => setState(() => v! ? _ticked[key] = e : _ticked.remove(key)),
+                                      ),
+                                  ]),
                                   onTap: widget.onAdd != null
                                       ? () => setState(() => _ticked.remove(key) ?? (_ticked[key] = e))
                                       : () async {

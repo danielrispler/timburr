@@ -39,14 +39,14 @@ Changes from the brief:
 
 ## Sync
 
-- Every local write goes through one `save(table, row)` helper. It sets `updated_at = now()` and `dirty = 1`. `dirty` is an integer.
+- Every local write goes through the `save(table, row)` helper, or for set edits from the workout screen the column-level `patchSet`/`stepSet`. Both set `updated_at = now()` and `dirty = 1`. `dirty` is an integer.
 - Every sync runs `push`, then `pull`. Only one sync runs at a time.
 - Triggers: app start, resume, finishing a workout, every 5 minutes while open, going back online, and "Sync now".
 - **Push.** For each table in dependency order (exercises, routines, routine_exercises, routine_sets, workouts, workout_exercises, sets, cardio), upsert the dirty rows in chunks. Clear `dirty` only on rows whose `updated_at` didn't change during the push, so an edit made mid-sync stays dirty.
 - **Pull.** For each table in the same order, read rows where `server_updated_at` is after the table's cursor, minus a 5-second overlap. Page through them, ordered by `server_updated_at`. Apply a row only if it is new locally or its `updated_at` is newer than the local copy. Re-applying an overlapping row is a no-op.
 - **Last write wins** by client `updated_at`, enforced on both sides. The server trigger ignores an update older than the stored row. The client pull ignores a remote row older than the local one. Unsynced local edits are never overwritten.
 - **Deletes are soft** (`deleted_at`), so they sync like any other change.
-- **Failures.** On a failed push or pull, rows stay dirty, the status shows `error`, and the next trigger retries. Sync stops at the first failing table, because its children would fail the foreign key anyway.
+- **Failures.** A row the server rejects is skipped, reported to the error log and stays dirty. Push continues with the remaining rows and tables, and the next trigger retries it. On a failed pull, the status shows `error` and the next trigger retries.
 - **Fresh install.** After login the cursors are empty, so the first pull downloads everything.
 - **Sign out** is only allowed when nothing is pending. It then wipes the local copy.
 - **Status in the header:** `synced`, `N pending`, `offline`, or `error` (tap for the message).
