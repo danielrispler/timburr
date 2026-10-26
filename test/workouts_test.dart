@@ -224,8 +224,8 @@ void main() {
     await store.remove(items[1].id); // B: A must not join C
     expect(await links(), [false, true, false]);
     items = await store.watchExercises(w).first;
-    await store.move(items[1].id, 1); // C to last
-    expect(await links(), [false, false, false]);
+    await store.move(items[1].id, 1); // C to last: the C+D group stays as D+C
+    expect(await links(), [false, true, false]);
   });
 
   test('a set added to a finished workout is done', () async {

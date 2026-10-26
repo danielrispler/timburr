@@ -45,8 +45,17 @@ void main() {
   test('grouping follows the order after a reorder', () async {
     final w = await workout();
     await link(w, 0); // A+B
-    await store.move((await items(w))[0].id, 1); // B, A(linked), C, D
-    expect(await groups(w), [[b], [a, c], [d]]);
+    await store.move((await items(w))[1].id, -1); // B up: B(linked), A, C, D
+    expect(await groups(w), [[b, a], [c], [d]]);
+  });
+
+  test('moving a card out of or across a group keeps the group shape', () async {
+    final w = await workout();
+    await link(w, 1); // B+C
+    await store.move((await items(w))[2].id, 1); // C down: C leaves, D takes its slot
+    expect(await groups(w), [[a], [b, d], [c]]);
+    await store.move((await items(w))[0].id, 1); // A down into the group: B leaves
+    expect(await groups(w), [[b], [a, d], [c]]);
   });
 
   test('removing a card regroups the rest', () async {

@@ -238,7 +238,11 @@ class WorkoutStore {
   Future<void> move(String id, int delta) => _edit(id, (items, i) {
         final j = i + delta;
         if (j < 0 || j >= items.length) return;
-        items.insert(j, items.removeAt(i));
+        // Links belong to the slot, not the card, so groups keep their shape.
+        final (li, lj) = (items[i].supersetWithNext, items[j].supersetWithNext);
+        final e = items[i];
+        items[i] = items[j].copyWith(supersetWithNext: li);
+        items[j] = e.copyWith(supersetWithNext: lj);
       });
 
   /// Soft-deletes workout exercise [id] and closes the gap.
