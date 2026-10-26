@@ -192,6 +192,23 @@ void main() {
     expect((await db.select(db.workoutSets).getSingle()).dirty, 1);
   });
 
+  test('set patches touch only their column, stack, and mark the row dirty', () async {
+    final w = await store.start();
+    await store.addExercise(w, lib('A'));
+    final we = (await store.watchExercises(w).first).single;
+    final s = await store.addSet(we.id);
+    await db.update(db.workoutSets).write(WorkoutSetsCompanion(dirty: const Value(0), updatedAt: Value(DateTime(2000))));
+    // Stale row snapshot on purpose: each call must not depend on a re-read.
+    await store.patchSet(s.id, weightKg: const Value(60));
+    await store.patchSet(s.id, reps: const Value(8));
+    await store.stepSet(s.id, 'weight_kg', kgStep);
+    await store.stepSet(s.id, 'weight_kg', kgStep);
+    await store.patchSet(s.id, done: true);
+    final got = (await store.watchSets(we.id).first).single;
+    expect([got.weightKg, got.reps, got.done, got.dirty], [65.0, 8, true, 1]);
+    expect(got.updatedAt.isAfter(DateTime(2000)), true);
+  });
+
   test('edits to a finished workout mark it dirty for sync', () async {
     final w = await store.start();
     await store.finish(w);

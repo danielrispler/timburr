@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -326,6 +327,39 @@ class WorkoutStore {
         'deleted_at': s.deletedAt,
       });
 
+  /// Writes only the given columns of set [id], so stale row snapshots in the UI never revert other edits.
+  Future<void> patchSet(
+    String id, {
+    Value<double?> weightKg = const Value.absent(),
+    Value<int?> reps = const Value.absent(),
+    Value<int?> durationSec = const Value.absent(),
+    bool? done,
+    int? setNumber,
+    Value<DateTime?> deletedAt = const Value.absent(),
+  }) =>
+      (_db.update(_db.workoutSets)..where((t) => t.id.equals(id))).write(WorkoutSetsCompanion(
+        weightKg: weightKg,
+        reps: reps,
+        durationSec: durationSec,
+        done: Value.absentIfNull(done),
+        setNumber: Value.absentIfNull(setNumber),
+        deletedAt: deletedAt,
+        updatedAt: Value(DateTime.now()),
+        dirty: const Value(1),
+      ));
+
+  /// Moves [column] (`weight_kg`, `reps` or `duration_sec`) of set [id] by [delta] from its stored value, within 0..9999.
+  Future<void> stepSet(String id, String column, num delta) => _db.transaction(() async {
+        final s = await (_db.select(_db.workoutSets)..where((t) => t.id.equals(id))).getSingle();
+        num next(num? v) => min(stepped(v, delta), 9999);
+        await switch (column) {
+          'weight_kg' => patchSet(id, weightKg: Value(next(s.weightKg).toDouble())),
+          'reps' => patchSet(id, reps: Value(next(s.reps).round())),
+          'duration_sec' => patchSet(id, durationSec: Value(next(s.durationSec).round())),
+          _ => throw ArgumentError.value(column, 'column'),
+        };
+      });
+
   /// Inserts a drop set right after [after] at about 80% of its weight, same reps, and renumbers the rest.
   Future<void> addDrop(WorkoutSet after) => _db.transaction(() async {
         for (final x in await watchSets(after.workoutExerciseId).first) {
@@ -343,9 +377,9 @@ class WorkoutStore {
 
   /// Soft-deletes [s] and renumbers the sets after it.
   Future<void> removeSet(WorkoutSet s) => _db.transaction(() async {
-        await updateSet(s.copyWith(deletedAt: Value(DateTime.now())));
+        await patchSet(s.id, deletedAt: Value(DateTime.now()));
         for (final (i, x) in (await watchSets(s.workoutExerciseId).first).indexed) {
-          if (x.setNumber != i + 1) await updateSet(x.copyWith(setNumber: i + 1));
+          if (x.setNumber != i + 1) await patchSet(x.id, setNumber: i + 1);
         }
       });
 
