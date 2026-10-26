@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -24,65 +26,72 @@ typedef StatsData = ({
   Map<String, CatalogEntry> exercises,
 });
 
-/// Rebuilds [builder] whenever history, sets, cardio or routines change.
-class StatsBuilder extends StatefulWidget {
+final _feeds = Expando<Stream<StatsData>>();
+
+/// The one stats stream for [s]: shared by Home and Stats, so each change runs one set of full-history queries.
+/// Late listeners get the latest value at once. Exercise entries reload whenever the exercises table changes.
+Stream<StatsData> watchStats(Stores s) => _feeds[s.workouts] ??= _statsFeed(s);
+
+Stream<StatsData> _statsFeed(Stores s) {
+  StatsData? last;
+  final out = StreamController<StatsData>.broadcast();
+  final latest = List<Object?>.filled(5, null);
+  var entries = <String, CatalogEntry>{};
+  var gen = 0;
+  Future<void> emit({bool exercisesChanged = false}) async {
+    if (latest.contains(null)) return;
+    final my = ++gen;
+    final rows = latest[1] as List<LoggedSet>;
+    final fresh = exercisesChanged ? <String, CatalogEntry>{} : {...entries};
+    for (final id in rows.map((x) => x.exerciseId).toSet().difference(fresh.keys.toSet())) {
+      fresh[id] = await s.catalog.byId(id) ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
+    }
+    if (my != gen) return; // a newer change superseded this one
+    entries = fresh;
+    out.add(last = (
+      workouts: latest[0] as List<Workout>,
+      rows: rows,
+      cardio: latest[2] as List<CardioData>,
+      routines: latest[3] as List<Routine>,
+      exercises: entries,
+    ));
+  }
+
+  final db = s.catalog.db;
+  final sources = <Stream<Object>>[
+    s.workouts.watchHistory(),
+    s.workouts.watchLogged(),
+    s.cardio.watchAll(),
+    s.routines.watchRoutines(),
+    db.select(db.exercises).watch(),
+  ];
+  // Subscribed once for the app's life; the stores live as long as the app.
+  for (var i = 0; i < sources.length; i++) {
+    sources[i].listen((v) {
+      latest[i] = v;
+      emit(exercisesChanged: i == 4);
+    });
+  }
+  return Stream.multi((c) {
+    if (last case final l?) c.add(l);
+    final sub = out.stream.listen(c.add);
+    c.onCancel = sub.cancel;
+  });
+}
+
+/// Rebuilds [builder] whenever history, sets, cardio, routines or exercises change.
+class StatsBuilder extends StatelessWidget {
   const StatsBuilder({super.key, required this.stores, required this.builder});
 
   final Stores stores;
   final Widget Function(BuildContext, StatsData) builder;
 
   @override
-  State<StatsBuilder> createState() => _StatsBuilderState();
-}
-
-class _StatsBuilderState extends State<StatsBuilder> {
-  late final s = widget.stores;
-  late final _history = s.workouts.watchHistory(), _logged = s.workouts.watchLogged();
-  late final _cardio = s.cardio.watchAll(), _routines = s.routines.watchRoutines();
-  final _entries = <String, CatalogEntry>{};
-  final _loading = <String>{};
-
-  /// Loads catalog entries for exercise ids not seen yet, then rebuilds.
-  void _resolve(Iterable<String> ids) {
-    final missing = ids.toSet().difference(_entries.keys.toSet()).difference(_loading);
-    if (missing.isEmpty) return;
-    _loading.addAll(missing);
-    Future.wait([for (final id in missing) s.catalog.byId(id).then((e) => (id, e))]).then((found) {
-      if (!mounted) return;
-      setState(() {
-        for (final (id, e) in found) {
-          _entries[id] = e ?? CatalogEntry(name: 'Unknown exercise', rowId: id);
-        }
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => StreamBuilder<List<Workout>>(
-    stream: _history,
-    builder: (context, w) => StreamBuilder<List<LoggedSet>>(
-      stream: _logged,
-      builder: (context, l) => StreamBuilder<List<CardioData>>(
-        stream: _cardio,
-        builder: (context, c) => StreamBuilder<List<Routine>>(
-          stream: _routines,
-          builder: (context, r) {
-            if (w.data == null || l.data == null || c.data == null || r.data == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            _resolve(l.data!.map((x) => x.exerciseId));
-            return widget.builder(context, (
-              workouts: w.data!,
-              rows: l.data!,
-              cardio: c.data!,
-              routines: r.data!,
-              exercises: _entries,
-            ));
-          },
-        ),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => StreamBuilder<StatsData>(
+        stream: watchStats(stores),
+        builder: (context, d) =>
+            d.data == null ? const Center(child: CircularProgressIndicator()) : builder(context, d.data!),
+      );
 }
 
 /// Stats tab: Me, Workouts, Exercises and Records.

@@ -45,6 +45,24 @@ void main() {
     expect((row.id, row.avgHr), (w, null));
     await db.close();
   });
+
+  test('v4 to v5 adds a dirty index on every synced table, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    final w = await WorkoutStore(db).start();
+    final names = [for (final t in db.syncedTables) '${t.actualTableName}_dirty'];
+    for (final n in names) {
+      await db.customStatement('drop index $n');
+    }
+    await db.customStatement('pragma user_version = 4');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    expect((await WorkoutStore(db).watchWorkout(w).first).id, w);
+    final idx = await db.customSelect("select name from sqlite_master where type = 'index' and name like '%_dirty'").get();
+    expect(idx.map((r) => r.read<String>('name')).toSet(), names.toSet());
+    await db.close();
+  });
 }
 
 /// Back to the v2 schema: drops the columns v3 added.
