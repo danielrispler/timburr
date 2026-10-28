@@ -49,13 +49,17 @@ void main() {
     expect(await groups(w), [[b, a], [c], [d]]);
   });
 
-  test('moving a card out of or across a group keeps the group shape', () async {
+  test('a superset moves as one card, and a card moves past a whole superset', () async {
     final w = await workout();
     await link(w, 1); // B+C
-    await store.move((await items(w))[2].id, 1); // C down: C leaves, D takes its slot
-    expect(await groups(w), [[a], [b, d], [c]]);
-    await store.move((await items(w))[0].id, 1); // A down into the group: B leaves
-    expect(await groups(w), [[b], [a, d], [c]]);
+    await store.move((await items(w))[3].id, -1); // D up: jumps the whole group
+    expect(await groups(w), [[a], [d], [b, c]]);
+    await store.move((await items(w))[0].id, 1); // A down: jumps D
+    expect(await groups(w), [[d], [a], [b, c]]);
+    await store.move((await items(w))[2].id, -1); // B up: takes C along
+    expect(await groups(w), [[d], [b, c], [a]]);
+    await store.move((await items(w))[2].id, 1); // C down: takes B along
+    expect(await groups(w), [[d], [a], [b, c]]);
   });
 
   test('removing a card regroups the rest', () async {

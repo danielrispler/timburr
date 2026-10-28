@@ -10,6 +10,9 @@ import '../exercises/exercise_picker.dart';
 import 'planned_sets.dart';
 import 'start.dart';
 
+// Shorter than the theme's 52dp buttons, so more of the exercise list fits.
+const _short = ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(0, 40)), tapTargetSize: MaterialTapTargetSize.shrinkWrap);
+
 /// Builder for one saved workout, as in Google Health: exercises with planned sets, start or log it.
 /// A [isNew] workout that is never named with the bookmark is deleted on leaving, but can still be started.
 class RoutineEditor extends StatefulWidget {
@@ -159,13 +162,14 @@ class _RoutineEditorState extends State<RoutineEditor> {
         ],
       ),
       bottomNavigationBar: BottomAction(children: [
-        FilledButton.tonalIcon(icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercises),
         FilledButton.icon(
+          style: _short,
           icon: const Icon(Icons.play_arrow),
           label: const Text('Start workout'),
           onPressed: () => startStrength(context, widget.stores, routineId: widget.routineId, now: true),
         ),
         TextButton.icon(
+          style: _short,
           icon: const Icon(Icons.check),
           label: const Text('I have done this workout'),
           onPressed: () => startStrength(context, widget.stores, routineId: widget.routineId, now: false),
@@ -189,12 +193,21 @@ class _RoutineEditorState extends State<RoutineEditor> {
                         TextField(
                           controller: _note,
                           maxLines: null,
-                          decoration: const InputDecoration(labelText: 'Sticky note'),
+                          decoration: const InputDecoration(
+                              labelText: 'Sticky note',
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                           onChanged: (_) => _saveNote(),
                         ),
                         const SizedBox(height: 12),
                         if (items.isEmpty) const ListTile(title: Text('No exercises yet')),
                       ]),
+                      // With the list, as on the workout screen, so the bottom bar keeps only the start actions.
+                      footer: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: FilledButton.tonalIcon(
+                            icon: const Icon(Icons.add), label: const Text('Add exercises'), onPressed: _addExercises),
+                      ),
                       onReorderItem: (from, to) => _store.reorder(items[from].id, to),
                       children: [
                         for (final e in items)
