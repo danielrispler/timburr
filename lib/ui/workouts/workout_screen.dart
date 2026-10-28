@@ -539,14 +539,22 @@ class _SetRow extends StatelessWidget {
         ),
         child: Row(
           children: [
+            // The trophy sits under the label so it takes no width from the steppers.
             SizedBox(
               width: 32,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: tag == null ? null : _tagColor(context, tag!),
-                  fontWeight: tag == null ? null : FontWeight.w600,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: tag == null ? null : _tagColor(context, tag!),
+                      fontWeight: tag == null ? null : FontWeight.w600,
+                    ),
+                  ),
+                  if (pr) const Icon(Icons.emoji_events, size: 16, color: Colors.amber, semanticLabel: 'Personal record'),
+                ],
               ),
             ),
             if (loadType == 'timed')
@@ -580,7 +588,6 @@ class _SetRow extends StatelessWidget {
                 ),
               ),
             ],
-            if (pr) const Icon(Icons.emoji_events, color: Colors.amber, semanticLabel: 'Personal record'),
             if (onDrop != null)
               IconButton(
                 icon: const Icon(Icons.trending_down),

@@ -239,14 +239,25 @@ class WorkoutStore {
       });
 
   /// Swaps workout exercise [id] with its neighbour [delta] (-1 up, +1 down). No-op at the ends.
+  /// Inside a superset it swaps with the other exercise; across groups a superset moves as one card.
   Future<void> move(String id, int delta) => _edit(id, (items, i) {
         final j = i + delta;
         if (j < 0 || j >= items.length) return;
-        // Links belong to the slot, not the card, so groups keep their shape.
-        final (li, lj) = (items[i].supersetWithNext, items[j].supersetWithNext);
-        final e = items[i];
-        items[i] = items[j].copyWith(supersetWithNext: li);
-        items[j] = e.copyWith(supersetWithNext: lj);
+        final groups = supersetGroups(items);
+        final g = groups.indexWhere((x) => x.any((e) => e.id == id));
+        if (groups[g].any((e) => e.id == items[j].id)) {
+          // Links belong to the slot, not the card, so the group keeps its shape.
+          final (li, lj) = (items[i].supersetWithNext, items[j].supersetWithNext);
+          final e = items[i];
+          items[i] = items[j].copyWith(supersetWithNext: li);
+          items[j] = e.copyWith(supersetWithNext: lj);
+          return;
+        }
+        final (upper, lower) = delta < 0 ? (groups[g - 1], groups[g]) : (groups[g], groups[g + 1]);
+        // The workout's last card may carry an ignored link; moved up, it would join the group below.
+        final moved = [...lower.take(lower.length - 1), lower.last.copyWith(supersetWithNext: false), ...upper];
+        final start = items.indexWhere((e) => e.id == upper.first.id);
+        items.replaceRange(start, start + moved.length, moved);
       });
 
   /// Soft-deletes workout exercise [id] and closes the gap.
