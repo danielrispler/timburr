@@ -23,6 +23,7 @@ const ALIASES = {
   '0598': ['Hip Adduction Machine'],
   '0861': ['Seated Pulley Row'],
   '0178': ['Lateral Raise with Cable'],
+  '0596': ['Chest Fly Machine', 'Pec Deck'],
 }
 
 // Old free-exercise-db id -> dataset id, picked by hand for every exercise logged before the switch.
