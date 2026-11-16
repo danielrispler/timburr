@@ -49,7 +49,8 @@ class Routines extends Table with Synced {
 class RoutineExercises extends Table with Synced {
   TextColumn get routineId => text().references(Routines, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
-  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)();
+  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)(); // retired in v6 for alternativeIds
+  TextColumn get alternativeIds => text().map(const StringList()).withDefault(const Constant('[]'))(); // the slot's other exercises
   IntColumn get position => integer()();
 }
 
@@ -82,10 +83,12 @@ class Workouts extends Table with Synced {
 class WorkoutExercises extends Table with Synced {
   TextColumn get workoutId => text().references(Workouts, #id)();
   TextColumn get exerciseId => text().references(Exercises, #id)();
-  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)(); // swap exchanges the two
+  TextColumn get backupExerciseId => text().nullable().references(Exercises, #id)(); // retired in v6 for alternativeIds
+  TextColumn get alternativeIds => text().map(const StringList()).withDefault(const Constant('[]'))(); // swap trades one for exerciseId
   IntColumn get position => integer()();
   TextColumn get notes => text().nullable()();
   BoolColumn get supersetWithNext => boolean().withDefault(const Constant(false))();
+  BoolColumn get skipped => boolean().withDefault(const Constant(false))(); // not done today; its sets count nowhere
 }
 
 @TableIndex(name: 'sets_dirty', columns: {#dirty})
@@ -148,7 +151,7 @@ class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +174,15 @@ class AppDb extends _$AppDb {
             for (final i in allSchemaEntities.whereType<Index>()) {
               await customStatement('DROP INDEX IF EXISTS ${i.entityName}');
               await m.createIndex(i);
+            }
+          }
+          if (from < 6) {
+            await m.addColumn(routineExercises, routineExercises.alternativeIds);
+            await m.addColumn(workoutExercises, workoutExercises.alternativeIds);
+            await m.addColumn(workoutExercises, workoutExercises.skipped);
+            for (final t in ['routine_exercises', 'workout_exercises']) {
+              await customStatement(
+                  'UPDATE $t SET alternative_ids = json_array(backup_exercise_id) WHERE backup_exercise_id IS NOT NULL');
             }
           }
         },

@@ -22,10 +22,10 @@ Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `dele
 | --- | --- |
 | `exercises` | `library_id` (null = custom), `name` (custom only), `load_type`, `muscles[]`, `equipment`, `sticky_note`, `last_rest_sec` |
 | `routines` | `name`, `sticky_note` |
-| `routine_exercises` | `routine_id`, `exercise_id`, `position` |
+| `routine_exercises` | `routine_id`, `exercise_id`, `alternative_ids[]`, `position` |
 | `routine_sets` | `routine_exercise_id`, `set_number`, `weight_kg` (null = last session's), `reps`, `duration_sec` |
 | `workouts` | `routine_id` (nullable), `started_at`, `finished_at` (null = in progress), `notes` |
-| `workout_exercises` | `workout_id`, `exercise_id`, `position`, `notes`, `superset_with_next` |
+| `workout_exercises` | `workout_id`, `exercise_id`, `alternative_ids[]`, `position`, `notes`, `superset_with_next`, `skipped` |
 | `sets` | `workout_exercise_id`, `set_number`, `weight_kg`, `reps`, `duration_sec`, `done` |
 | `cardio` | `type` (run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball), `started_at`, `distance_km` (null for sports), `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
 

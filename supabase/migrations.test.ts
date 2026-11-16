@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -143,5 +143,19 @@ describe('004_app_errors.sql', () => {
     await db.exec('set role anon')
     await expect(rows('select * from app_errors')).rejects.toThrow(/permission denied/)
     await db.exec('reset role')
+  })
+})
+
+describe('005_alternatives_and_skip.sql', () => {
+  it('stores alternatives and the skipped flag', async () => {
+    const [a] = await as(me, () => rows(`insert into exercises (id, name, load_type) values (gen_random_uuid(), 'Leg extension (upstairs)', 'weighted') returning id`))
+    const [b] = await as(me, () => rows(`insert into exercises (id, name, load_type) values (gen_random_uuid(), 'Leg extension (downstairs)', 'weighted') returning id`))
+    const [w] = await as(me, () => rows(`insert into workouts (id, started_at) values (gen_random_uuid(), now()) returning id`))
+    await as(me, () =>
+      rows(`insert into workout_exercises (id, workout_id, exercise_id, alternative_ids, skipped, position) values (gen_random_uuid(), $1, $2, $3, true, 0)`, [w.id, a.id, [b.id]]),
+    )
+    expect(await as(me, () => rows('select alternative_ids, skipped from workout_exercises where workout_id = $1', [w.id]))).toEqual([
+      { alternative_ids: [b.id], skipped: true },
+    ])
   })
 })

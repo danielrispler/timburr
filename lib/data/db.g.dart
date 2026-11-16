@@ -1499,6 +1499,19 @@ class $RoutineExercisesTable extends RoutineExercises
       'REFERENCES exercises (id)',
     ),
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String>
+  alternativeIds =
+      GeneratedColumn<String>(
+        'alternative_ids',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      ).withConverter<List<String>>(
+        $RoutineExercisesTable.$converteralternativeIds,
+      );
   static const VerificationMeta _positionMeta = const VerificationMeta(
     'position',
   );
@@ -1522,6 +1535,7 @@ class $RoutineExercisesTable extends RoutineExercises
     routineId,
     exerciseId,
     backupExerciseId,
+    alternativeIds,
     position,
   ];
   @override
@@ -1662,6 +1676,12 @@ class $RoutineExercisesTable extends RoutineExercises
         DriftSqlType.string,
         data['${effectivePrefix}backup_exercise_id'],
       ),
+      alternativeIds: $RoutineExercisesTable.$converteralternativeIds.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}alternative_ids'],
+        )!,
+      ),
       position: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}position'],
@@ -1673,6 +1693,9 @@ class $RoutineExercisesTable extends RoutineExercises
   $RoutineExercisesTable createAlias(String alias) {
     return $RoutineExercisesTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<List<String>, String> $converteralternativeIds =
+      const StringList();
 }
 
 class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
@@ -1686,6 +1709,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
   final String routineId;
   final String exerciseId;
   final String? backupExerciseId;
+  final List<String> alternativeIds;
   final int position;
   const RoutineExercise({
     required this.id,
@@ -1698,6 +1722,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     required this.routineId,
     required this.exerciseId,
     this.backupExerciseId,
+    required this.alternativeIds,
     required this.position,
   });
   @override
@@ -1720,6 +1745,11 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     map['exercise_id'] = Variable<String>(exerciseId);
     if (!nullToAbsent || backupExerciseId != null) {
       map['backup_exercise_id'] = Variable<String>(backupExerciseId);
+    }
+    {
+      map['alternative_ids'] = Variable<String>(
+        $RoutineExercisesTable.$converteralternativeIds.toSql(alternativeIds),
+      );
     }
     map['position'] = Variable<int>(position);
     return map;
@@ -1745,6 +1775,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       backupExerciseId: backupExerciseId == null && nullToAbsent
           ? const Value.absent()
           : Value(backupExerciseId),
+      alternativeIds: Value(alternativeIds),
       position: Value(position),
     );
   }
@@ -1765,6 +1796,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       routineId: serializer.fromJson<String>(json['routineId']),
       exerciseId: serializer.fromJson<String>(json['exerciseId']),
       backupExerciseId: serializer.fromJson<String?>(json['backupExerciseId']),
+      alternativeIds: serializer.fromJson<List<String>>(json['alternativeIds']),
       position: serializer.fromJson<int>(json['position']),
     );
   }
@@ -1782,6 +1814,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       'routineId': serializer.toJson<String>(routineId),
       'exerciseId': serializer.toJson<String>(exerciseId),
       'backupExerciseId': serializer.toJson<String?>(backupExerciseId),
+      'alternativeIds': serializer.toJson<List<String>>(alternativeIds),
       'position': serializer.toJson<int>(position),
     };
   }
@@ -1797,6 +1830,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     String? routineId,
     String? exerciseId,
     Value<String?> backupExerciseId = const Value.absent(),
+    List<String>? alternativeIds,
     int? position,
   }) => RoutineExercise(
     id: id ?? this.id,
@@ -1813,6 +1847,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     backupExerciseId: backupExerciseId.present
         ? backupExerciseId.value
         : this.backupExerciseId,
+    alternativeIds: alternativeIds ?? this.alternativeIds,
     position: position ?? this.position,
   );
   RoutineExercise copyWithCompanion(RoutineExercisesCompanion data) {
@@ -1833,6 +1868,9 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
       backupExerciseId: data.backupExerciseId.present
           ? data.backupExerciseId.value
           : this.backupExerciseId,
+      alternativeIds: data.alternativeIds.present
+          ? data.alternativeIds.value
+          : this.alternativeIds,
       position: data.position.present ? data.position.value : this.position,
     );
   }
@@ -1850,6 +1888,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           ..write('routineId: $routineId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('backupExerciseId: $backupExerciseId, ')
+          ..write('alternativeIds: $alternativeIds, ')
           ..write('position: $position')
           ..write(')'))
         .toString();
@@ -1867,6 +1906,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
     routineId,
     exerciseId,
     backupExerciseId,
+    alternativeIds,
     position,
   );
   @override
@@ -1883,6 +1923,7 @@ class RoutineExercise extends DataClass implements Insertable<RoutineExercise> {
           other.routineId == this.routineId &&
           other.exerciseId == this.exerciseId &&
           other.backupExerciseId == this.backupExerciseId &&
+          other.alternativeIds == this.alternativeIds &&
           other.position == this.position);
 }
 
@@ -1897,6 +1938,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
   final Value<String> routineId;
   final Value<String> exerciseId;
   final Value<String?> backupExerciseId;
+  final Value<List<String>> alternativeIds;
   final Value<int> position;
   final Value<int> rowid;
   const RoutineExercisesCompanion({
@@ -1910,6 +1952,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     this.routineId = const Value.absent(),
     this.exerciseId = const Value.absent(),
     this.backupExerciseId = const Value.absent(),
+    this.alternativeIds = const Value.absent(),
     this.position = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1924,6 +1967,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     required String routineId,
     required String exerciseId,
     this.backupExerciseId = const Value.absent(),
+    this.alternativeIds = const Value.absent(),
     required int position,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1941,6 +1985,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Expression<String>? routineId,
     Expression<String>? exerciseId,
     Expression<String>? backupExerciseId,
+    Expression<String>? alternativeIds,
     Expression<int>? position,
     Expression<int>? rowid,
   }) {
@@ -1955,6 +2000,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       if (routineId != null) 'routine_id': routineId,
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (backupExerciseId != null) 'backup_exercise_id': backupExerciseId,
+      if (alternativeIds != null) 'alternative_ids': alternativeIds,
       if (position != null) 'position': position,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1971,6 +2017,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     Value<String>? routineId,
     Value<String>? exerciseId,
     Value<String?>? backupExerciseId,
+    Value<List<String>>? alternativeIds,
     Value<int>? position,
     Value<int>? rowid,
   }) {
@@ -1985,6 +2032,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
       routineId: routineId ?? this.routineId,
       exerciseId: exerciseId ?? this.exerciseId,
       backupExerciseId: backupExerciseId ?? this.backupExerciseId,
+      alternativeIds: alternativeIds ?? this.alternativeIds,
       position: position ?? this.position,
       rowid: rowid ?? this.rowid,
     );
@@ -2023,6 +2071,13 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
     if (backupExerciseId.present) {
       map['backup_exercise_id'] = Variable<String>(backupExerciseId.value);
     }
+    if (alternativeIds.present) {
+      map['alternative_ids'] = Variable<String>(
+        $RoutineExercisesTable.$converteralternativeIds.toSql(
+          alternativeIds.value,
+        ),
+      );
+    }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
@@ -2045,6 +2100,7 @@ class RoutineExercisesCompanion extends UpdateCompanion<RoutineExercise> {
           ..write('routineId: $routineId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('backupExerciseId: $backupExerciseId, ')
+          ..write('alternativeIds: $alternativeIds, ')
           ..write('position: $position, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3798,6 +3854,19 @@ class $WorkoutExercisesTable extends WorkoutExercises
       'REFERENCES exercises (id)',
     ),
   );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String>
+  alternativeIds =
+      GeneratedColumn<String>(
+        'alternative_ids',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      ).withConverter<List<String>>(
+        $WorkoutExercisesTable.$converteralternativeIds,
+      );
   static const VerificationMeta _positionMeta = const VerificationMeta(
     'position',
   );
@@ -3833,6 +3902,21 @@ class $WorkoutExercisesTable extends WorkoutExercises
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _skippedMeta = const VerificationMeta(
+    'skipped',
+  );
+  @override
+  late final GeneratedColumn<bool> skipped = GeneratedColumn<bool>(
+    'skipped',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("skipped" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3845,9 +3929,11 @@ class $WorkoutExercisesTable extends WorkoutExercises
     workoutId,
     exerciseId,
     backupExerciseId,
+    alternativeIds,
     position,
     notes,
     supersetWithNext,
+    skipped,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3953,6 +4039,12 @@ class $WorkoutExercisesTable extends WorkoutExercises
         ),
       );
     }
+    if (data.containsKey('skipped')) {
+      context.handle(
+        _skippedMeta,
+        skipped.isAcceptableOrUnknown(data['skipped']!, _skippedMeta),
+      );
+    }
     return context;
   }
 
@@ -4002,6 +4094,12 @@ class $WorkoutExercisesTable extends WorkoutExercises
         DriftSqlType.string,
         data['${effectivePrefix}backup_exercise_id'],
       ),
+      alternativeIds: $WorkoutExercisesTable.$converteralternativeIds.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}alternative_ids'],
+        )!,
+      ),
       position: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}position'],
@@ -4014,6 +4112,10 @@ class $WorkoutExercisesTable extends WorkoutExercises
         DriftSqlType.bool,
         data['${effectivePrefix}superset_with_next'],
       )!,
+      skipped: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}skipped'],
+      )!,
     );
   }
 
@@ -4021,6 +4123,9 @@ class $WorkoutExercisesTable extends WorkoutExercises
   $WorkoutExercisesTable createAlias(String alias) {
     return $WorkoutExercisesTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<List<String>, String> $converteralternativeIds =
+      const StringList();
 }
 
 class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
@@ -4034,9 +4139,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
   final String workoutId;
   final String exerciseId;
   final String? backupExerciseId;
+  final List<String> alternativeIds;
   final int position;
   final String? notes;
   final bool supersetWithNext;
+  final bool skipped;
   const WorkoutExercise({
     required this.id,
     this.userId,
@@ -4048,9 +4155,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
     required this.workoutId,
     required this.exerciseId,
     this.backupExerciseId,
+    required this.alternativeIds,
     required this.position,
     this.notes,
     required this.supersetWithNext,
+    required this.skipped,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4073,11 +4182,17 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
     if (!nullToAbsent || backupExerciseId != null) {
       map['backup_exercise_id'] = Variable<String>(backupExerciseId);
     }
+    {
+      map['alternative_ids'] = Variable<String>(
+        $WorkoutExercisesTable.$converteralternativeIds.toSql(alternativeIds),
+      );
+    }
     map['position'] = Variable<int>(position);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
     map['superset_with_next'] = Variable<bool>(supersetWithNext);
+    map['skipped'] = Variable<bool>(skipped);
     return map;
   }
 
@@ -4101,11 +4216,13 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
       backupExerciseId: backupExerciseId == null && nullToAbsent
           ? const Value.absent()
           : Value(backupExerciseId),
+      alternativeIds: Value(alternativeIds),
       position: Value(position),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
       supersetWithNext: Value(supersetWithNext),
+      skipped: Value(skipped),
     );
   }
 
@@ -4125,9 +4242,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
       workoutId: serializer.fromJson<String>(json['workoutId']),
       exerciseId: serializer.fromJson<String>(json['exerciseId']),
       backupExerciseId: serializer.fromJson<String?>(json['backupExerciseId']),
+      alternativeIds: serializer.fromJson<List<String>>(json['alternativeIds']),
       position: serializer.fromJson<int>(json['position']),
       notes: serializer.fromJson<String?>(json['notes']),
       supersetWithNext: serializer.fromJson<bool>(json['supersetWithNext']),
+      skipped: serializer.fromJson<bool>(json['skipped']),
     );
   }
   @override
@@ -4144,9 +4263,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
       'workoutId': serializer.toJson<String>(workoutId),
       'exerciseId': serializer.toJson<String>(exerciseId),
       'backupExerciseId': serializer.toJson<String?>(backupExerciseId),
+      'alternativeIds': serializer.toJson<List<String>>(alternativeIds),
       'position': serializer.toJson<int>(position),
       'notes': serializer.toJson<String?>(notes),
       'supersetWithNext': serializer.toJson<bool>(supersetWithNext),
+      'skipped': serializer.toJson<bool>(skipped),
     };
   }
 
@@ -4161,9 +4282,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
     String? workoutId,
     String? exerciseId,
     Value<String?> backupExerciseId = const Value.absent(),
+    List<String>? alternativeIds,
     int? position,
     Value<String?> notes = const Value.absent(),
     bool? supersetWithNext,
+    bool? skipped,
   }) => WorkoutExercise(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -4179,9 +4302,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
     backupExerciseId: backupExerciseId.present
         ? backupExerciseId.value
         : this.backupExerciseId,
+    alternativeIds: alternativeIds ?? this.alternativeIds,
     position: position ?? this.position,
     notes: notes.present ? notes.value : this.notes,
     supersetWithNext: supersetWithNext ?? this.supersetWithNext,
+    skipped: skipped ?? this.skipped,
   );
   WorkoutExercise copyWithCompanion(WorkoutExercisesCompanion data) {
     return WorkoutExercise(
@@ -4201,11 +4326,15 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
       backupExerciseId: data.backupExerciseId.present
           ? data.backupExerciseId.value
           : this.backupExerciseId,
+      alternativeIds: data.alternativeIds.present
+          ? data.alternativeIds.value
+          : this.alternativeIds,
       position: data.position.present ? data.position.value : this.position,
       notes: data.notes.present ? data.notes.value : this.notes,
       supersetWithNext: data.supersetWithNext.present
           ? data.supersetWithNext.value
           : this.supersetWithNext,
+      skipped: data.skipped.present ? data.skipped.value : this.skipped,
     );
   }
 
@@ -4222,9 +4351,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
           ..write('workoutId: $workoutId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('backupExerciseId: $backupExerciseId, ')
+          ..write('alternativeIds: $alternativeIds, ')
           ..write('position: $position, ')
           ..write('notes: $notes, ')
-          ..write('supersetWithNext: $supersetWithNext')
+          ..write('supersetWithNext: $supersetWithNext, ')
+          ..write('skipped: $skipped')
           ..write(')'))
         .toString();
   }
@@ -4241,9 +4372,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
     workoutId,
     exerciseId,
     backupExerciseId,
+    alternativeIds,
     position,
     notes,
     supersetWithNext,
+    skipped,
   );
   @override
   bool operator ==(Object other) =>
@@ -4259,9 +4392,11 @@ class WorkoutExercise extends DataClass implements Insertable<WorkoutExercise> {
           other.workoutId == this.workoutId &&
           other.exerciseId == this.exerciseId &&
           other.backupExerciseId == this.backupExerciseId &&
+          other.alternativeIds == this.alternativeIds &&
           other.position == this.position &&
           other.notes == this.notes &&
-          other.supersetWithNext == this.supersetWithNext);
+          other.supersetWithNext == this.supersetWithNext &&
+          other.skipped == this.skipped);
 }
 
 class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
@@ -4275,9 +4410,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
   final Value<String> workoutId;
   final Value<String> exerciseId;
   final Value<String?> backupExerciseId;
+  final Value<List<String>> alternativeIds;
   final Value<int> position;
   final Value<String?> notes;
   final Value<bool> supersetWithNext;
+  final Value<bool> skipped;
   final Value<int> rowid;
   const WorkoutExercisesCompanion({
     this.id = const Value.absent(),
@@ -4290,9 +4427,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     this.workoutId = const Value.absent(),
     this.exerciseId = const Value.absent(),
     this.backupExerciseId = const Value.absent(),
+    this.alternativeIds = const Value.absent(),
     this.position = const Value.absent(),
     this.notes = const Value.absent(),
     this.supersetWithNext = const Value.absent(),
+    this.skipped = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WorkoutExercisesCompanion.insert({
@@ -4306,9 +4445,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     required String workoutId,
     required String exerciseId,
     this.backupExerciseId = const Value.absent(),
+    this.alternativeIds = const Value.absent(),
     required int position,
     this.notes = const Value.absent(),
     this.supersetWithNext = const Value.absent(),
+    this.skipped = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        workoutId = Value(workoutId),
@@ -4325,9 +4466,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     Expression<String>? workoutId,
     Expression<String>? exerciseId,
     Expression<String>? backupExerciseId,
+    Expression<String>? alternativeIds,
     Expression<int>? position,
     Expression<String>? notes,
     Expression<bool>? supersetWithNext,
+    Expression<bool>? skipped,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4341,9 +4484,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
       if (workoutId != null) 'workout_id': workoutId,
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (backupExerciseId != null) 'backup_exercise_id': backupExerciseId,
+      if (alternativeIds != null) 'alternative_ids': alternativeIds,
       if (position != null) 'position': position,
       if (notes != null) 'notes': notes,
       if (supersetWithNext != null) 'superset_with_next': supersetWithNext,
+      if (skipped != null) 'skipped': skipped,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4359,9 +4504,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     Value<String>? workoutId,
     Value<String>? exerciseId,
     Value<String?>? backupExerciseId,
+    Value<List<String>>? alternativeIds,
     Value<int>? position,
     Value<String?>? notes,
     Value<bool>? supersetWithNext,
+    Value<bool>? skipped,
     Value<int>? rowid,
   }) {
     return WorkoutExercisesCompanion(
@@ -4375,9 +4522,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
       workoutId: workoutId ?? this.workoutId,
       exerciseId: exerciseId ?? this.exerciseId,
       backupExerciseId: backupExerciseId ?? this.backupExerciseId,
+      alternativeIds: alternativeIds ?? this.alternativeIds,
       position: position ?? this.position,
       notes: notes ?? this.notes,
       supersetWithNext: supersetWithNext ?? this.supersetWithNext,
+      skipped: skipped ?? this.skipped,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4415,6 +4564,13 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     if (backupExerciseId.present) {
       map['backup_exercise_id'] = Variable<String>(backupExerciseId.value);
     }
+    if (alternativeIds.present) {
+      map['alternative_ids'] = Variable<String>(
+        $WorkoutExercisesTable.$converteralternativeIds.toSql(
+          alternativeIds.value,
+        ),
+      );
+    }
     if (position.present) {
       map['position'] = Variable<int>(position.value);
     }
@@ -4423,6 +4579,9 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
     }
     if (supersetWithNext.present) {
       map['superset_with_next'] = Variable<bool>(supersetWithNext.value);
+    }
+    if (skipped.present) {
+      map['skipped'] = Variable<bool>(skipped.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -4443,9 +4602,11 @@ class WorkoutExercisesCompanion extends UpdateCompanion<WorkoutExercise> {
           ..write('workoutId: $workoutId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('backupExerciseId: $backupExerciseId, ')
+          ..write('alternativeIds: $alternativeIds, ')
           ..write('position: $position, ')
           ..write('notes: $notes, ')
           ..write('supersetWithNext: $supersetWithNext, ')
+          ..write('skipped: $skipped, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7936,6 +8097,7 @@ typedef $$RoutineExercisesTableCreateCompanionBuilder =
       required String routineId,
       required String exerciseId,
       Value<String?> backupExerciseId,
+      Value<List<String>> alternativeIds,
       required int position,
       Value<int> rowid,
     });
@@ -7951,6 +8113,7 @@ typedef $$RoutineExercisesTableUpdateCompanionBuilder =
       Value<String> routineId,
       Value<String> exerciseId,
       Value<String?> backupExerciseId,
+      Value<List<String>> alternativeIds,
       Value<int> position,
       Value<int> rowid,
     });
@@ -8075,6 +8238,12 @@ class $$RoutineExercisesTableFilterComposer
   ColumnFilters<int> get dirty => $composableBuilder(
     column: $table.dirty,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+  get alternativeIds => $composableBuilder(
+    column: $table.alternativeIds,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<int> get position => $composableBuilder(
@@ -8221,6 +8390,11 @@ class $$RoutineExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get alternativeIds => $composableBuilder(
+    column: $table.alternativeIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
@@ -8327,6 +8501,12 @@ class $$RoutineExercisesTableAnnotationComposer
 
   GeneratedColumn<int> get dirty =>
       $composableBuilder(column: $table.dirty, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<List<String>, String> get alternativeIds =>
+      $composableBuilder(
+        column: $table.alternativeIds,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
@@ -8469,6 +8649,7 @@ class $$RoutineExercisesTableTableManager
                 Value<String> routineId = const Value.absent(),
                 Value<String> exerciseId = const Value.absent(),
                 Value<String?> backupExerciseId = const Value.absent(),
+                Value<List<String>> alternativeIds = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RoutineExercisesCompanion(
@@ -8482,6 +8663,7 @@ class $$RoutineExercisesTableTableManager
                 routineId: routineId,
                 exerciseId: exerciseId,
                 backupExerciseId: backupExerciseId,
+                alternativeIds: alternativeIds,
                 position: position,
                 rowid: rowid,
               ),
@@ -8497,6 +8679,7 @@ class $$RoutineExercisesTableTableManager
                 required String routineId,
                 required String exerciseId,
                 Value<String?> backupExerciseId = const Value.absent(),
+                Value<List<String>> alternativeIds = const Value.absent(),
                 required int position,
                 Value<int> rowid = const Value.absent(),
               }) => RoutineExercisesCompanion.insert(
@@ -8510,6 +8693,7 @@ class $$RoutineExercisesTableTableManager
                 routineId: routineId,
                 exerciseId: exerciseId,
                 backupExerciseId: backupExerciseId,
+                alternativeIds: alternativeIds,
                 position: position,
                 rowid: rowid,
               ),
@@ -9738,9 +9922,11 @@ typedef $$WorkoutExercisesTableCreateCompanionBuilder =
       required String workoutId,
       required String exerciseId,
       Value<String?> backupExerciseId,
+      Value<List<String>> alternativeIds,
       required int position,
       Value<String?> notes,
       Value<bool> supersetWithNext,
+      Value<bool> skipped,
       Value<int> rowid,
     });
 typedef $$WorkoutExercisesTableUpdateCompanionBuilder =
@@ -9755,9 +9941,11 @@ typedef $$WorkoutExercisesTableUpdateCompanionBuilder =
       Value<String> workoutId,
       Value<String> exerciseId,
       Value<String?> backupExerciseId,
+      Value<List<String>> alternativeIds,
       Value<int> position,
       Value<String?> notes,
       Value<bool> supersetWithNext,
+      Value<bool> skipped,
       Value<int> rowid,
     });
 
@@ -9883,6 +10071,12 @@ class $$WorkoutExercisesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+  get alternativeIds => $composableBuilder(
+    column: $table.alternativeIds,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
   ColumnFilters<int> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnFilters(column),
@@ -9895,6 +10089,11 @@ class $$WorkoutExercisesTableFilterComposer
 
   ColumnFilters<bool> get supersetWithNext => $composableBuilder(
     column: $table.supersetWithNext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get skipped => $composableBuilder(
+    column: $table.skipped,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10037,6 +10236,11 @@ class $$WorkoutExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get alternativeIds => $composableBuilder(
+    column: $table.alternativeIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get position => $composableBuilder(
     column: $table.position,
     builder: (column) => ColumnOrderings(column),
@@ -10049,6 +10253,11 @@ class $$WorkoutExercisesTableOrderingComposer
 
   ColumnOrderings<bool> get supersetWithNext => $composableBuilder(
     column: $table.supersetWithNext,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get skipped => $composableBuilder(
+    column: $table.skipped,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10154,6 +10363,12 @@ class $$WorkoutExercisesTableAnnotationComposer
   GeneratedColumn<int> get dirty =>
       $composableBuilder(column: $table.dirty, builder: (column) => column);
 
+  GeneratedColumnWithTypeConverter<List<String>, String> get alternativeIds =>
+      $composableBuilder(
+        column: $table.alternativeIds,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<int> get position =>
       $composableBuilder(column: $table.position, builder: (column) => column);
 
@@ -10164,6 +10379,9 @@ class $$WorkoutExercisesTableAnnotationComposer
     column: $table.supersetWithNext,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get skipped =>
+      $composableBuilder(column: $table.skipped, builder: (column) => column);
 
   $$WorkoutsTableAnnotationComposer get workoutId {
     final $$WorkoutsTableAnnotationComposer composer = $composerBuilder(
@@ -10303,9 +10521,11 @@ class $$WorkoutExercisesTableTableManager
                 Value<String> workoutId = const Value.absent(),
                 Value<String> exerciseId = const Value.absent(),
                 Value<String?> backupExerciseId = const Value.absent(),
+                Value<List<String>> alternativeIds = const Value.absent(),
                 Value<int> position = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> supersetWithNext = const Value.absent(),
+                Value<bool> skipped = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkoutExercisesCompanion(
                 id: id,
@@ -10318,9 +10538,11 @@ class $$WorkoutExercisesTableTableManager
                 workoutId: workoutId,
                 exerciseId: exerciseId,
                 backupExerciseId: backupExerciseId,
+                alternativeIds: alternativeIds,
                 position: position,
                 notes: notes,
                 supersetWithNext: supersetWithNext,
+                skipped: skipped,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10335,9 +10557,11 @@ class $$WorkoutExercisesTableTableManager
                 required String workoutId,
                 required String exerciseId,
                 Value<String?> backupExerciseId = const Value.absent(),
+                Value<List<String>> alternativeIds = const Value.absent(),
                 required int position,
                 Value<String?> notes = const Value.absent(),
                 Value<bool> supersetWithNext = const Value.absent(),
+                Value<bool> skipped = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WorkoutExercisesCompanion.insert(
                 id: id,
@@ -10350,9 +10574,11 @@ class $$WorkoutExercisesTableTableManager
                 workoutId: workoutId,
                 exerciseId: exerciseId,
                 backupExerciseId: backupExerciseId,
+                alternativeIds: alternativeIds,
                 position: position,
                 notes: notes,
                 supersetWithNext: supersetWithNext,
+                skipped: skipped,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -243,7 +243,7 @@ class _GroupCardState extends State<_GroupCard> {
   @override
   void didUpdateWidget(_GroupCard old) {
     super.didUpdateWidget(old);
-    String ids(_GroupCard c) => c.items.map((e) => e.exerciseId).join();
+    String ids(_GroupCard c) => c.items.map((e) => [e.exerciseId, ...e.alternativeIds].join()).join();
     if (old.startedAt != widget.startedAt || ids(old) != ids(widget)) _load();
   }
 
@@ -251,7 +251,9 @@ class _GroupCardState extends State<_GroupCard> {
     () async {
       final entry = <String, CatalogEntry?>{}, previous = <String, List<List<WorkoutSet>>>{};
       for (final e in widget.items) {
-        entry[e.exerciseId] = await widget.catalog.byId(e.exerciseId);
+        for (final id in [e.exerciseId, ...e.alternativeIds]) {
+          entry[id] = await widget.catalog.byId(id);
+        }
         previous[e.exerciseId] = await widget.store.previousSessions(e.exerciseId, excludeWorkoutId: e.workoutId);
       }
       if (!mounted) return;
@@ -279,6 +281,33 @@ class _GroupCardState extends State<_GroupCard> {
     if (ok == true) await widget.store.remove(e.id);
   }
 
+  /// Lists [e]'s alternatives with their last session; picking one swaps to it.
+  Future<void> _pickAlternative(WorkoutExercise e) async {
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const ListTile(title: Text('Swap to')),
+          for (final id in e.alternativeIds)
+            ListTile(
+              leading: ExerciseThumb(_entry[id]),
+              title: Text(_entry[id]?.name ?? '…'),
+              subtitle: FutureBuilder<List<WorkoutSet>>(
+                future: widget.store.lastTime(id, excludeWorkoutId: e.workoutId),
+                builder: (context, last) {
+                  final sets = last.data ?? const [];
+                  final type = _entry[id]?.loadType ?? 'weighted';
+                  return Text('Last time: ${sets.isEmpty ? '—' : sets.map((s) => _describe(s, type)).join(', ')}');
+                },
+              ),
+              onTap: () => Navigator.pop(context, id),
+            ),
+        ]),
+      ),
+    );
+    if (id != null) await widget.store.swap(e, id);
+  }
+
   Widget _header(int i, WorkoutExercise e) {
     final store = widget.store, entry = _entry[e.exerciseId];
     final last = _previous[e.exerciseId]?.firstOrNull ?? const [];
@@ -290,21 +319,21 @@ class _GroupCardState extends State<_GroupCard> {
           Row(
             children: [
               if (widget.isSuperset) ...[_Tag(i), const SizedBox(width: 8)],
-              ExerciseThumb(entry),
+              Opacity(opacity: e.skipped ? 0.4 : 1, child: ExerciseThumb(entry)),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   entry?.name ?? '…',
-                  style: const TextStyle(fontSize: 17),
+                  style: TextStyle(fontSize: 17, color: e.skipped ? Theme.of(context).disabledColor : null),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (e.backupExerciseId != null)
+              if (e.alternativeIds.isNotEmpty && !e.skipped)
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
-                  tooltip: 'Swap to backup exercise',
-                  onPressed: () => store.swap(e),
+                  tooltip: 'Swap to an alternative',
+                  onPressed: () => _pickAlternative(e),
                 ),
               // One menu instead of three icons, so long names keep their width.
               PopupMenuButton<VoidCallback>(
@@ -322,6 +351,12 @@ class _GroupCardState extends State<_GroupCard> {
                     child: const ListTile(leading: Icon(Icons.arrow_downward), title: Text('Move down')),
                   ),
                   PopupMenuItem(
+                    value: () => store.setSkipped(e, !e.skipped),
+                    child: ListTile(
+                        leading: Icon(e.skipped ? Icons.undo : Icons.block),
+                        title: Text(e.skipped ? 'Include' : 'Skip today')),
+                  ),
+                  PopupMenuItem(
                     value: () => _confirmRemove(e),
                     child: const ListTile(leading: Icon(Icons.close), title: Text('Remove')),
                   ),
@@ -329,18 +364,22 @@ class _GroupCardState extends State<_GroupCard> {
               ),
             ],
           ),
-          ExerciseNotes(
-            key: ValueKey('${e.id}-${e.exerciseId}'), // a swap brings the other exercise's sticky note
-            store: store,
-            catalog: widget.catalog,
-            item: e,
-            stickyNote: entry?.stickyNote,
-            isLast: e.id == widget.lastId,
-          ),
-          Text(
-            'Last time: ${last.isEmpty ? '—' : last.map((s) => _describe(s, _loadType(e))).join(', ')}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          if (e.skipped)
+            Text('Skipped today', style: Theme.of(context).textTheme.bodySmall)
+          else ...[
+            ExerciseNotes(
+              key: ValueKey('${e.id}-${e.exerciseId}'), // a swap brings the other exercise's sticky note
+              store: store,
+              catalog: widget.catalog,
+              item: e,
+              stickyNote: entry?.stickyNote,
+              isLast: e.id == widget.lastId,
+            ),
+            Text(
+              'Last time: ${last.isEmpty ? '—' : last.map((s) => _describe(s, _loadType(e))).join(', ')}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
     );
@@ -357,6 +396,7 @@ class _GroupCardState extends State<_GroupCard> {
 
   Widget _rows(List<List<WorkoutSet>> perExercise) {
     final items = widget.items, store = widget.store;
+    perExercise = [for (final (i, e) in items.indexed) e.skipped ? const <WorkoutSet>[] : perExercise[i]]; // hidden while skipped
     final rows = supersetRows(perExercise);
     final prs = {
       for (final (i, e) in items.indexed)
@@ -430,15 +470,16 @@ class _GroupCardState extends State<_GroupCard> {
         children: [
           for (final (i, e) in widget.items.indexed) _header(i, e),
           _withSets(_rows),
-          TextButton.icon(
-            icon: const Icon(Icons.add),
-            label: Text(widget.isSuperset ? 'Add round' : 'Add set'),
-            onPressed: () async {
-              for (final e in widget.items) {
-                await widget.store.addSet(e.id);
-              }
-            },
-          ),
+          if (widget.items.any((e) => !e.skipped))
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: Text(widget.isSuperset ? 'Add round' : 'Add set'),
+              onPressed: () async {
+                for (final e in widget.items.where((e) => !e.skipped)) {
+                  await widget.store.addSet(e.id);
+                }
+              },
+            ),
         ],
       ),
     ),
