@@ -86,7 +86,7 @@ class WorkoutStore {
             'id': weId,
             'workout_id': id,
             'exercise_id': p.exerciseId,
-            'backup_exercise_id': p.backupExerciseId,
+            'alternative_ids': p.alternativeIds,
             'position': i,
           });
           final last = (await lastTime(p.exerciseId, excludeWorkoutId: id)).where((s) => !s.isDrop).toList();
@@ -135,7 +135,7 @@ class WorkoutStore {
       for (final (i, e) in (await _plan(workoutId)).indexed)
         (
           exerciseId: e.exerciseId,
-          backupExerciseId: e.backupExerciseId,
+          alternativeIds: e.alternativeIds,
           sets: [
             for (final (j, s) in e.sets.indexed)
               unpinned(i, j) ? (weightKg: null, reps: s.reps, durationSec: s.durationSec) : s
@@ -151,7 +151,7 @@ class WorkoutStore {
         for (final e in await watchExercises(workoutId).first)
           (
             exerciseId: e.exerciseId,
-            backupExerciseId: e.backupExerciseId,
+            alternativeIds: e.alternativeIds,
             sets: [
               for (final s in await watchSets(e.id).first)
                 if (!s.isDrop) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
@@ -288,18 +288,28 @@ class WorkoutStore {
         'id': e.id,
         'workout_id': e.workoutId,
         'exercise_id': e.exerciseId,
-        'backup_exercise_id': e.backupExerciseId,
+        'alternative_ids': e.alternativeIds,
         'position': e.position,
         'notes': e.notes,
         'superset_with_next': e.supersetWithNext,
+        'skipped': e.skipped,
         'deleted_at': e.deletedAt,
       });
 
-  /// Swaps workout exercise [e] with its backup exercise. No-op without one.
-  Future<void> swap(WorkoutExercise e) async {
-    final b = e.backupExerciseId;
-    if (b != null) await saveExercise(e.copyWith(exerciseId: b, backupExerciseId: Value(e.exerciseId)));
-  }
+  /// Swaps workout exercise [e] to its alternative [exerciseId]; [e]'s exercise becomes an alternative.
+  /// Sets not done yet take the new exercise's weights from last time.
+  Future<void> swap(WorkoutExercise e, String exerciseId) => _db.transaction(() async {
+        final slot = [e.exerciseId, ...e.alternativeIds]..remove(exerciseId);
+        await saveExercise(e.copyWith(exerciseId: exerciseId, alternativeIds: slot));
+        final last = (await lastTime(exerciseId, excludeWorkoutId: e.workoutId)).where((s) => !s.isDrop).toList();
+        if (last.isEmpty) return;
+        for (final (n, s) in (await watchSets(e.id).first).where((s) => !s.isDrop).indexed) {
+          if (!s.done) await updateSet(s.copyWith(weightKg: Value((n < last.length ? last[n] : last.last).weightKg)));
+        }
+      });
+
+  /// Marks workout exercise [e] skipped (not done today) or back in.
+  Future<void> setSkipped(WorkoutExercise e, bool skipped) => saveExercise(e.copyWith(skipped: skipped));
 
   Stream<List<WorkoutSet>> watchSets(String workoutExerciseId) => (_db.select(_db.workoutSets)
         ..where((s) => s.workoutExerciseId.equals(workoutExerciseId) & s.deletedAt.isNull())
@@ -400,7 +410,7 @@ class WorkoutStore {
   Future<List<WorkoutSet>> lastTime(String exerciseId, {required String excludeWorkoutId}) async =>
       (await previousSessions(exerciseId, excludeWorkoutId: excludeWorkoutId, limit: 1)).firstOrNull ?? [];
 
-  /// [exerciseId]'s sets per live workout started before [excludeWorkoutId], newest first.
+  /// [exerciseId]'s sets per live workout started before [excludeWorkoutId], newest first; skipped ones left out.
   Future<List<List<WorkoutSet>>> previousSessions(String exerciseId,
       {required String excludeWorkoutId, int? limit}) async {
     final current = await (_db.select(_db.workouts)..where((w) => w.id.equals(excludeWorkoutId))).getSingle();
@@ -409,6 +419,7 @@ class WorkoutStore {
           ..where(we.exerciseId.equals(exerciseId) &
               we.deletedAt.isNull() &
               w.deletedAt.isNull() &
+              we.skipped.not() &
               w.id.equals(excludeWorkoutId).not() &
               w.startedAt.isSmallerThanValue(current.startedAt))
           ..orderBy([OrderingTerm.desc(w.startedAt)])
@@ -431,24 +442,24 @@ class WorkoutStore {
     return [for (final id in ids) by[id]!];
   }
 
-  /// Every live set of every finished, live workout, oldest workout first. Feeds the stats screens.
+  /// Every live set of every finished, live workout, oldest workout first, skipped exercises left out. Feeds the stats screens.
   Stream<List<LoggedSet>> watchLogged() {
     final s = _db.workoutSets, we = _db.workoutExercises, w = _db.workouts;
     return (_db.select(s).join([
       innerJoin(we, we.id.equalsExp(s.workoutExerciseId)),
       innerJoin(w, w.id.equalsExp(we.workoutId)),
     ])
-          ..where(s.deletedAt.isNull() & we.deletedAt.isNull() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
+          ..where(s.deletedAt.isNull() & we.deletedAt.isNull() & we.skipped.not() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
           ..orderBy([OrderingTerm.asc(w.startedAt), OrderingTerm.asc(we.position), OrderingTerm.asc(s.setNumber)]))
         .map((r) => (workout: r.readTable(w), exerciseId: r.readTable(we).exerciseId, set: r.readTable(s)))
         .watch();
   }
 
-  /// [exerciseId]'s sets per finished, live workout with its start time, oldest first.
+  /// [exerciseId]'s sets per finished, live workout with its start time, oldest first; skipped ones left out.
   Future<List<(DateTime, List<WorkoutSet>)>> finishedSessions(String exerciseId) async {
     final we = _db.workoutExercises, w = _db.workouts;
     final rows = await (_db.select(we).join([innerJoin(w, w.id.equalsExp(we.workoutId))])
-          ..where(we.exerciseId.equals(exerciseId) & we.deletedAt.isNull() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
+          ..where(we.exerciseId.equals(exerciseId) & we.deletedAt.isNull() & we.skipped.not() & w.deletedAt.isNull() & w.finishedAt.isNotNull())
           ..orderBy([OrderingTerm.asc(w.startedAt)]))
         .get();
     final sets = await _setsFor([for (final r in rows) r.readTable(we).id]);

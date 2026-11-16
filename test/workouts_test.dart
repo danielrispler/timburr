@@ -405,19 +405,59 @@ void main() {
         [(1, 50.0, 8, false, true), (2, 40.0, 8, true, false), (3, 50.0, 8, false, false)]);
   });
 
-  test('a backup exercise comes from the routine and swaps both ways', () async {
+  test('alternatives come from the routine; a swap trades places and takes last weights', () async {
     final routines = RoutineStore(db);
-    final r = await routines.create('Upper B');
-    final re = await routines.add(r, lib('Pull-up'));
-    await routines.setBackup(re, lib('Assisted'));
+    final r = await routines.create('Lower A');
+    final re = await routines.add(r, lib('Ext down'));
+    await routines.addAlternatives(re, [lib('Ext up'), lib('Ext down'), lib('Ext gym'), lib('Ext up')]);
+    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Ext up'), libraryRowId('Ext gym')]);
+
+    // Last time on the upstairs machine: 35 kg.
+    final old = await store.start();
+    await store.addExercise(old, lib('Ext up'));
+    final oe = (await store.watchExercises(old).first).single;
+    await store.updateSet((await store.addSet(oe.id)).copyWith(weightKg: const Value(35), reps: const Value(10), done: true));
+    await store.finish(old);
+
     final w = await store.start(routineId: r);
     var e = (await store.watchExercises(w).first).single;
-    expect((e.exerciseId, e.backupExerciseId), (libraryRowId('Pull-up'), libraryRowId('Assisted')));
-    await store.swap(e);
+    final first = (await store.watchSets(e.id).first).first;
+    await store.updateSet(first.copyWith(weightKg: const Value(50), done: true));
+    await store.swap(e, libraryRowId('Ext up'));
     e = (await store.watchExercises(w).first).single;
-    expect((e.exerciseId, e.backupExerciseId), (libraryRowId('Assisted'), libraryRowId('Pull-up')));
-    await routines.setBackup(re, null);
-    expect((await routines.watchExercises(r).first).single.backupExerciseId, null);
+    expect(e.exerciseId, libraryRowId('Ext up'));
+    expect(e.alternativeIds, [libraryRowId('Ext down'), libraryRowId('Ext gym')]);
+    // A done set keeps its weight; the rest take the upstairs machine's.
+    expect([for (final s in await store.watchSets(e.id).first) s.weightKg], [50.0, 35.0, 35.0]);
+
+    await routines.removeAlternative(re, libraryRowId('Ext up'));
+    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Ext gym')]);
+  });
+
+  test('a skipped exercise counts nowhere and stays in the routine', () async {
+    final routines = RoutineStore(db);
+    final r = await routines.create('Lower A');
+    await routines.add(r, lib('Squat'));
+    await routines.add(r, lib('Hip thrust'));
+    final w = await store.start(routineId: r);
+    for (final e in await store.watchExercises(w).first) {
+      for (final s in await store.watchSets(e.id).first) {
+        await store.updateSet(s.copyWith(weightKg: const Value(60), done: true));
+      }
+    }
+    final hips = (await store.watchExercises(w).first).last;
+    await store.setSkipped(hips, true);
+    await store.finish(w);
+
+    expect({for (final l in await store.watchLogged().first) l.exerciseId}, {libraryRowId('Squat')});
+    expect(await store.finishedSessions(libraryRowId('Hip thrust')), isEmpty);
+    final next = await store.start();
+    expect(await store.lastTime(libraryRowId('Hip thrust'), excludeWorkoutId: next), isEmpty);
+    await store.updateTemplate(w);
+    expect([for (final e in await routines.watchExercises(r).first) e.exerciseId], [libraryRowId('Squat'), libraryRowId('Hip thrust')]);
+
+    await store.setSkipped((await store.watchExercises(w).first).last, false);
+    expect(await store.finishedSessions(libraryRowId('Hip thrust')), hasLength(1));
   });
 
   test('health stats save on the workout', () async {

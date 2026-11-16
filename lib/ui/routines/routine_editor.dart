@@ -55,7 +55,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
     final entries = {for (final e in await catalog.list()) if (e.rowId != null) e.rowId!: e};
     // list() skips deleted exercises; the routine may still reference some.
     for (final e in await _store.watchExercises(widget.routineId).first) {
-      for (final id in [e.exerciseId, ?e.backupExerciseId]) {
+      for (final id in [e.exerciseId, ...e.alternativeIds]) {
         if (!entries.containsKey(id)) {
           final d = await catalog.byId(id);
           if (d != null) entries[id] = d;
@@ -114,23 +114,48 @@ class _RoutineEditorState extends State<RoutineEditor> {
     await _loadNames();
   }
 
-  /// Picks the slot's backup exercise, swapped in during a workout; "No backup" clears it.
-  Future<void> _pickBackup(RoutineExercise e) async {
-    final picked = await Navigator.of(context).push<(CatalogEntry?,)>(MaterialPageRoute(
+  /// The slot's alternatives, swapped in during a workout: remove one, or add more from the picker.
+  Future<void> _editAlternatives(String routineExerciseId) => showModalBottomSheet<void>(
+        context: context,
+        builder: (context) => StreamBuilder<List<RoutineExercise>>(
+          stream: _store.watchExercises(widget.routineId),
+          builder: (context, snap) {
+            final e = snap.data?.where((x) => x.id == routineExerciseId).firstOrNull;
+            if (e == null) return const SizedBox.shrink();
+            return SafeArea(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const ListTile(title: Text('Alternatives'), subtitle: Text('Swap to one of these during a workout')),
+                for (final id in e.alternativeIds)
+                  ListTile(
+                    leading: ExerciseThumb(_entries[id]),
+                    title: Text(_entries[id]?.name ?? '…'),
+                    trailing: IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Remove',
+                        onPressed: () => _store.removeAlternative(e.id, id)),
+                  ),
+                ListTile(leading: const Icon(Icons.add), title: const Text('Add alternatives'), onTap: () => _addAlternatives(e.id)),
+              ]),
+            );
+          },
+        ),
+      );
+
+  Future<void> _addAlternatives(String routineExerciseId) async {
+    final picked = await Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Backup exercise'), actions: [
-          if (e.backupExerciseId != null)
-            TextButton(onPressed: () => Navigator.of(context).pop((null,)), child: const Text('No backup')),
-        ]),
+        appBar: AppBar(title: const Text('Add alternatives')),
         body: ExercisePicker(
           catalog: widget.stores.catalog,
-          onSelected: (x) => Navigator.of(context).pop((x,)),
-          onAdd: (list) => Navigator.of(context).pop((list.first,)),
+          onSelected: (x) => Navigator.of(context).pop([x]),
+          onCreate: () => Navigator.of(context)
+              .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.stores.catalog))),
+          onAdd: (list) => Navigator.of(context).pop(list),
         ),
       ),
     ));
     if (picked == null) return;
-    await _store.setBackup(e.id, picked.$1);
+    await _store.addAlternatives(routineExerciseId, picked);
     await _loadNames();
   }
 
@@ -233,12 +258,13 @@ class _RoutineEditorState extends State<RoutineEditor> {
                                   title: Text(_entries[e.exerciseId]?.name ?? '…'),
                                   subtitle: Text([
                                     planSummary(sets.data ?? const []),
-                                    if (e.backupExerciseId != null) 'or ${_entries[e.backupExerciseId]?.name ?? '…'}',
+                                    if (e.alternativeIds.isNotEmpty)
+                                      'or ${e.alternativeIds.map((id) => _entries[id]?.name ?? '…').join(', ')}',
                                   ].join('\n')),
                                   trailing: IconButton(
-                                    icon: Icon(e.backupExerciseId == null ? Icons.swap_horiz : Icons.swap_horizontal_circle),
-                                    tooltip: 'Backup exercise',
-                                    onPressed: () => _pickBackup(e),
+                                    icon: Icon(e.alternativeIds.isEmpty ? Icons.swap_horiz : Icons.swap_horizontal_circle),
+                                    tooltip: 'Alternatives',
+                                    onPressed: () => _editAlternatives(e.id),
                                   ),
                                   onTap: _entries[e.exerciseId] == null
                                       ? null
