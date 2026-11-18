@@ -17,6 +17,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: "3.44.3" # latest stable deprecates material.dart and fails analyze
           cache: true
       - name: Install SQLite for drift's NativeDatabase
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
