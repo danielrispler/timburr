@@ -250,10 +250,11 @@ void main() {
     expect(await dates(to: DateTime(2026, 11, 17)), [['2026-11-16T07:00'], ['2026-11-16T23:59']]);
   });
 
-  test('export leaves out skipped exercises, drop sets and undone sets, and round-trips through import', () async {
+  test('export leaves out skipped exercises (and the superset link to one), drop sets and undone sets, and round-trips', () async {
     await importer.save(_doc(), saveRoutines: true);
     final store = WorkoutStore(db);
     final [squat, plank] = await (db.select(db.workoutExercises)..orderBy([(e) => OrderingTerm(expression: e.position)])).get();
+    await store.saveExercise(squat.copyWith(supersetWithNext: true));
     await store.setSkipped(plank, true);
     final [first, second] = await store.watchSets(squat.id).first;
     await store.addDrop(first);

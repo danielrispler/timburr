@@ -305,12 +305,12 @@ class Importer {
     final exercises = <String, Map<String, WorkoutExercise>>{}, sets = <String, List<WorkoutSet>>{};
     for (final r in rows) {
       final e = r.readTable(we), x = r.readTable(s);
-      if ((x.reps == null) == (x.durationSec == null)) continue;
+      if ((x.reps == null) == (x.durationSec == null)) continue; // v1 needs exactly one of them
       (exercises[e.workoutId] ??= {})[e.id] = e;
       (sets[e.id] ??= []).add(x);
     }
     final routines = {for (final r in await _db.select(_db.routines).get()) r.id: r.name};
-    final names = <String, String>{};
+    final names = <String, String>{}; // exercise row id -> name, looked up once
     final cardio = await (_db.select(_db.cardio)
           ..where((c) => c.deletedAt.isNull() & inRange(c.startedAt))
           ..orderBy([(c) => OrderingTerm(expression: c.startedAt)]))
@@ -318,18 +318,19 @@ class Importer {
     return jsonEncode({
       'version': 1,
       'workouts': [
-        for (final w in workouts)
-          if (exercises[w.id] case final es?)
+        for (final workout in workouts)
+          if (exercises[workout.id]?.values.toList() case final es?)
             {
-              'date': _localMinute(w.startedAt),
-              'routine': ?routines[w.routineId],
-              'notes': ?w.notes,
+              'date': _localMinute(workout.startedAt),
+              'routine': ?routines[workout.routineId],
+              'notes': ?workout.notes,
               'exercises': [
-                for (final e in es.values)
+                for (final (i, e) in es.indexed)
                   {
                     'name': names[e.exerciseId] ??= (await _catalog.byId(e.exerciseId))?.name ?? 'Unknown exercise',
                     'notes': ?e.notes,
-                    'supersetWithNext': e.supersetWithNext,
+                    // Linked only to the card right after it; a left-out partner would otherwise pass the link on.
+                    'supersetWithNext': e.supersetWithNext && i + 1 < es.length && es[i + 1].position == e.position + 1,
                     'sets': [
                       for (final x in sets[e.id]!) {'weightKg': ?x.weightKg, 'reps': ?x.reps, 'durationSec': ?x.durationSec},
                     ],

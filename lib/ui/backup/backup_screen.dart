@@ -42,60 +42,62 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
+  /// Writes [json] to a temp file named [name] and opens the share sheet with it.
+  Future<ShareResult> _share(String name, String json) async {
+    final file = File('${(await getTemporaryDirectory()).path}/$name');
+    await file.writeAsString(json);
+    return SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
+  }
+
   Future<void> _export() => _run(() async {
-        final stamp = DateTime.now().toIso8601String().substring(0, 10);
-        final file = File('${(await getTemporaryDirectory()).path}/timburr-backup-$stamp.json');
-        await file.writeAsString(await Backup(widget.catalog.db).export());
-        final result = await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
+        final result = await _share('timburr-backup-${_day(DateTime.now())}.json', await Backup(widget.catalog.db).export());
         // Some Android versions report unavailable even when the share went through.
         if (result.status != ShareResultStatus.dismissed) await BackupReminder.markExported();
       });
 
-  /// Asks for a range, then shares those workouts and cardio in the import format. Not a backup, so the reminder stays.
+  /// Asks for days, then shares their workouts and cardio in the import format. Not a backup, so the reminder stays.
   Future<void> _exportWorkouts() async {
-    String day(DateTime d) => d.toIso8601String().substring(0, 10);
-    final now = DateTime.now(), today = dayOf(now), monday = mondayOf(now);
-    final range = await showDialog<(DateTime?, DateTime?, String)>(
+    final today = dayOf(DateTime.now()), monday = mondayOf(today);
+    // (null,) is all workouts; a null result is cancel.
+    final choice = await showDialog<(DateTimeRange?,)>(
       context: context,
       builder: (context) => SimpleDialog(
         title: const Text('Export which workouts?'),
         children: [
           SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, (today, DateTime(today.year, today.month, today.day + 1), day(today))),
+            onPressed: () => Navigator.pop(context, (DateTimeRange(start: today, end: today),)),
             child: const ListTile(title: Text('Today')),
           ),
           SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, (
-              monday,
-              DateTime(monday.year, monday.month, monday.day + 7),
-              '${day(monday)}-to-${day(DateTime(monday.year, monday.month, monday.day + 6))}',
-            )),
+            onPressed: () => Navigator.pop(context, (DateTimeRange(start: monday, end: DateTime(monday.year, monday.month, monday.day + 6)),)),
             child: const ListTile(title: Text('This week')),
           ),
           SimpleDialogOption(
             onPressed: () async {
               final picked = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: today);
-              if (picked == null || !context.mounted) return;
-              final end = picked.end;
-              Navigator.pop(context, (picked.start, DateTime(end.year, end.month, end.day + 1), '${day(picked.start)}-to-${day(end)}'));
+              if (picked != null && context.mounted) Navigator.pop(context, (picked,));
             },
             child: const ListTile(title: Text('Pick dates…')),
           ),
           SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, (null, null, 'all')),
+            onPressed: () => Navigator.pop(context, (null,)),
             child: const ListTile(title: Text('All workouts')),
           ),
         ],
       ),
     );
-    if (range == null || !mounted) return;
-    final (from, to, label) = range;
+    if (choice == null || !mounted) return;
+    final (days,) = choice;
+    final (start, end) = (days?.start, days?.end); // both ends included
+    final label = days == null ? 'all' : start == end ? _day(start!) : '${_day(start!)}-to-${_day(end!)}';
     await _run(() async {
-      final file = File('${(await getTemporaryDirectory()).path}/timburr-workouts-$label.json');
-      await file.writeAsString(await Importer(widget.catalog.db, widget.catalog).export(from: from, to: to));
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
+      final json = await Importer(widget.catalog.db, widget.catalog)
+          .export(from: start, to: end == null ? null : DateTime(end.year, end.month, end.day + 1));
+      await _share('timburr-workouts-$label.json', json);
     });
   }
+
+  static String _day(DateTime d) => d.toIso8601String().substring(0, 10);
 
   Future<void> _restore() async {
     final picked = await FilePicker.pickFile();
