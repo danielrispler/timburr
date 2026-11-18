@@ -100,7 +100,7 @@ Needs the Flutter SDK and Android Studio (for the Android SDK). Flutter finds An
 flutter run --dart-define-from-file=.env.json        # app on a device or emulator
 flutter build apk --dart-define-from-file=.env.json  # APK in build/app/outputs/flutter-apk/
 flutter test                                         # unit tests
-adb install -r build/app/outputs/flutter-apk/app-release.apk  # update the phone, keeps local data
+tool/phone.sh                                        # build with .env.json, check sync config, update the phone (keeps local data)
 (cd supabase && npm install && npm test)             # migration tests in PGlite, no Docker
 ```
 
