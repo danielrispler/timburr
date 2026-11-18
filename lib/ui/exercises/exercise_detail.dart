@@ -7,6 +7,7 @@ import '../../data/records.dart';
 import '../../data/stats.dart' show repMax;
 import '../../data/workouts.dart';
 import '../core/series_chart.dart';
+import '../core/text_direction.dart';
 import '../core/theme.dart';
 import 'exercise_image.dart';
 
@@ -53,7 +54,10 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Sticky note'),
-        content: TextField(controller: ctrl, autofocus: true, maxLines: null),
+        content: AutoDirection(
+          controller: ctrl,
+          builder: (dir) => TextField(controller: ctrl, textDirection: dir, autofocus: true, maxLines: null),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
@@ -128,7 +132,8 @@ class _ExerciseDetailState extends State<ExerciseDetail> {
               if (entry.secondaryMuscles.isNotEmpty) row('Secondary muscles', entry.secondaryMuscles.join(', ')),
               ListTile(
                 title: const Text('Sticky note'),
-                subtitle: Text(entry.stickyNote?.isNotEmpty == true ? entry.stickyNote! : 'Tap to add'),
+                subtitle: Text(entry.stickyNote?.isNotEmpty == true ? entry.stickyNote! : 'Tap to add',
+                    textDirection: textDirectionOf(entry.stickyNote ?? '')),
                 trailing: const Icon(Icons.edit_note),
                 onTap: _editNote,
               ),

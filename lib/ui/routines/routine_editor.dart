@@ -4,6 +4,7 @@ import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
+import '../core/text_direction.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_image.dart';
 import '../exercises/exercise_picker.dart';
@@ -215,14 +216,18 @@ class _RoutineEditorState extends State<RoutineEditor> {
                       header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         if (equipment.isNotEmpty)
                           Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(equipment.join(' • '))),
-                        TextField(
+                        AutoDirection(
                           controller: _note,
-                          maxLines: null,
-                          decoration: const InputDecoration(
-                              labelText: 'Sticky note',
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                          onChanged: (_) => _saveNote(),
+                          builder: (dir) => TextField(
+                            controller: _note,
+                            textDirection: dir,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                                labelText: 'Sticky note',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                            onChanged: (_) => _saveNote(),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         if (items.isEmpty) const ListTile(title: Text('No exercises yet')),

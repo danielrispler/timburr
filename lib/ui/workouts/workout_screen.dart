@@ -6,6 +6,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/workouts.dart';
+import '../core/text_direction.dart';
 import '../core/theme.dart';
 import '../routines/start.dart' show pickDateTime;
 import '../exercises/exercise_picker.dart';
@@ -158,11 +159,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         subtitle: Text(TimeOfDay.fromDateTime(w.startedAt).format(context)),
                         onTap: () => _editDate(w),
                       ),
-                      TextField(
+                      AutoDirection(
                         controller: _notes,
-                        maxLines: null,
-                        decoration: const InputDecoration(labelText: 'Workout note'),
-                        onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
+                        builder: (dir) => TextField(
+                          controller: _notes,
+                          textDirection: dir,
+                          maxLines: null,
+                          decoration: const InputDecoration(labelText: 'Workout note'),
+                          onChanged: (v) => widget.store.setNotes(widget.workoutId, v.isEmpty ? null : v),
+                        ),
                       ),
                       RoutineNote(store: widget.store, routineId: w.routineId),
                       if (w.finishedAt != null)

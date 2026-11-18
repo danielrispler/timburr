@@ -23,7 +23,7 @@ Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `dele
 | `exercises` | `library_id` (null = custom), `name` (custom only), `load_type`, `muscles[]`, `equipment`, `sticky_note`, `last_rest_sec` |
 | `routines` | `name`, `sticky_note` |
 | `routine_exercises` | `routine_id`, `exercise_id`, `alternative_ids[]`, `position` |
-| `routine_sets` | `routine_exercise_id`, `set_number`, `weight_kg` (null = last session's), `reps`, `duration_sec` |
+| `routine_sets` | `routine_exercise_id`, `set_number`, `weight_kg` (used only before the exercise has a last session), `reps`, `duration_sec` |
 | `workouts` | `routine_id` (nullable), `started_at`, `finished_at` (null = in progress), `notes` |
 | `workout_exercises` | `workout_id`, `exercise_id`, `alternative_ids[]`, `position`, `notes`, `superset_with_next`, `skipped` |
 | `sets` | `workout_exercise_id`, `set_number`, `weight_kg`, `reps`, `duration_sec`, `done` |
