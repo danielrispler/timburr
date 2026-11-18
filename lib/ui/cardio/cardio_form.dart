@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../core/text_direction.dart';
 import '../core/theme.dart';
 import 'activity_timer.dart';
 
@@ -101,6 +102,7 @@ class _CardioFormState extends State<CardioForm> {
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
           controller: t,
+          textDirection: textDirectionOf(t.text),
           keyboardType: keyboard,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(

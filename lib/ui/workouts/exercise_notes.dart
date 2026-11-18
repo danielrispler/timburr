@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/workouts.dart';
+import '../core/text_direction.dart';
 
 /// Outlines a superset (2+ linked cards) so it reads as one block.
 class SupersetFrame extends StatelessWidget {
@@ -104,6 +105,7 @@ class _ExerciseNotesState extends State<ExerciseNotes> {
                     onTap: () => setState(() => _open = true),
                     child: Text(
                       [_sticky.text, _session.text].where((t) => t.isNotEmpty).join(' · '),
+                      textDirection: textDirectionOf(_sticky.text.isNotEmpty ? _sticky.text : _session.text),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontStyle: FontStyle.italic),
@@ -113,22 +115,30 @@ class _ExerciseNotesState extends State<ExerciseNotes> {
             ],
           ),
           if (_open) ...[
-            TextField(
+            AutoDirection(
               controller: _sticky,
-              maxLines: null,
-              style: const TextStyle(fontStyle: FontStyle.italic),
-              decoration: const InputDecoration(labelText: 'Sticky note (every workout)', isDense: true),
-              onChanged: (v) => widget.catalog.setStickyNote(e.exerciseId, v.isEmpty ? null : v),
+              builder: (dir) => TextField(
+                controller: _sticky,
+                textDirection: dir,
+                maxLines: null,
+                style: const TextStyle(fontStyle: FontStyle.italic),
+                decoration: const InputDecoration(labelText: 'Sticky note (every workout)', isDense: true),
+                onChanged: (v) => widget.catalog.setStickyNote(e.exerciseId, v.isEmpty ? null : v),
+              ),
             ),
-            TextField(
+            AutoDirection(
               controller: _session,
-              maxLines: null,
-              decoration: const InputDecoration(labelText: 'Session note', isDense: true),
-              // Saves the latest row so a reorder in between is not undone.
-              onChanged: (v) async {
-                final now = (await widget.store.watchExercises(e.workoutId).first).firstWhere((x) => x.id == e.id);
-                await widget.store.saveExercise(now.copyWith(notes: Value(v.isEmpty ? null : v)));
-              },
+              builder: (dir) => TextField(
+                controller: _session,
+                textDirection: dir,
+                maxLines: null,
+                decoration: const InputDecoration(labelText: 'Session note', isDense: true),
+                // Saves the latest row so a reorder in between is not undone.
+                onChanged: (v) async {
+                  final now = (await widget.store.watchExercises(e.workoutId).first).firstWhere((x) => x.id == e.id);
+                  await widget.store.saveExercise(now.copyWith(notes: Value(v.isEmpty ? null : v)));
+                },
+              ),
             ),
           ],
         ],
@@ -156,7 +166,7 @@ class RoutineNote extends StatelessWidget {
         return ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.sticky_note_2_outlined),
-          title: Text(note, style: const TextStyle(fontStyle: FontStyle.italic)),
+          title: Text(note, textDirection: textDirectionOf(note), style: const TextStyle(fontStyle: FontStyle.italic)),
         );
       },
     );
