@@ -26,6 +26,7 @@ Work follows the four stages in the brief.
 
 ## Gotchas
 
-- Build and install with `flutter` commands only (`flutter build apk`, `flutter install`, `flutter run`). Flutter finds Android Studio's Java by itself. Do not `export JAVA_HOME` and do not call Gradle directly.
-- To put a build on the phone, run `adb install -r build/app/outputs/flutter-apk/app-release.apk`. Never use `flutter install`: it uninstalls first, which wipes the phone's local data and anything not yet synced.
+- Put a build on the phone with `tool/phone.sh`: it bakes in the Supabase config, checks it, and installs over the old app with `adb install -r`. Flutter finds Android Studio's Java by itself, so leave `JAVA_HOME` alone and leave Gradle to `flutter`.
+- Bugs that depend on real data or sync: read `docs/debugging.md`.
+- The repo keeps its hand formatting (`dart format` would rewrite 52 of 61 files), so edit by hand.
 - The migration tests run in PGlite (Postgres in WASM). Docker is not needed, and the daemon is usually off.
