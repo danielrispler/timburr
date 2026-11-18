@@ -20,3 +20,6 @@ build/
 .flutter-plugins-dependencies
 *.iml
 .idea/
+
+# data pulled from Supabase
+.data/
