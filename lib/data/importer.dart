@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -279,6 +281,81 @@ class Importer {
       }
     });
   }
+
+  /// Finished, live workouts and live cardio started in [[from], [to]), oldest first, as a v1 document that [save] takes back.
+  /// v1 can't express skipped exercises, drop sets, undone sets or sets without reps or time, so they are left out;
+  /// then so is an exercise with no sets and a workout with no exercises.
+  Future<String> export({DateTime? from, DateTime? to}) async {
+    Expression<bool> inRange(GeneratedColumn<DateTime> at) =>
+        (from == null ? const Constant(true) : at.isBiggerOrEqualValue(from)) &
+        (to == null ? const Constant(true) : at.isSmallerThanValue(to));
+    final w = _db.workouts, we = _db.workoutExercises, s = _db.workoutSets;
+    final live = w.deletedAt.isNull() & w.finishedAt.isNotNull() & inRange(w.startedAt);
+    final workouts = await (_db.select(w)
+          ..where((_) => live)
+          ..orderBy([(w) => OrderingTerm(expression: w.startedAt)]))
+        .get();
+    final rows = await (_db.select(s).join([
+      innerJoin(we, we.id.equalsExp(s.workoutExerciseId)),
+      innerJoin(w, w.id.equalsExp(we.workoutId)),
+    ])
+          ..where(live & we.deletedAt.isNull() & we.skipped.not() & s.deletedAt.isNull() & s.isDrop.not() & s.done)
+          ..orderBy([OrderingTerm(expression: we.position), OrderingTerm(expression: s.setNumber)]))
+        .get();
+    final exercises = <String, Map<String, WorkoutExercise>>{}, sets = <String, List<WorkoutSet>>{};
+    for (final r in rows) {
+      final e = r.readTable(we), x = r.readTable(s);
+      if ((x.reps == null) == (x.durationSec == null)) continue; // v1 needs exactly one of them
+      (exercises[e.workoutId] ??= {})[e.id] = e;
+      (sets[e.id] ??= []).add(x);
+    }
+    final routines = {for (final r in await _db.select(_db.routines).get()) r.id: r.name};
+    final names = <String, String>{}; // exercise row id -> name, looked up once
+    final cardio = await (_db.select(_db.cardio)
+          ..where((c) => c.deletedAt.isNull() & inRange(c.startedAt))
+          ..orderBy([(c) => OrderingTerm(expression: c.startedAt)]))
+        .get();
+    return jsonEncode({
+      'version': 1,
+      'workouts': [
+        for (final workout in workouts)
+          if (exercises[workout.id]?.values.toList() case final es?)
+            {
+              'date': _localMinute(workout.startedAt),
+              'routine': ?routines[workout.routineId],
+              'notes': ?workout.notes,
+              'exercises': [
+                for (final (i, e) in es.indexed)
+                  {
+                    'name': names[e.exerciseId] ??= (await _catalog.byId(e.exerciseId))?.name ?? 'Unknown exercise',
+                    'notes': ?e.notes,
+                    // Linked only to the card right after it; a left-out partner would otherwise pass the link on.
+                    'supersetWithNext': e.supersetWithNext && i + 1 < es.length && es[i + 1].position == e.position + 1,
+                    'sets': [
+                      for (final x in sets[e.id]!) {'weightKg': ?x.weightKg, 'reps': ?x.reps, 'durationSec': ?x.durationSec},
+                    ],
+                  },
+              ],
+            },
+      ],
+      'cardio': [
+        for (final c in cardio)
+          {
+            'type': c.type,
+            'date': _localMinute(c.startedAt),
+            'distanceKm': ?c.distanceKm,
+            'durationSec': c.durationSec,
+            'avgHr': ?c.avgHr,
+            'inclinePct': ?c.inclinePct,
+            'rpe': ?c.rpe,
+            'notes': ?c.notes,
+          },
+      ],
+    });
+  }
 }
+
+/// `yyyy-MM-ddTHH:mm` in local time, the v1 date shape.
+String _localMinute(DateTime d) => d.toLocal().toIso8601String().substring(0, 16);
 
 String? _blank(Object? s) => s is String && s.trim().isNotEmpty ? s : null;

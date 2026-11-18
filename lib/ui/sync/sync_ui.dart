@@ -92,7 +92,7 @@ class MoreScreen extends StatelessWidget {
             leading: const IconTile(Icons.backup),
             title: const Text('Backup / Restore'),
             onTap: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => BackupScreen(db: catalog.db, engine: engine))),
+                .push(MaterialPageRoute(builder: (_) => BackupScreen(catalog: catalog, engine: engine))),
           ),
           ]),
           if (engine case final engine?)
