@@ -187,6 +187,26 @@ void main() {
     expect(await routines.plan(list.single.id), hasLength(plan.length));
   });
 
+  test('a routine made on import is planned from its latest session, so starting it matches "Last time"', () async {
+    Map w(String date, List<int> kg) => {
+          'date': date,
+          'routine': 'Lower B',
+          'exercises': [
+            {'name': 'barbell squat', 'sets': [for (final k in kg) {'weightKg': k, 'reps': 5}]},
+          ],
+        };
+    await importer.save({
+      'version': 1,
+      'workouts': [w('2026-11-02T18:00', [100, 110, 110, 115]), w('2026-11-09T18:00', [110, 115, 120, 120])],
+    }, saveRoutines: true);
+    final store = WorkoutStore(db);
+    final id = await store.start(routineId: (await RoutineStore(db).watchRoutines().first).single.id);
+    final e = (await store.watchExercises(id).first).single;
+    final kg = [for (final s in await store.watchSets(e.id).first) s.weightKg];
+    expect(kg, [for (final s in await store.lastTime(e.exerciseId, excludeWorkoutId: id)) s.weightKg]);
+    expect(kg, [110, 115, 120, 120]);
+  });
+
   test('without saveRoutines no routine is created', () async {
     await importer.save(_doc());
     expect(await db.select(db.routines).get(), isEmpty);

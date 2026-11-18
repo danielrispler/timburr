@@ -194,7 +194,7 @@ class Importer {
 
   /// Saves [data] atomically. [mapping] sends a lower-cased unknown name to an existing exercise;
   /// unmapped unknowns become custom exercises. With [saveRoutines], a workout whose "routine" names no live routine
-  /// creates that routine, planned from the workout's exercises and sets. Throws [FormatException] if [data] is invalid.
+  /// creates that routine, planned from its latest workout's exercises and sets. Throws [FormatException] if [data] is invalid.
   Future<void> save(Map data, {Map<String, CatalogEntry> mapping = const {}, bool saveRoutines = false}) async {
     final errors = validateImport(data);
     if (errors.isNotEmpty) throw FormatException(errors.join('\n'));
@@ -204,6 +204,7 @@ class Importer {
     };
     await _db.transaction(() async {
       final created = <String, String>{};
+      final plannedAt = <String, DateTime>{}; // routine made by this import -> date of the workout it is planned from
       Future<String> exerciseId(Map e) async {
         final name = (e['name'] as String).trim(), key = name.toLowerCase();
         if ((mapping[key] ?? known[key]) case final entry?) {
@@ -222,12 +223,16 @@ class Importer {
 
       for (final w in data['workouts'] as List? ?? const []) {
         final id = _uuid.v4(), at = DateTime.parse(w['date'] as String).toLocal(); // stored local, as sync does, so text sort works
-        final routineName = (w['routine'] as String?)?.trim() ?? '';
-        final Plan? plan = saveRoutines && routineName.isNotEmpty && !routines.containsKey(routineName.toLowerCase()) ? [] : null;
-        if (plan != null) routines[routineName.toLowerCase()] = await RoutineStore(_db).create(routineName);
+        final routineName = (w['routine'] as String?)?.trim() ?? '', key = routineName.toLowerCase();
+        if (saveRoutines && routineName.isNotEmpty && !routines.containsKey(key)) {
+          routines[key] = await RoutineStore(_db).create(routineName);
+          plannedAt[key] = at;
+        }
+        final Plan? plan = plannedAt.containsKey(key) && !at.isBefore(plannedAt[key]!) ? [] : null;
+        if (plan != null) plannedAt[key] = at;
         await _db.save(_db.workouts, {
           'id': id,
-          'routine_id': routines[routineName.toLowerCase()],
+          'routine_id': routines[key],
           'started_at': at,
           'finished_at': at, // shortcut: duration unknown from a screenshot, so 0; add an end time to v2 if wanted
           'notes': _blank(w['notes']),
@@ -262,7 +267,7 @@ class Importer {
             });
           }
         }
-        if (plan != null) await RoutineStore(_db).replacePlan(routines[routineName.toLowerCase()]!, plan);
+        if (plan != null) await RoutineStore(_db).replacePlan(routines[key]!, plan);
       }
       for (final c in data['cardio'] as List? ?? const []) {
         await _db.save(_db.cardio, {
