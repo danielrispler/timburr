@@ -8,7 +8,7 @@ import 'db.dart';
 
 const _uuid = Uuid();
 
-/// One planned set. A null weight means "use last session's".
+/// One planned set. Its weight is used only before the exercise has a last session.
 typedef PlannedSet = ({double? weightKg, int? reps, int? durationSec});
 
 /// A routine's exercises in order, each with its planned sets.

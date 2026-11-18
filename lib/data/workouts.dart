@@ -73,7 +73,7 @@ class WorkoutStore {
   final Future<void> Function()? onFinished;
 
   /// Starts a workout at [at] (default now). From [routineId], its exercises and planned sets are copied in order;
-  /// a planned set without weight takes last session's. With [done], every set is done and the workout is
+  /// weights come from last session, and a planned weight only fills in before the exercise has one. With [done], every set is done and the workout is
   /// finished after [estimateDuration], for logging one after the fact. Returns its id.
   Future<String> start({String? routineId, DateTime? at, bool done = false}) => _db.transaction(() async {
         final id = _uuid.v4();
@@ -95,7 +95,7 @@ class WorkoutStore {
               'id': _uuid.v4(),
               'workout_exercise_id': weId,
               'set_number': n + 1,
-              'weight_kg': s.weightKg ?? (n < last.length ? last[n] : last.lastOrNull)?.weightKg,
+              'weight_kg': last.isEmpty ? s.weightKg : (n < last.length ? last[n] : last.last).weightKg,
               'reps': s.reps,
               'duration_sec': s.durationSec,
               'done': done,
@@ -112,9 +112,8 @@ class WorkoutStore {
     final routineId = (await watchWorkout(workoutId).first).routineId;
     if (routineId == null || !await _routineLive(routineId)) return false;
     final a = await RoutineStore(_db).plan(routineId), b = await _plan(workoutId);
-    // A planned set without weight was prefilled from last session, so any weight there still matches.
-    bool same(PlannedSet p, PlannedSet w) =>
-        p.reps == w.reps && p.durationSec == w.durationSec && (p.weightKg == null || p.weightKg == w.weightKg);
+    // Weights come from last session, so a weight alone is no change.
+    bool same(PlannedSet p, PlannedSet w) => p.reps == w.reps && p.durationSec == w.durationSec;
     return a.length != b.length ||
         [
           for (final (i, x) in a.indexed)
@@ -124,22 +123,17 @@ class WorkoutStore {
         ].any((d) => d);
   }
 
-  /// Overwrites the workout's routine with what was done in this workout. A planned set without weight
-  /// (matched by exercise position and set number) stays without weight, so it keeps taking last session's.
+  /// Overwrites the workout's routine with the exercises and sets done in this workout. Weights are left out:
+  /// the next start takes them from this session.
   Future<void> updateTemplate(String workoutId) async {
     final routineId = (await watchWorkout(workoutId).first).routineId;
     if (routineId == null) return;
-    final routines = RoutineStore(_db), old = await routines.plan(routineId);
-    bool unpinned(int i, int j) => i < old.length && j < old[i].sets.length && old[i].sets[j].weightKg == null;
-    await routines.replacePlan(routineId, [
-      for (final (i, e) in (await _plan(workoutId)).indexed)
+    await RoutineStore(_db).replacePlan(routineId, [
+      for (final e in await _plan(workoutId))
         (
           exerciseId: e.exerciseId,
           alternativeIds: e.alternativeIds,
-          sets: [
-            for (final (j, s) in e.sets.indexed)
-              unpinned(i, j) ? (weightKg: null, reps: s.reps, durationSec: s.durationSec) : s
-          ],
+          sets: [for (final s in e.sets) (weightKg: null, reps: s.reps, durationSec: s.durationSec)],
         ),
     ]);
   }
