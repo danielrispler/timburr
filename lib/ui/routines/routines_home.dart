@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
             // No engine here: restored rows go up with the next periodic sync.
             BackupReminderCard(
               onOpen: () => Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => BackupScreen(db: stores.catalog.db, engine: null))),
+                  .push(MaterialPageRoute(builder: (_) => BackupScreen(catalog: stores.catalog, engine: null))),
             ),
             StreamBuilder<Workout?>(
               stream: stores.workouts.watchActive(),

@@ -7,16 +7,18 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/backup.dart';
-import '../../data/db.dart';
+import '../../data/catalog.dart';
+import '../../data/importer.dart';
+import '../../data/stats.dart';
 import '../../data/sync.dart';
 import '../../data/error_log.dart';
 import '../core/theme.dart';
 
-/// More > Backup / Restore. Export opens the share sheet; restore asks replace or merge, then confirms.
+/// More > Backup / Restore. Exports open the share sheet; restore asks replace or merge, then confirms.
 class BackupScreen extends StatefulWidget {
-  const BackupScreen({super.key, required this.db, required this.engine});
+  const BackupScreen({super.key, required this.catalog, required this.engine});
 
-  final AppDb db;
+  final Catalog catalog;
   final SyncEngine? engine;
 
   @override
@@ -43,11 +45,57 @@ class _BackupScreenState extends State<BackupScreen> {
   Future<void> _export() => _run(() async {
         final stamp = DateTime.now().toIso8601String().substring(0, 10);
         final file = File('${(await getTemporaryDirectory()).path}/timburr-backup-$stamp.json');
-        await file.writeAsString(await Backup(widget.db).export());
+        await file.writeAsString(await Backup(widget.catalog.db).export());
         final result = await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
         // Some Android versions report unavailable even when the share went through.
         if (result.status != ShareResultStatus.dismissed) await BackupReminder.markExported();
       });
+
+  /// Asks for a range, then shares those workouts and cardio in the import format. Not a backup, so the reminder stays.
+  Future<void> _exportWorkouts() async {
+    String day(DateTime d) => d.toIso8601String().substring(0, 10);
+    final now = DateTime.now(), today = dayOf(now), monday = mondayOf(now);
+    final range = await showDialog<(DateTime?, DateTime?, String)>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Export which workouts?'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, (today, DateTime(today.year, today.month, today.day + 1), day(today))),
+            child: const ListTile(title: Text('Today')),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, (
+              monday,
+              DateTime(monday.year, monday.month, monday.day + 7),
+              '${day(monday)}-to-${day(DateTime(monday.year, monday.month, monday.day + 6))}',
+            )),
+            child: const ListTile(title: Text('This week')),
+          ),
+          SimpleDialogOption(
+            onPressed: () async {
+              final picked = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: today);
+              if (picked == null || !context.mounted) return;
+              final end = picked.end;
+              Navigator.pop(context, (picked.start, DateTime(end.year, end.month, end.day + 1), '${day(picked.start)}-to-${day(end)}'));
+            },
+            child: const ListTile(title: Text('Pick dates…')),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, (null, null, 'all')),
+            child: const ListTile(title: Text('All workouts')),
+          ),
+        ],
+      ),
+    );
+    if (range == null || !mounted) return;
+    final (from, to, label) = range;
+    await _run(() async {
+      final file = File('${(await getTemporaryDirectory()).path}/timburr-workouts-$label.json');
+      await file.writeAsString(await Importer(widget.catalog.db, widget.catalog).export(from: from, to: to));
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'application/json')]));
+    });
+  }
 
   Future<void> _restore() async {
     final picked = await FilePicker.pickFile();
@@ -83,7 +131,7 @@ class _BackupScreenState extends State<BackupScreen> {
     );
     if (ok != true) return;
     await _run(() async {
-      await Backup(widget.db).restore(utf8.decode(await picked.readAsBytes()), replace: replace);
+      await Backup(widget.catalog.db).restore(utf8.decode(await picked.readAsBytes()), replace: replace);
       if (mounted) _say('Backup restored.');
       widget.engine?.sync();
     });
@@ -105,6 +153,13 @@ class _BackupScreenState extends State<BackupScreen> {
                   subtitle: const Text('All data as one JSON file, via the share sheet'),
                   enabled: !_busy,
                   onTap: _export,
+                ),
+                ListTile(
+                  leading: const IconTile(Icons.ios_share),
+                  title: const Text('Export workouts'),
+                  subtitle: const Text('Today, this week, picked dates or all, in the import format'),
+                  enabled: !_busy,
+                  onTap: _exportWorkouts,
                 ),
                 ListTile(
                   leading: const IconTile(Icons.restore),

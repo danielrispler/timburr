@@ -59,3 +59,13 @@ Each name with no match is shown before saving. Tap it to map it to an existing 
 ## Saving
 
 Everything is saved in one transaction: either all workouts and cardio are stored, or none. Imported sets are marked done, so they count toward PRs and "Last time".
+
+## Export
+
+More > Backup / Restore > Export workouts writes this format, so an export can be imported back. Pick Today, This week (Monday to Sunday), Pick dates… (both ends included) or All workouts. It shares `timburr-workouts-<range>.json`, for example `timburr-workouts-2026-11-16-to-2026-11-22.json`. It is not a backup, so the backup reminder is not reset.
+
+- Finished workouts and cardio started in the range, oldest first. Unfinished and deleted ones are left out.
+- Dates are local time, `2026-10-24T16:13`. Exercise names are the library or custom names. `routine` is the linked routine's name.
+- Empty optional fields are left out. `supersetWithNext` is always written.
+- The format has no way to show these, so they are left out: skipped exercises, drop sets, sets not ticked done, and sets with neither reps nor time. An exercise with no sets left, and a workout with no exercises left, is left out too.
+- Workout duration, Google Health stats and routine plans are not exported. Use Export backup for everything.

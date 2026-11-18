@@ -191,4 +191,84 @@ void main() {
     await importer.save(_doc());
     expect(await db.select(db.routines).get(), isEmpty);
   });
+
+  test('export gives back an imported doc as valid v1, leaving out unfinished workouts', () async {
+    await importer.save(_doc(), saveRoutines: true);
+    final w = WorkoutStore(db);
+    await w.addExercise(await w.start(), (await catalog.list(query: 'pushups')).single);
+    final out = jsonDecode(await importer.export());
+    expect(validateImport(out), isEmpty);
+    expect(out, {
+      'version': 1,
+      'workouts': [
+        {
+          'date': '2026-10-24T16:13',
+          'routine': 'Push A',
+          'exercises': [
+            {
+              'name': 'Barbell Squat',
+              'supersetWithNext': false,
+              'sets': [{'weightKg': 100, 'reps': 5}, {'weightKg': 110, 'reps': 3}],
+            },
+            {
+              'name': 'Plank',
+              'supersetWithNext': false,
+              'sets': [{'durationSec': 60}],
+            },
+          ],
+        },
+      ],
+      'cardio': [
+        {'type': 'run', 'date': '2026-10-23T17:15', 'distanceKm': 5, 'durationSec': 1680, 'avgHr': 158, 'rpe': 7},
+      ],
+    });
+  });
+
+  test('export keeps workouts and cardio started in [from, to)', () async {
+    Map w(String date) => {
+          'date': date,
+          'exercises': [
+            {'name': 'Pushups', 'sets': [{'reps': 10}]},
+          ],
+        };
+    Map c(String date) => {'type': 'walk', 'date': date, 'distanceKm': 2, 'durationSec': 1200};
+    await importer.save({
+      'version': 1,
+      'workouts': [w('2026-11-16T07:00'), w('2026-11-17T23:59'), w('2026-11-18T00:00')],
+      'cardio': [c('2026-11-16T23:59'), c('2026-11-17T00:00'), c('2026-11-18T08:00')],
+    });
+    Future<List> dates({DateTime? from, DateTime? to}) async {
+      final out = jsonDecode(await importer.export(from: from, to: to));
+      return [[for (final w in out['workouts']) w['date']], [for (final c in out['cardio']) c['date']]];
+    }
+
+    expect(await dates(from: DateTime(2026, 11, 17), to: DateTime(2026, 11, 18)), [['2026-11-17T23:59'], ['2026-11-17T00:00']]);
+    expect(await dates(from: DateTime(2026, 11, 17)), [
+      ['2026-11-17T23:59', '2026-11-18T00:00'],
+      ['2026-11-17T00:00', '2026-11-18T08:00'],
+    ]);
+    expect(await dates(to: DateTime(2026, 11, 17)), [['2026-11-16T07:00'], ['2026-11-16T23:59']]);
+  });
+
+  test('export leaves out skipped exercises, drop sets and undone sets, and round-trips through import', () async {
+    await importer.save(_doc(), saveRoutines: true);
+    final store = WorkoutStore(db);
+    final [squat, plank] = await (db.select(db.workoutExercises)..orderBy([(e) => OrderingTerm(expression: e.position)])).get();
+    await store.setSkipped(plank, true);
+    final [first, second] = await store.watchSets(squat.id).first;
+    await store.addDrop(first);
+    final drop = (await store.watchSets(squat.id).first).singleWhere((s) => s.isDrop);
+    await store.updateSet(drop.copyWith(done: true));
+    await store.updateSet(second.copyWith(done: false));
+    final out = await importer.export();
+    expect(jsonDecode(out)['workouts'][0]['exercises'], [
+      {'name': 'Barbell Squat', 'supersetWithNext': false, 'sets': [{'weightKg': 100, 'reps': 5}]},
+    ]);
+
+    final fresh = AppDb(NativeDatabase.memory());
+    addTearDown(fresh.close);
+    final again = Importer(fresh, Catalog(fresh, () async => jsonEncode(_library)));
+    await again.save(jsonDecode(out), saveRoutines: true);
+    expect(await again.export(), out);
+  });
 }
