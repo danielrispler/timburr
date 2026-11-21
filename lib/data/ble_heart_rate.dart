@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -58,9 +59,9 @@ class BleHeartRateSensor implements HeartRateSensor {
           link = device.connectionState.listen((s) {
             if (s == BluetoothConnectionState.disconnected && !out.isClosed) out.close();
           });
+          final c = await _hrCharacteristic(device);
+          if (c == null) throw const HrNotFound(); // connected, but the band isn't sharing heart rate
           try {
-            final services = await device.discoverServices();
-            final c = services.firstWhere((s) => s.uuid == _hrService).characteristics.firstWhere((c) => c.uuid == _hrMeasurement);
             await c.setNotifyValue(true);
             values = c.onValueReceived.listen((v) {
               final bpm = parseHeartRate(v);
@@ -85,6 +86,27 @@ class BleHeartRateSensor implements HeartRateSensor {
       },
     );
     return out.stream;
+  }
+
+  /// The Heart Rate Measurement characteristic, or null when the band doesn't offer it.
+  /// The Air is already connected through the Fitbit app, so Android may answer from a service list cached before
+  /// Share heart rate was turned on; clear that cache and look again once.
+  Future<BluetoothCharacteristic?> _hrCharacteristic(BluetoothDevice device) async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        try {
+          await device.clearGattCache();
+        } catch (_) {}
+      }
+      final services = await device.discoverServices();
+      debugPrint('[HR] ${device.remoteId} services: ${[for (final s in services) s.uuid.str]}'); // one line in logcat for phone debugging
+      for (final s in services.where((s) => s.uuid == _hrService)) {
+        for (final c in s.characteristics.where((c) => c.uuid == _hrMeasurement)) {
+          return c;
+        }
+      }
+    }
+    return null;
   }
 
   @override
