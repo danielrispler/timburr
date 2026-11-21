@@ -98,14 +98,16 @@ void main() {
     await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title']});
     await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
     await db.save(db.appSettings, {'id': 'settings1', 'max_hr': 190, 'stride_m': 0.92});
+    await db.save(db.goals, {'id': 'goals1', 'weekly_km': 30.0, 'yearly_km': 1500.0});
     await engine.sync();
-    expect(remote.upserts, ['cardio', 'cardio_tracks', 'settings']);
+    expect(remote.upserts, ['cardio', 'cardio_tracks', 'settings', 'goals']);
     expect(remote.tables['cardio']!['c1']!['edited_fields'], ['title']);
 
     final other = newDb();
     await SyncEngine(other, remote).sync();
     expect((await other.select(other.cardioTracks).getSingle()).points, 'H4sIAAAA');
     expect((await other.select(other.appSettings).getSingle()).maxHr, 190);
+    expect((await other.select(other.goals).getSingle()).yearlyKm, 1500.0);
     expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
   });
 

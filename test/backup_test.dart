@@ -36,6 +36,7 @@ void main() {
     await d.save(d.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title'], 'route': 'abc', 'elapsed_sec': 1620});
     await d.save(d.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
     await d.save(d.appSettings, {'id': 'settings1', 'max_hr': 190, 'birth_year': 1990, 'stride_m': 0.92});
+    await d.save(d.goals, {'id': 'goals1', 'weekly_km': 30.0, 'yearly_km': 1500.0});
   }
 
   /// Every row of every synced table (times as instants), minus the local-only columns restore does not carry over.

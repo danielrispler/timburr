@@ -12,6 +12,9 @@ String trackRowId(String cardioId) => const Uuid().v5(_trackNamespace, cardioId)
 /// Id of the one `settings` row. Fixed, so every device and a restore into a fresh project agree.
 final settingsRowId = const Uuid().v5(_trackNamespace, 'settings');
 
+/// Id of the one `goals` row. Fixed for the same reason.
+final goalsRowId = const Uuid().v5(_trackNamespace, 'goals');
+
 /// A Run's points as column arrays. A column is null when the source had none of it; an element is null for a gap.
 /// Stored in `cardio_tracks.points` as base64 of gzipped JSON.
 class Track {

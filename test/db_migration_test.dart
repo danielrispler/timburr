@@ -36,6 +36,7 @@ void main() {
     var db = AppDb(NativeDatabase(file));
     await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
     await db.customStatement('drop table recording_events');
+    await db.customStatement('drop table goals');
     await db.customStatement('pragma user_version = 7');
     await db.close();
 
@@ -43,6 +44,21 @@ void main() {
     expect((await CardioStore(db).watchAll().first).single.distanceKm, 5.0);
     await db.into(db.recordingEvents).insert(RecordingEventsCompanion.insert(event: '{}'));
     expect(await db.select(db.recordingEvents).get(), hasLength(1));
+    await db.close();
+  });
+
+  test('v8 to v9 adds the goals table, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await db.customStatement('drop table goals');
+    await db.customStatement('pragma user_version = 8');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    expect((await CardioStore(db).watchAll().first).single.distanceKm, 5.0);
+    await db.save(db.goals, {'id': 'g1', 'weekly_km': 30.0});
+    expect((await db.select(db.goals).getSingle()).weeklyKm, 30.0);
     await db.close();
   });
 
@@ -141,8 +157,9 @@ Future<void> _dropV3Columns(AppDb db) async {
   }
 }
 
-/// Back to the v6 schema: drops what v7 and v8 added.
+/// Back to the v6 schema: drops what v7, v8 and v9 added.
 Future<void> _dropV7Schema(AppDb db) async {
+  await db.customStatement('drop table goals');
   await db.customStatement('drop table recording_events');
   for (final t in ['cardio_tracks', 'settings', 'best_efforts']) {
     await db.customStatement('drop table $t');
