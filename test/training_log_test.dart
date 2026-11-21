@@ -1,4 +1,6 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timburr/data/cardio.dart';
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/training_log.dart';
 
@@ -12,6 +14,18 @@ Workout workout(DateTime at, {DateTime? deleted}) => Workout(
 void main() {
   // Saturday 21 Nov 2026; its week starts Monday 16 Nov.
   final now = DateTime(2026, 11, 21, 9);
+
+  test('a Run stored from a UTC time at 00:30 local reads back on its local day, in the log, totals and streak', () async {
+    final db = AppDb(NativeDatabase.memory());
+    addTearDown(db.close);
+    final store = CardioStore(db);
+    final at = DateTime(2026, 11, 10, 0, 30);
+    await store.save(type: 'run', startedAt: at.toUtc(), distanceKm: 5, durationSec: 1800);
+    final runs = await store.watchAll().first;
+    expect(monthLog(runs, [], at).keys, [DateTime(2026, 11, 10)]);
+    expect(monthWeeks(runs, at).firstWhere((w) => w.count > 0).monday, DateTime(2026, 11, 9));
+    expect(weeklyStreak(runs, DateTime(2026, 11, 10, 9)), 1);
+  });
 
   group('month log', () {
     test('puts each Run and Workout on its own day, only for the month shown', () {

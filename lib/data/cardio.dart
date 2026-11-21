@@ -122,6 +122,9 @@ class CardioStore {
   /// The shoes, for the Run page and mileage. Shares this store's sync hook.
   late final shoes = ShoeStore(_db, onSaved: onSaved);
 
+  /// The shoe a new session of [type] starts with: the default shoe for a Run, none for other types.
+  Future<String?> _defaultShoeFor(String type) async => cardioTypes.contains(type) ? await shoes.defaultId() : null;
+
   /// Called after each save or delete; main wires it to sync.
   final Future<void> Function()? onSaved;
 
@@ -137,7 +140,7 @@ class CardioStore {
     int? rpe,
     String? notes,
   }) async {
-    final shoe = id == null && cardioTypes.contains(type) ? await shoes.defaultId() : null; // a new Run gets the default shoe
+    final shoe = id == null ? await _defaultShoeFor(type) : null;
     id ??= const Uuid().v4();
     await _db.save(_db.cardio, {
       'id': id,
@@ -179,7 +182,7 @@ class CardioStore {
       if (match == null) {
         final id = const Uuid().v4();
         if (dryRun) return IngestResult(null, IngestOutcome.created);
-        final shoe = cardioTypes.contains(r.type) ? await shoes.defaultId() : null;
+        final shoe = await _defaultShoeFor(r.type);
         await _db.save(_db.cardio, {
           'id': id,
           'shoe_id': ?shoe,

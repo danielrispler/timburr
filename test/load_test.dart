@@ -64,10 +64,4 @@ void main() {
       expect(fitnessSeries([], d0, DateTime(2026, 11, 3)).map((p) => p.fitness), [0, 0, 0]);
     });
   });
-
-  test('dailyLoads scores every Run with the given Max HR', () {
-    final runs = [run(DateTime(2026, 11, 1, 7), sec: 600), run(DateTime(2026, 11, 2, 7), sec: 600, avgHr: 190)];
-    final loads = dailyLoads(runs, {}, 200);
-    expect(loads.map((l) => l.$2), [20, 50]); // 10 min estimated at zone 2; 10 min at zone 5
-  });
 }

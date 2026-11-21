@@ -10,16 +10,32 @@ import '../core/series_chart.dart';
 import '../core/theme.dart';
 
 /// Progress: predicted 5 km, 10 km and half marathon times from recent Best efforts, and the routes Daniel runs repeatedly. Each part is hidden until there is something to show.
-class RaceSection extends StatelessWidget {
+class RaceSection extends StatefulWidget {
   const RaceSection({super.key, required this.store, required this.runs});
 
   final CardioStore store;
   final Stream<List<CardioData>> runs;
 
   @override
+  State<RaceSection> createState() => _RaceSectionState();
+}
+
+class _RaceSectionState extends State<RaceSection> {
+  // Streams are made here, not in build, so a rebuild neither resubscribes nor groups the Runs again.
+  late Stream<List<Effort>> _efforts = widget.store.watchBestEfforts();
+  late Stream<List<RouteGroup>> _groups = widget.runs.map(groupRuns);
+
+  @override
+  void didUpdateWidget(RaceSection old) {
+    super.didUpdateWidget(old);
+    if (old.store != widget.store) _efforts = widget.store.watchBestEfforts();
+    if (old.runs != widget.runs) _groups = widget.runs.map(groupRuns);
+  }
+
+  @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         StreamBuilder<List<Effort>>(
-          stream: store.watchBestEfforts(),
+          stream: _efforts,
           builder: (context, snap) {
             final p = predictRaces(snap.data ?? const <Effort>[], DateTime.now());
             if (p.isEmpty) return const SizedBox.shrink();
@@ -34,10 +50,10 @@ class RaceSection extends StatelessWidget {
             ]);
           },
         ),
-        StreamBuilder<List<CardioData>>(
-          stream: runs,
+        StreamBuilder<List<RouteGroup>>(
+          stream: _groups,
           builder: (context, snap) {
-            final groups = groupRuns(snap.data ?? const <CardioData>[]);
+            final groups = snap.data ?? const <RouteGroup>[];
             if (groups.isEmpty) return const SizedBox.shrink();
             return TileGroup(title: 'Repeated routes', children: [
               for (final g in groups)
@@ -45,7 +61,7 @@ class RaceSection extends StatelessWidget {
                   title: Text('${g.runs.length} Runs, ${(g.runs.last.distanceKm ?? 0).toStringAsFixed(1)} km'),
                   subtitle: Text('Last on ${MaterialLocalizations.of(context).formatShortDate(g.runs.last.startedAt.toLocal())}'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => openRouteGroup(context, store, g.runs.last.id),
+                  onTap: () => openRouteGroup(context, widget.store, g.runs.last.id),
                 ),
             ]);
           },
@@ -58,19 +74,28 @@ void openRouteGroup(BuildContext context, CardioStore store, String runId) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => RouteGroupPage(store: store, runId: runId)));
 
 /// One group of matched Runs: a chart of Moving time on the route, and each Run, newest first.
-class RouteGroupPage extends StatelessWidget {
+class RouteGroupPage extends StatefulWidget {
   const RouteGroupPage({super.key, required this.store, required this.runId});
 
   final CardioStore store;
   final String runId;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  State<RouteGroupPage> createState() => _RouteGroupPageState();
+}
+
+class _RouteGroupPageState extends State<RouteGroupPage> {
+  late final Stream<RouteGroup?> _group = groupStream(widget.store, widget.runId);
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    return Scaffold(
         appBar: AppBar(title: const Text('Same route')),
-        body: StreamBuilder<List<CardioData>>(
-          stream: store.watchAll(),
+        body: StreamBuilder<RouteGroup?>(
+          stream: _group,
           builder: (context, snap) {
-            final group = snap.data == null ? null : groupOf(groupRuns(snap.data!), runId);
+            final group = snap.data;
             if (group == null) return const Center(child: Text('No other Runs on this route yet.'));
             final loc = MaterialLocalizations.of(context);
             final fastest = group.runs.map((r) => r.durationSec).reduce((a, b) => a < b ? a : b);
@@ -90,27 +115,38 @@ class RouteGroupPage extends StatelessWidget {
           },
         ),
       );
+  }
 }
 
+/// The group of matched Runs holding [runId], grouped again only when the Runs change.
+Stream<RouteGroup?> groupStream(CardioStore store, String runId) => store.watchAll().map((all) => groupOf(groupRuns(all), runId));
+
 /// The Run page's link to the group of Runs over the same route. Hidden when the Run has no match.
-class MatchedRouteTile extends StatelessWidget {
+class MatchedRouteTile extends StatefulWidget {
   const MatchedRouteTile({super.key, required this.store, required this.runId});
 
   final CardioStore store;
   final String runId;
 
   @override
-  Widget build(BuildContext context) => StreamBuilder<List<CardioData>>(
-        stream: store.watchAll(),
+  State<MatchedRouteTile> createState() => _MatchedRouteTileState();
+}
+
+class _MatchedRouteTileState extends State<MatchedRouteTile> {
+  late final Stream<RouteGroup?> _group = groupStream(widget.store, widget.runId);
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<RouteGroup?>(
+        stream: _group,
         builder: (context, snap) {
-          final group = snap.data == null ? null : groupOf(groupRuns(snap.data!), runId);
+          final group = snap.data;
           if (group == null) return const SizedBox.shrink();
           return TileGroup(children: [
             ListTile(
               title: Text('Run on this route ${group.runs.length} times'),
               subtitle: const Text('See the trend'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => openRouteGroup(context, store, runId),
+              onTap: () => openRouteGroup(context, widget.store, widget.runId),
             ),
           ]);
         },

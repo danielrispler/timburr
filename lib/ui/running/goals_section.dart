@@ -7,7 +7,7 @@ import '../../data/running.dart';
 import '../core/theme.dart';
 
 /// Progress: a ring each for the weekly and yearly distance goals, and the weekly pace needed to hit the yearly one.
-class GoalsSection extends StatelessWidget {
+class GoalsSection extends StatefulWidget {
   const GoalsSection({super.key, required this.store, required this.runs, this.now});
 
   final CardioStore store;
@@ -17,14 +17,29 @@ class GoalsSection extends StatelessWidget {
   final DateTime? now;
 
   @override
-  Widget build(BuildContext context) => StreamBuilder<Goal?>(
-        stream: store.goals.watch(),
+  State<GoalsSection> createState() => _GoalsSectionState();
+}
+
+class _GoalsSectionState extends State<GoalsSection> {
+  late Stream<Goal?> _goal = widget.store.goals.watch();
+
+  @override
+  void didUpdateWidget(GoalsSection old) {
+    super.didUpdateWidget(old);
+    if (old.store != widget.store) _goal = widget.store.goals.watch();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    return StreamBuilder<Goal?>(
+        stream: _goal,
         builder: (context, goalSnap) => StreamBuilder<List<CardioData>>(
-          stream: runs,
+          stream: widget.runs,
           builder: (context, runSnap) {
             if (goalSnap.connectionState == ConnectionState.waiting) return const SizedBox.shrink();
             final goal = goalSnap.data;
-            final at = now ?? DateTime.now();
+            final at = widget.now ?? DateTime.now();
             final mine = runsOf(runSnap.data ?? const <CardioData>[]);
             final weekly = goal?.weeklyKm == null ? null : weeklyProgress(mine, goal!.weeklyKm!, at);
             final yearly = goal?.yearlyKm == null ? null : yearlyProgress(mine, goal!.yearlyKm!, at);
@@ -50,6 +65,7 @@ class GoalsSection extends StatelessWidget {
           },
         ),
       );
+  }
 }
 
 class _Ring extends StatelessWidget {

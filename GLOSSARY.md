@@ -53,3 +53,13 @@ _Avoid_: personal best, record
 _Avoid_: step length
 
 **HR band**: the Bluetooth heart rate band (the Fitbit Air) that streams live heart rate during a Recording. Daniel chooses it once on the recording setup screen and it is remembered; a Recording never picks one on its own.
+
+**Relative Effort**: how hard a Run was. Minutes in each HR zone times the zone number, summed, so an hour in zone 2 counts 120. A Run with no heart rate counts its Moving time as zone 2 and shows no Relative Effort.
+
+**Fitness / Fatigue / Form**: the training-load curves on Progress, from each day's Relative Effort. Fitness is the 42-day average, Fatigue the 7-day average, and Form is Fitness minus Fatigue: negative when tired, positive when fresh.
+
+**Matched route**: Runs over the same outdoor route, in the same direction and about the same length. Timburr groups them from the stored route, and the group page charts Moving time on it.
+
+**Shoe**: a pair of running shoes. Each Run belongs to at most one, and new Runs get the default pair. A pair's distance is the sum of its Runs. Retiring a pair keeps its Runs.
+
+**Goal**: a weekly or yearly distance target for Runs. Either can be left unset.

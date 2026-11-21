@@ -1,5 +1,6 @@
 import 'db.dart';
 import 'hr_zones.dart';
+import 'stats.dart' show dayOf;
 import 'track.dart';
 
 /// Relative Effort: minutes in each HR zone times the zone number (zone 1 counts 1, zone 5 counts 5), summed. Null without zone time.
@@ -28,10 +29,6 @@ double? relativeEffort(List<double>? zoneSecs) {
   return (effort: minutes * 2, estimated: true);
 }
 
-/// (start, load) of every Run, [tracks] keyed by Run id.
-List<(DateTime, double)> dailyLoads(Iterable<CardioData> runs, Map<String, Track> tracks, int maxHr) =>
-    [for (final r in runs) (r.startedAt, runLoad(r, tracks[r.id], maxHr).effort)];
-
 typedef LoadPoint = ({DateTime day, double fitness, double fatigue, double form});
 
 const fitnessDays = 42, fatigueDays = 7;
@@ -39,14 +36,9 @@ const fitnessDays = 42, fatigueDays = 7;
 /// Fitness (42-day), Fatigue (7-day) and Form (Fitness minus Fatigue) for each local day from [from] to [to] inclusive.
 /// Each is an exponentially weighted average of daily load, `x += (load - x) / days`, so rest days decay it. Loads on the same
 /// day add up; the average starts at zero before the first load, so Runs before [from] still count.
-List<LoadPoint> fitnessSeries(Iterable<(DateTime, double)> loads, DateTime from, DateTime to) {
-  DateTime dayOf(DateTime d) {
-    final l = d.toLocal();
-    return DateTime(l.year, l.month, l.day);
-  }
-
+List<LoadPoint> fitnessSeries(Iterable<(DateTime, double)> perRun, DateTime from, DateTime to) {
   final perDay = <DateTime, double>{};
-  for (final (at, load) in loads) {
+  for (final (at, load) in perRun) {
     perDay.update(dayOf(at), (v) => v + load, ifAbsent: () => load);
   }
   final start = dayOf(from), end = dayOf(to);
