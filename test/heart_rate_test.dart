@@ -171,7 +171,17 @@ void main() {
       link = HeartRateLink(sensor: band, memory: memory, onReading: readings.add, delay: (d) => Future.delayed(Duration.zero));
     });
 
-    test('finds the band, remembers it and shows readings', () async {
+    test('with no remembered band, a run never picks one silently', () async {
+      link.start();
+      await pumpEventQueue();
+      expect(memory.saved, isNull);
+      expect(band.subscribed, isEmpty);
+      expect(link.state, HrLink.notFound);
+      await link.stop();
+    });
+
+    test('the setup screen chooser remembers the band, then the run streams it', () async {
+      await link.choose(air);
       link.start();
       await pumpEventQueue();
       expect(memory.saved, air);
@@ -205,18 +215,6 @@ void main() {
       await pumpEventQueue();
       expect(readings, [140, 150]);
       expect(link.state, HrLink.connected);
-      await link.stop();
-    });
-
-    test('a band that is not found is retried and reported as not found', () async {
-      band.found = [];
-      link.start();
-      await pumpEventQueue();
-      expect(link.state, HrLink.notFound);
-      expect(band.scans, greaterThan(1)); // keeps looking
-      band.found = [air];
-      await pumpEventQueue();
-      expect(memory.saved, air);
       await link.stop();
     });
 

@@ -63,7 +63,7 @@ void main() {
       final t = Track(time: [0, 100, 200, 300], distance: [0, 300, 600, 1000], laps: [100, 200]);
       final laps = lapsOf(t);
       expect(laps.map((l) => l.durationSec), [100, 100, 100]);
-      expect(laps.map((l) => l.distanceM.round()), [300, 300, 400]);
+      expect(laps.map((l) => l.distanceM!.round()), [300, 300, 400]);
       expect(laps.first.paceSecPerKm, closeTo(333, 1));
     });
 

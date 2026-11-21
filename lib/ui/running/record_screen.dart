@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
+import '../../data/health_connect.dart';
 import '../../data/live_recorder.dart';
 import '../cardio/run_page.dart';
 import 'heart_rate_panel.dart';
@@ -14,7 +15,15 @@ import '../routines/start.dart';
 void openRecorder(BuildContext context, Stores stores, {String type = 'run'}) {
   final recorder = liveRecorder;
   if (recorder == null) return;
-  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => RecordScreen(recorder: recorder, cardio: stores.cardio, type: recorder.type ?? type)));
+  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => RecordScreen(recorder: recorder, cardio: stores.cardio, type: recorder.type ?? type, checkFitbit: healthConnect?.check)));
+}
+
+/// The distance (km) to prefill Check distance with: the Fitbit's figure if a Health Connect [check] brings it within [timeout], else the phone's estimate.
+Future<double?> prefillDistanceKm(CardioStore cardio, String id, {Future<Object?> Function()? check, Duration timeout = const Duration(seconds: 4)}) async {
+  try {
+    await check?.call().timeout(timeout);
+  } catch (_) {} // a slow or failed check just leaves the phone's estimate
+  return (await cardio.watch(id).first).distanceKm;
 }
 
 /// A tile that resumes the recording in progress; empty when there is none.
@@ -46,11 +55,14 @@ class RecordingBanner extends StatelessWidget {
 /// Recording: big Moving time, distance, current and average pace, a GPS indicator, Pause/Resume and Finish.
 /// A treadmill recording has no GPS: distance is the phone's steps times the calibrated stride, and Finish ends with Check distance.
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, required this.recorder, required this.cardio, this.type = 'run'});
+  const RecordScreen({super.key, required this.recorder, required this.cardio, this.type = 'run', this.checkFitbit});
 
   final LiveRecorder recorder;
   final CardioStore cardio;
   final String type;
+
+  /// The on-demand Fitbit check (Check Fitbit now), run before the Check distance step. Null without Health Connect.
+  final Future<Object?> Function()? checkFitbit;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -139,18 +151,17 @@ class _RecordScreenState extends State<RecordScreen> {
     if (!mounted) return;
     if (id == null) return nav.pop();
     if (treadmill) {
-      final km = await _checkDistance(id);
+      final km = await _checkDistance(id, await prefillDistanceKm(widget.cardio, id, check: widget.checkFitbit));
       if (km != null) await widget.cardio.checkDistance(id, km: km, steps: rec.finishedSteps);
       if (!mounted) return;
     }
     nav.pushReplacement(MaterialPageRoute(builder: (_) => RunPage(store: widget.cardio, id: id)));
   }
 
-  /// The Check distance step: the best estimate (the Fitbit's figure if it has arrived, else the phone's) to correct with the treadmill's number. Null to keep the estimate.
-  Future<double?> _checkDistance(String id) async {
-    final run = await widget.cardio.watch(id).first;
+  /// The Check distance step, prefilled with [estimate]: the best estimate (the Fitbit's figure if it has arrived, else the phone's) to correct with the treadmill's number. Null to keep the estimate.
+  Future<double?> _checkDistance(String id, double? estimate) async {
     if (!mounted) return null;
-    final field = TextEditingController(text: run.distanceKm?.toStringAsFixed(2) ?? '');
+    final field = TextEditingController(text: estimate?.toStringAsFixed(2) ?? '');
     final km = await showDialog<double>(
       context: context,
       barrierDismissible: false,

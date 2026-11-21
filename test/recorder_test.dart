@@ -8,6 +8,8 @@ import 'package:timburr/data/db.dart';
 import 'package:timburr/data/live_recorder.dart';
 import 'package:timburr/data/recorder.dart';
 import 'package:timburr/data/recording.dart';
+import 'package:timburr/data/run_analysis.dart';
+import 'package:timburr/ui/running/record_screen.dart' show prefillDistanceKm;
 import 'package:timburr/data/track.dart';
 
 final t0 = DateTime.utc(2026, 11, 10, 7);
@@ -162,6 +164,76 @@ void main() {
       expect(gpsSignalOf(fix(0, 0, accuracy: 8), at(2)), GpsSignal.good);
       expect(gpsSignalOf(fix(0, 0, accuracy: 35), at(2)), GpsSignal.weak);
       expect(gpsSignalOf(fix(0, 0, accuracy: 8), at(12)), GpsSignal.none);
+    });
+  });
+
+  group('Recorder review fixes', () {
+    test('a treadmill Run keeps its laps, as durations without a distance, even with no heart rate', () {
+      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
+      r.stepCount(at(0), 0);
+      r.stepCount(at(300), 600);
+      r.lap(at(300));
+      r.stepCount(at(600), 1200);
+      final rec = r.finish(at(600));
+      expect(rec.track!.laps, [300]);
+      final laps = lapsOf(rec.track!);
+      expect(laps.map((l) => l.durationSec), [300, 300]);
+      expect(laps.map((l) => l.distanceM), [null, null]);
+    });
+
+    test('a treadmill speaks a km cue when its steps cross a kilometer', () {
+      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
+      r.stepCount(at(0), 0);
+      r.stepCount(at(240), 800);
+      expect(r.kmCues, isEmpty);
+      r.stepCount(at(480), 2400); // 1 km at 270 s, 2 km at 420 s
+      expect(r.kmCues.map((c) => c.km), [1, 2]);
+      expect(r.kmCues.first.splitSec, closeTo(270, 1e-6));
+      expect(r.kmCues.last.splitSec, closeTo(150, 1e-6));
+    });
+
+    test('the live heart rate gives the Run its average and max', () {
+      final r = Recorder.start('run', at(0), 's1');
+      for (var s = 0; s <= 20; s++) {
+        if (s % 5 == 0) r.heartRate(s == 10 ? 170 : 150, at(s));
+        r.position(fix(s, s * 3.0));
+      }
+      final rec = r.finish(at(20));
+      expect((rec.avgHr, rec.maxHr), (155, 170));
+    });
+
+    test('a recording without a band leaves the heart rate empty for Health Connect to fill', () async {
+      final db = AppDb(NativeDatabase.memory());
+      addTearDown(db.close);
+      final cardio = CardioStore(db);
+      final noBand = Recorder.start('run', at(1000), 'b');
+      for (var s = 0; s <= 20; s++) {
+        noBand.position(PositionSample(time: at(1000 + s), lat: 32.0 + s * 3 / 111195, lon: 34.8, accuracy: 5));
+      }
+      final idB = (await cardio.ingest(noBand.finish(at(1020)))).id!;
+      expect((await cardio.watch(idB).first).avgHr, isNull);
+      await cardio.ingest(Recording(source: 'health_connect', type: 'run', start: at(1000), elapsedSec: 20, externalId: 'hcB', avgHr: 160, maxHr: 180));
+      expect(((await cardio.watch(idB).first).avgHr, (await cardio.watch(idB).first).maxHr), (160, 180));
+    });
+
+    test('the Check distance prefill uses the Fitbit figure when it arrives in time, else the phone estimate', () async {
+      final db = AppDb(NativeDatabase.memory());
+      addTearDown(db.close);
+      final cardio = CardioStore(db);
+      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
+      r.stepCount(at(0), 0);
+      r.stepCount(at(1500), 5000);
+      final id = (await cardio.ingest(r.finish(at(1500)))).id!;
+      expect(await prefillDistanceKm(cardio, id, check: () async => null), 5.0); // phone estimate
+      expect(await prefillDistanceKm(cardio, id, check: () => Completer<Object?>().future, timeout: const Duration(milliseconds: 20)), 5.0); // too slow
+      expect(await prefillDistanceKm(cardio, id, check: () => throw StateError('hc')), 5.0);
+      expect(
+        await prefillDistanceKm(cardio, id, check: () async {
+          await cardio.ingest(Recording(source: 'health_connect', type: 'treadmill', start: at(0), elapsedSec: 1500, externalId: 'hc', distanceKm: 4.9));
+          return null;
+        }),
+        4.9,
+      );
     });
   });
 
