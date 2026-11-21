@@ -12,8 +12,8 @@ int effectiveMaxHr(int? maxHr, int? birthYear, DateTime now) => maxHr ?? (birthY
 /// 220 minus age (this year minus [birthYear]), kept inside the allowed range.
 int maxHrFromBirthYear(int birthYear, DateTime now) => (220 - (now.year - birthYear)).clamp(minMaxHr, maxMaxHr);
 
-/// Zone index 0-4 (zone 1 is 0) of [hr]; a band edge belongs to the higher zone.
-int zoneIndex(int hr, int maxHr) => ((10 * hr - 5 * maxHr) ~/ maxHr).clamp(0, 4);
+/// The zone, 1 to 5, of [bpm]: five equal bands from 50% to 100% of [maxHr]; below 50% is zone 1, above 100% zone 5.
+int zoneOf(int bpm, int maxHr) => ((10 * bpm - 5 * maxHr) ~/ maxHr).clamp(0, 4) + 1;
 
 /// Seconds in each of five equal HR bands from 50% to 100% of [maxHr], from the track's HR samples; null without HR and time.
 /// Each HR sample counts for the time until the next HR sample (HR is often sparser than the points), at most [maxGapSec]: a pause is not
@@ -29,7 +29,7 @@ List<double>? zoneSeconds(Track t, int maxHr, {int maxGapSec = 30}) {
     final b = samples[k + 1].$1;
     if (b <= a) continue;
     any = true;
-    final zone = zoneIndex(v, maxHr);
+    final zone = zoneOf(v, maxHr) - 1;
     secs[zone] += (b - a).clamp(0, maxGapSec);
   }
   return any ? secs : null;

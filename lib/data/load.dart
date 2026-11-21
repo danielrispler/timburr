@@ -24,7 +24,7 @@ double? relativeEffort(List<double>? zoneSecs) {
   if (fromTrack != null) return (effort: fromTrack, estimated: false);
   final minutes = run.durationSec / 60;
   final avg = run.avgHr;
-  if (avg != null) return (effort: minutes * (zoneIndex(avg, maxHr) + 1), estimated: false);
+  if (avg != null) return (effort: minutes * (zoneOf(avg, maxHr)), estimated: false);
   return (effort: minutes * 2, estimated: true);
 }
 

@@ -16,6 +16,7 @@ import '../../data/settings.dart';
 import '../../data/track.dart';
 import '../core/chart_axis.dart';
 import '../core/theme.dart';
+import '../running/race_predictor.dart';
 import 'activity_timer.dart';
 import 'max_hr.dart';
 import 'cardio_form.dart';
@@ -99,6 +100,7 @@ class _RunBodyState extends State<_RunBody> {
     final loc = MaterialLocalizations.of(context);
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     final splits = t == null ? const <KmSplit>[] : splitsPerKm(t);
+    final laps = t == null ? const <Lap>[] : lapsOf(t);
     final metrics = [if (t != null) for (final m in RunMetric.values) if (chartSeries(t, m).length >= 2) m];
     final metric = metrics.contains(_metric) ? _metric : metrics.firstOrNull;
     final at = c.startedAt.toLocal();
@@ -154,7 +156,17 @@ class _RunBodyState extends State<_RunBody> {
             trailing: Text(s.avgHr == null ? '' : '${s.avgHr} bpm'),
           ),
       ]),
+      if (laps.isNotEmpty) TileGroup(title: 'Laps', children: [
+        for (final l in laps)
+          ListTile(
+            dense: true,
+            leading: SizedBox(width: 56, child: Text('Lap ${l.index}')),
+            title: Text('${formatDuration(l.durationSec)} · ${(l.distanceM / 1000).toStringAsFixed(2)} km'),
+            trailing: Text(l.paceSecPerKm == null ? '' : '${formatPace(l.paceSecPerKm!)} /km'),
+          ),
+      ]),
       RunBestEfforts(store: widget.store, runId: c.id),
+      MatchedRouteTile(store: widget.store, runId: c.id),
     ]);
   }
 }

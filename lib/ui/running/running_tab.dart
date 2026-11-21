@@ -16,7 +16,10 @@ import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
 import 'fitness_section.dart';
+import 'race_predictor.dart';
+import 'record_screen.dart';
 import 'running_records.dart';
+import 'training_log.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -54,7 +57,7 @@ class _RunningTabState extends State<RunningTab> {
           Expanded(
             child: TabBarView(children: [
               _RunsPage(stores: widget.stores, runs: _runs, health: widget.health),
-              _ProgressPage(store: widget.stores.cardio, runs: _runs),
+              _ProgressPage(stores: widget.stores, store: widget.stores.cardio, runs: _runs),
               RunningRecords(stores: widget.stores, runs: _runs),
             ]),
           ),
@@ -86,6 +89,23 @@ class _RunsPage extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 700),
               child: ListView(children: [
+                RecordingBanner(stores: stores),
+                TileGroup(children: [
+                  ListTile(
+                    leading: const IconTile(Icons.fiber_manual_record),
+                    title: const Text('Record run'),
+                    subtitle: const Text('Outdoor, with GPS'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openRecorder(context, stores),
+                  ),
+                  ListTile(
+                    leading: const IconTile(Icons.directions_run),
+                    title: const Text('Record treadmill run'),
+                    subtitle: const Text('Steps, then check the distance'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openRecorder(context, stores, type: 'treadmill'),
+                  ),
+                ]),
                 TileGroup(title: 'This week', children: [
                   ListTile(
                     title: Text(_km(s.week.km), style: theme.textTheme.headlineMedium),
@@ -175,8 +195,9 @@ class RouteThumbnail extends StatelessWidget {
 }
 
 class _ProgressPage extends StatefulWidget {
-  const _ProgressPage({required this.store, required this.runs});
+  const _ProgressPage({required this.stores, required this.store, required this.runs});
 
+  final Stores stores;
   final CardioStore store;
   final Stream<List<CardioData>> runs;
 
@@ -211,6 +232,8 @@ class _ProgressPageState extends State<_ProgressPage> {
                 Text('Distance (km)', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 AspectRatio(aspectRatio: 1.6, child: DistanceChart(series, _period)),
+                TrainingLog(stores: widget.stores, runs: widget.runs), // Progress sections: one line each, added below
+                RaceSection(store: widget.store, runs: widget.runs),
                 FitnessSection(store: widget.store, runs: widget.runs),
               ]),
             ),

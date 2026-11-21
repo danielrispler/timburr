@@ -7,6 +7,7 @@ import 'best_efforts.dart';
 import 'db.dart';
 import 'recording.dart';
 import 'settings.dart';
+import 'stride.dart';
 import 'track.dart';
 
 /// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
@@ -268,6 +269,15 @@ class CardioStore {
     await _db.save(_db.cardio, {..._columns(c), ...fields, 'edited_fields': {...c.editedFields, ...fields.keys}.toList()});
     await _db.rebuildBestEfforts([id]);
     unawaited(onSaved?.call()); // sync in the background; the local write is done
+  }
+
+  /// The Check distance step of a treadmill Run: saves the treadmill's [km] as Daniel's own edit and calibrates the stride from it ([steps] counted).
+  Future<void> checkDistance(String id, {required double km, required int steps}) async {
+    await edit(id, {'distance_km': km});
+    final current = await settings.watch().first;
+    final before = current?.strideSamples ?? 0;
+    final next = calibrateStride(current?.strideM, before, steps, km);
+    if (next.samples != before) await settings.setStride(next.strideM, next.samples);
   }
 
   /// Cached Best efforts of live outdoor Runs, every distance.

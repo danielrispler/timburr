@@ -165,3 +165,40 @@ String runTitle(DateTime start, {bool treadmill = false}) {
   final part = h >= 5 && h < 11 ? 'Morning' : h >= 11 && h < 14 ? 'Lunch' : h >= 14 && h < 18 ? 'Afternoon' : h >= 18 && h < 22 ? 'Evening' : 'Night';
   return '$part ${treadmill ? 'treadmill run' : 'run'}';
 }
+
+/// One lap of a Run: the stretch between two Lap presses (the first starts at the start, the last runs to the end of the track).
+class Lap {
+  Lap(this.index, this.durationSec, this.distanceM);
+  final int index; // 1 for the first
+  final int durationSec;
+  final double distanceM;
+
+  double? get paceSecPerKm => distanceM < 10 ? null : durationSec / (distanceM / 1000);
+}
+
+/// The laps of [track], empty when it has no Lap marks or no time and distance to measure them with.
+List<Lap> lapsOf(Track track) {
+  final marks = track.laps;
+  if (marks == null || marks.isEmpty) return const [];
+  final t = withGpsDistance(track);
+  final idx = timedIndices(t);
+  if (idx.length < 2) return const [];
+  final time = t.time!, dist = t.distance!;
+  double distAt(num sec) {
+    if (sec <= time[idx.first]!) return dist[idx.first]!;
+    for (var k = 1; k < idx.length; k++) {
+      final i = idx[k], p = idx[k - 1];
+      if (time[i]! >= sec) {
+        final span = time[i]! - time[p]!;
+        return span <= 0 ? dist[i]! : dist[p]! + (dist[i]! - dist[p]!) * (sec - time[p]!) / span;
+      }
+    }
+    return dist[idx.last]!;
+  }
+
+  final bounds = [time[idx.first]!, ...marks, time[idx.last]!];
+  return [
+    for (var k = 0; k + 1 < bounds.length; k++)
+      if (bounds[k + 1] > bounds[k]) Lap(k + 1, bounds[k + 1] - bounds[k], distAt(bounds[k + 1]) - distAt(bounds[k])),
+  ];
+}

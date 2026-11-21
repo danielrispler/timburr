@@ -9141,6 +9141,199 @@ class ErrorLogsCompanion extends UpdateCompanion<ErrorEntry> {
   }
 }
 
+class $RecordingEventsTable extends RecordingEvents
+    with TableInfo<$RecordingEventsTable, RecordingEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecordingEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _eventMeta = const VerificationMeta('event');
+  @override
+  late final GeneratedColumn<String> event = GeneratedColumn<String>(
+    'event',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, event];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recording_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecordingEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('event')) {
+      context.handle(
+        _eventMeta,
+        event.isAcceptableOrUnknown(data['event']!, _eventMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecordingEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecordingEventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      event: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event'],
+      )!,
+    );
+  }
+
+  @override
+  $RecordingEventsTable createAlias(String alias) {
+    return $RecordingEventsTable(attachedDatabase, alias);
+  }
+}
+
+class RecordingEventRow extends DataClass
+    implements Insertable<RecordingEventRow> {
+  final int id;
+  final String event;
+  const RecordingEventRow({required this.id, required this.event});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['event'] = Variable<String>(event);
+    return map;
+  }
+
+  RecordingEventsCompanion toCompanion(bool nullToAbsent) {
+    return RecordingEventsCompanion(id: Value(id), event: Value(event));
+  }
+
+  factory RecordingEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecordingEventRow(
+      id: serializer.fromJson<int>(json['id']),
+      event: serializer.fromJson<String>(json['event']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'event': serializer.toJson<String>(event),
+    };
+  }
+
+  RecordingEventRow copyWith({int? id, String? event}) =>
+      RecordingEventRow(id: id ?? this.id, event: event ?? this.event);
+  RecordingEventRow copyWithCompanion(RecordingEventsCompanion data) {
+    return RecordingEventRow(
+      id: data.id.present ? data.id.value : this.id,
+      event: data.event.present ? data.event.value : this.event,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordingEventRow(')
+          ..write('id: $id, ')
+          ..write('event: $event')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, event);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecordingEventRow &&
+          other.id == this.id &&
+          other.event == this.event);
+}
+
+class RecordingEventsCompanion extends UpdateCompanion<RecordingEventRow> {
+  final Value<int> id;
+  final Value<String> event;
+  const RecordingEventsCompanion({
+    this.id = const Value.absent(),
+    this.event = const Value.absent(),
+  });
+  RecordingEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required String event,
+  }) : event = Value(event);
+  static Insertable<RecordingEventRow> custom({
+    Expression<int>? id,
+    Expression<String>? event,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (event != null) 'event': event,
+    });
+  }
+
+  RecordingEventsCompanion copyWith({Value<int>? id, Value<String>? event}) {
+    return RecordingEventsCompanion(
+      id: id ?? this.id,
+      event: event ?? this.event,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (event.present) {
+      map['event'] = Variable<String>(event.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordingEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('event: $event')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDb extends GeneratedDatabase {
   _$AppDb(QueryExecutor e) : super(e);
   $AppDbManager get managers => $AppDbManager(this);
@@ -9161,6 +9354,9 @@ abstract class _$AppDb extends GeneratedDatabase {
   late final $BestEffortsTable bestEfforts = $BestEffortsTable(this);
   late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final $ErrorLogsTable errorLogs = $ErrorLogsTable(this);
+  late final $RecordingEventsTable recordingEvents = $RecordingEventsTable(
+    this,
+  );
   late final Index exercisesDirty = Index(
     'exercises_dirty',
     'CREATE INDEX exercises_dirty ON exercises (dirty)',
@@ -9219,6 +9415,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     bestEfforts,
     syncCursors,
     errorLogs,
+    recordingEvents,
     exercisesDirty,
     routinesDirty,
     routineExercisesDirty,
@@ -15262,6 +15459,138 @@ typedef $$ErrorLogsTableProcessedTableManager =
       ErrorEntry,
       PrefetchHooks Function()
     >;
+typedef $$RecordingEventsTableCreateCompanionBuilder =
+    RecordingEventsCompanion Function({Value<int> id, required String event});
+typedef $$RecordingEventsTableUpdateCompanionBuilder =
+    RecordingEventsCompanion Function({Value<int> id, Value<String> event});
+
+class $$RecordingEventsTableFilterComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecordingEventsTableOrderingComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecordingEventsTableAnnotationComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get event =>
+      $composableBuilder(column: $table.event, builder: (column) => column);
+}
+
+class $$RecordingEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $RecordingEventsTable,
+          RecordingEventRow,
+          $$RecordingEventsTableFilterComposer,
+          $$RecordingEventsTableOrderingComposer,
+          $$RecordingEventsTableAnnotationComposer,
+          $$RecordingEventsTableCreateCompanionBuilder,
+          $$RecordingEventsTableUpdateCompanionBuilder,
+          (
+            RecordingEventRow,
+            BaseReferences<_$AppDb, $RecordingEventsTable, RecordingEventRow>,
+          ),
+          RecordingEventRow,
+          PrefetchHooks Function()
+        > {
+  $$RecordingEventsTableTableManager(_$AppDb db, $RecordingEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecordingEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecordingEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecordingEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> event = const Value.absent(),
+              }) => RecordingEventsCompanion(id: id, event: event),
+          createCompanionCallback:
+              ({Value<int> id = const Value.absent(), required String event}) =>
+                  RecordingEventsCompanion.insert(id: id, event: event),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecordingEventsTable, RecordingEventRow>(table),
+                  BaseReferences<
+                    _$AppDb,
+                    $RecordingEventsTable,
+                    RecordingEventRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecordingEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $RecordingEventsTable,
+      RecordingEventRow,
+      $$RecordingEventsTableFilterComposer,
+      $$RecordingEventsTableOrderingComposer,
+      $$RecordingEventsTableAnnotationComposer,
+      $$RecordingEventsTableCreateCompanionBuilder,
+      $$RecordingEventsTableUpdateCompanionBuilder,
+      (
+        RecordingEventRow,
+        BaseReferences<_$AppDb, $RecordingEventsTable, RecordingEventRow>,
+      ),
+      RecordingEventRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDbManager {
   final _$AppDb _db;
@@ -15292,4 +15621,6 @@ class $AppDbManager {
       $$SyncCursorsTableTableManager(_db, _db.syncCursors);
   $$ErrorLogsTableTableManager get errorLogs =>
       $$ErrorLogsTableTableManager(_db, _db.errorLogs);
+  $$RecordingEventsTableTableManager get recordingEvents =>
+      $$RecordingEventsTableTableManager(_db, _db.recordingEvents);
 }
