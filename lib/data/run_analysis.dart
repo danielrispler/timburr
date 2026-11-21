@@ -123,14 +123,19 @@ List<(double, double)> chartSeries(Track track, RunMetric metric, {int maxPoints
   final out = <(double, double)>[];
   switch (metric) {
     case RunMetric.pace:
-      final idx = timedIndices(t);
-      final time = t.time;
+      // Only points where the distance moved: files that update it every few seconds (some once a minute) would otherwise saw-tooth
+      // between updates. A window spanning a real stop is slower than 20 min/km and left out below, so the line resumes 100 m after it.
+      final time = t.time!;
+      final idx = <int>[];
+      for (final i in timedIndices(t)) {
+        if (idx.isEmpty || dist[i]! > dist[idx.last]!) idx.add(i);
+      }
       var j = 0;
       for (var k = 0; k < idx.length; k++) {
         while (j + 1 < k && dist[idx[k]]! - dist[idx[j + 1]]! >= 100) {
           j++;
         }
-        final dd = dist[idx[k]]! - dist[idx[j]]!, dt = time![idx[k]]! - time[idx[j]]!;
+        final dd = dist[idx[k]]! - dist[idx[j]]!, dt = time[idx[k]]! - time[idx[j]]!;
         if (dd >= 100 && dt > 0 && dt / (dd / 1000) <= 1200) out.add((dist[idx[k]]! / 1000, dt / (dd / 1000))); // slower than 20 min/km is a stop, not a pace
       }
     case RunMetric.hr:

@@ -52,9 +52,12 @@ class Recording {
 
   DateTime get end => start.add(Duration(seconds: elapsedSec));
 
-  /// True when the track has enough positioned points to draw a map.
-  bool get hasRoute => track != null && positionedCount(track!.lat, track!.lon) >= minRoutePoints;
+  /// True when the track has enough positioned points to draw a map, and the Run is not on a treadmill.
+  bool get hasRoute => drawsRoute(type) && track != null && positionedCount(track!.lat, track!.lon) >= minRoutePoints;
 }
+
+/// Whether a Run of [type] has a route to draw. GPS logged on a treadmill is noise, not a route.
+bool drawsRoute(String type) => type != 'treadmill';
 
 /// About [points] evenly spaced positions of [t] as `lat,lon;lat,lon;...` (5 decimals, about 1 m), first and last included. Null when [t] has no route.
 String? simplifyRoute(Track t, {int points = 200}) {

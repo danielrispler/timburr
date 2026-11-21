@@ -8,9 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/recording.dart' show drawsRoute;
 import '../../data/run_analysis.dart';
 import '../../data/settings.dart';
 import '../../data/track.dart';
+import '../core/chart_axis.dart';
 import '../core/theme.dart';
 import 'activity_timer.dart';
 import 'max_hr.dart';
@@ -99,7 +101,7 @@ class _RunBodyState extends State<_RunBody> {
     final metric = metrics.contains(_metric) ? _metric : metrics.firstOrNull;
     final at = c.startedAt.toLocal();
     return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
-      if (t != null && _positions(t).length >= 2) RunMap(_positions(t)),
+      if (t != null && drawsRoute(c.type) && _positions(t).length >= 2) RunMap(_positions(t)),
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
         child: Text('${loc.formatMediumDate(at)}, ${TimeOfDay.fromDateTime(at).format(context)} · ${activityLabel(c.type)}',
@@ -215,10 +217,12 @@ class _MetricChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final pace = metric == RunMetric.pace;
     String label(double y) => pace ? formatPace(-y) : y.round().toString();
+    // A round km step giving at most about four labels, so they never run into each other.
+    final kmStep = [0.5, 1.0, 2.0, 5.0, 10.0].firstWhere((s) => points.last.$1 / s <= 4, orElse: () => 20.0);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 24, 8),
       child: AspectRatio(
-        aspectRatio: 1.8,
+        aspectRatio: 1.5,
         child: LineChart(LineChartData(
           gridData: const FlGridData(drawVerticalLine: false),
           borderData: FlBorderData(show: false),
@@ -226,8 +230,8 @@ class _MetricChart extends StatelessWidget {
           titlesData: FlTitlesData(
             topTitles: const AxisTitles(),
             rightTitles: const AxisTitles(),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 24, getTitlesWidget: (x, meta) => SideTitleWidget(meta: meta, child: Text('${x.toStringAsFixed(x == x.roundToDouble() ? 0 : 1)} km')))),
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44, getTitlesWidget: (y, meta) => SideTitleWidget(meta: meta, child: Text(label(y))))),
+            bottomTitles: AxisTitles(sideTitles: axisTitles(reservedSize: 24, interval: kmStep, label: (x) => '${x.toStringAsFixed(x == x.roundToDouble() ? 0 : 1)} km')),
+            leftTitles: AxisTitles(sideTitles: axisTitles(reservedSize: 44, label: label)),
           ),
           lineBarsData: [
             LineChartBarData(

@@ -232,7 +232,7 @@ class CardioStore {
       }
       if (track != null && stored != null && track.encode() == stored.encode()) track = null;
       if (track != null && !edited.contains('route')) {
-        final route = simplifyRoute(track);
+        final route = drawsRoute(changes['type'] as String? ?? match.type) ? simplifyRoute(track) : null;
         if (route != match.route) changes['route'] = route;
       }
 

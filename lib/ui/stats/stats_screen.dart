@@ -7,6 +7,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart';
+import '../core/chart_axis.dart';
 import '../core/series_chart.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_detail.dart';
@@ -272,25 +273,21 @@ class _Bars extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           AspectRatio(
-            aspectRatio: 2,
-            child: BarChart(
+            aspectRatio: 1.6,
+            child: LayoutBuilder(builder: (context, box) => BarChart(
               BarChartData(
                 gridData: const FlGridData(drawVerticalLine: false),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(),
                   rightTitles: const AxisTitles(),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
+                  leftTitles: AxisTitles(sideTitles: axisTitles(reservedSize: 44)),
                   bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
+                    sideTitles: axisTitles(
                       reservedSize: 24,
-                      getTitlesWidget: (x, meta) {
-                        final i = x.toInt();
-                        if (i % 3 != 0 || i >= points.length) return const SizedBox.shrink();
-                        final d = points[i].$1;
-                        return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                      },
+                      interval: 1,
+                      show: (x) => x == x.toInt() && x >= 0 && x < points.length && x.toInt() % 3 == 0,
+                      label: (x) => '${points[x.toInt()].$1.day}/${points[x.toInt()].$1.month}',
                     ),
                   ),
                 ),
@@ -298,11 +295,11 @@ class _Bars extends StatelessWidget {
                   for (final (i, (_, v)) in points.indexed)
                     BarChartGroupData(
                       x: i,
-                      barRods: [BarChartRodData(toY: v, color: color, width: 12)],
+                      barRods: [BarChartRodData(toY: v, color: color, width: barWidth(box.maxWidth - 44, points.length))],
                     ),
                 ],
               ),
-            ),
+            )),
           ),
         ],
       ),

@@ -39,6 +39,11 @@ void main() {
     expect(run.elevationGainM, closeTo(9.9, 1.5));
   });
 
+  test('a Treadmill run never gets a route, even when the phone logged GPS on the treadmill', () async {
+    await store.ingest(Recording(source: 'file', type: 'treadmill', start: DateTime.utc(2026, 11, 10, 10), elapsedSec: 99, externalId: 't', distanceKm: 0.3, track: climb()));
+    expect((await only()).route, isNull);
+  });
+
   test('the source\'s own Moving time and elevation are kept', () async {
     await store.ingest(rec(moving: 95, gain: 42));
     final run = await only();

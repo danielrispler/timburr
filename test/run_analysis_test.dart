@@ -40,6 +40,21 @@ void main() {
     expect(autoPauseMovingSec(t), 1000);
   });
 
+  test('a healthy distance column is kept, and GPS distance skips impossible jumps and is scaled to the Run\'s total', () {
+    final healthy = Track(time: [0, 100, 200], distance: [0, 300, 600], lat: [32.8, 32.9, 33.0], lon: [35.0, 35.0, 35.0]);
+    expect(splitsPerKm(healthy).map((s) => s.distanceM), [600]); // the column, not ~22 km of positions
+    const m = 111194.93;
+    final lat = [for (var i = 0; i < 1001; i++) 32.8 + i * 3 / m]..[500] = 0; // one stray point at the equator
+    final t = Track(time: [for (var i = 0; i < 1001; i++) i], distance: [for (var i = 0; i < 1001; i++) i == 0 ? 0 : 1500.0], lat: lat, lon: [for (var i = 0; i < 1001; i++) 35.0]);
+    expect(splitsPerKm(t).map((s) => s.distanceM.round()), [1000, 500]); // scaled to the file's 1500 m
+  });
+
+  test('the pace chart is smooth when the file updates its distance only every few seconds', () {
+    final stale = Track(time: [for (var i = 0; i < 600; i++) i], distance: [for (var i = 0; i < 600; i++) (i ~/ 10) * 30.0]); // 3 m/s, updated every 10 s
+    final paces = chartSeries(stale, RunMetric.pace).map((p) => p.$2);
+    expect(paces.every((p) => (p - 333.3).abs() < 1), isTrue);
+  });
+
   group('splitsPerKm', () {
     test('one split per km, with a last split when 100 m or more remain', () {
       final three = splitsPerKm(steady(1001)); // 3000 m
@@ -119,8 +134,8 @@ void main() {
     });
 
     test('a stop is left out of the pace line', () {
-      final p = chartSeries(Track(time: [0, 30, 1000, 1030], distance: [0, 100, 100, 200]), RunMetric.pace);
-      expect(p.map((e) => e.$2.round()), [300, 300]); // 100 m in 30 s, the 970 s standing still is slower than 20 min/km
+      final p = chartSeries(Track(time: [0, 30, 1000, 1030, 1060], distance: [0, 100, 100, 200, 300]), RunMetric.pace);
+      expect(p.map((e) => e.$2.round()), [300, 300]); // 100 m in 30 s; the window over the 970 s standing still is left out, then 100 m in 30 s again
     });
 
     test('heart rate and elevation over distance', () {

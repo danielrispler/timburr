@@ -19,11 +19,16 @@ void main() {
     test('a band edge belongs to the higher zone; below 50% is zone 1 and above 100% zone 5', () {
       expect(zoneSeconds(hrTrack([120, 50, 220, 0]), 200), [10, 10, 0, 0, 10]);
     });
+    test('sparse HR among denser points counts until the next HR sample', () {
+      final t = Track(time: [0, 1, 2, 10, 11, 20], hr: [120, null, null, 170, null, 170]);
+      expect(zoneSeconds(t, 200), [0, 10, 0, 10, 0]); // 120 bpm for 10 s, then 170 bpm for 10 s
+    });
+
     test('a pause longer than the gap cap adds at most the cap', () {
       expect(zoneSeconds(hrTrack([150, 150, 150], time: [0, 10, 610]), 200)![2], 10 + 30);
     });
     test('samples without HR are skipped; no HR or no time gives null', () {
-      expect(zoneSeconds(hrTrack([150, null, 150, 150]), 200)!.fold<double>(0, (a, b) => a + b), 10 + 10);
+      expect(zoneSeconds(hrTrack([150, null, 150, 150]), 200)!.fold<double>(0, (a, b) => a + b), 20 + 10); // the first reading holds until the next one
       expect(zoneSeconds(Track(time: [0, 1]), 200), isNull);
       expect(zoneSeconds(Track(hr: [150, 150]), 200), isNull);
       expect(zoneSeconds(hrTrack([null, null]), 200), isNull);

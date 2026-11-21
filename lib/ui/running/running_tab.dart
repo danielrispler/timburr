@@ -1,13 +1,15 @@
-import 'dart:math' as math;
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/recording.dart' show drawsRoute;
 import '../../data/running.dart';
 import '../cardio/activity_timer.dart';
 import '../cardio/run_page.dart';
+import '../core/chart_axis.dart';
 import '../core/theme.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
@@ -113,7 +115,7 @@ class _RunsPage extends StatelessWidget {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     final route = parseRoute(c.route);
     return ListTile(
-      leading: route.length >= 2
+      leading: drawsRoute(c.type) && route.length >= 2
           ? RouteThumbnail(route)
           : IconTile(activityIcon(c.type)),
       title: Text('${c.distanceKm == null ? '-' : _km(c.distanceKm!)} · ${_time(c.durationSec)}'),
@@ -123,7 +125,7 @@ class _RunsPage extends StatelessWidget {
   }
 }
 
-/// A route drawn as a plain polyline, no map tiles. Longitude is scaled by cos(latitude) so the shape is not stretched.
+/// A small, still OpenStreetMap map of the route (tiles cached on the phone), for the Runs list.
 class RouteThumbnail extends StatelessWidget {
   const RouteThumbnail(this.points, {super.key, this.size = 52});
 
@@ -132,45 +134,27 @@ class RouteThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: scheme.surfaceContainerHigh, borderRadius: BorderRadius.circular(16)),
-      child: CustomPaint(painter: _RoutePainter(points, scheme.primary)),
+    final line = [for (final (lat, lon) in points) LatLng(lat, lon)];
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: IgnorePointer(
+          child: FlutterMap(
+            options: MapOptions(
+              initialCameraFit: CameraFit.coordinates(coordinates: line, padding: const EdgeInsets.all(8)),
+              interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+            ),
+            children: [
+              TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'timburr'),
+              PolylineLayer(polylines: [Polyline(points: line, color: Theme.of(context).colorScheme.primary, strokeWidth: 3, borderColor: Colors.black87, borderStrokeWidth: 1.5)]),
+            ],
+          ),
+        ),
+      ),
     );
   }
-}
-
-class _RoutePainter extends CustomPainter {
-  _RoutePainter(this.points, this.color);
-
-  final List<(double, double)> points;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-    final lats = [for (final p in points) p.$1], lons = [for (final p in points) p.$2];
-    final minLat = lats.reduce((a, b) => a < b ? a : b), maxLat = lats.reduce((a, b) => a > b ? a : b);
-    final minLon = lons.reduce((a, b) => a < b ? a : b), maxLon = lons.reduce((a, b) => a > b ? a : b);
-    final xScale = math.cos((minLat + maxLat) / 2 * math.pi / 180);
-    final w = (maxLon - minLon) * xScale, h = maxLat - minLat;
-    final span = w > h ? w : h;
-    if (span == 0) return;
-    const pad = 8.0;
-    final scale = (size.width - 2 * pad) / span;
-    final dx = (size.width - w * scale) / 2, dy = (size.height - h * scale) / 2;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = dx + (points[i].$2 - minLon) * xScale * scale, y = dy + (maxLat - points[i].$1) * scale;
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
-    }
-    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2..strokeJoin = StrokeJoin.round..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(_RoutePainter old) => old.points != points || old.color != color;
 }
 
 class _ProgressPage extends StatefulWidget {
@@ -233,7 +217,7 @@ class DistanceChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final every = (series.length / 5).ceil().clamp(1, series.length);
-    return BarChart(BarChartData(
+    return LayoutBuilder(builder: (context, box) => BarChart(BarChartData(
       gridData: const FlGridData(drawVerticalLine: false),
       borderData: FlBorderData(show: false),
       alignment: BarChartAlignment.spaceAround,
@@ -247,27 +231,23 @@ class DistanceChart extends StatelessWidget {
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(),
         rightTitles: const AxisTitles(),
-        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+        leftTitles: AxisTitles(sideTitles: axisTitles(reservedSize: 40)),
         bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
+          sideTitles: axisTitles(
             reservedSize: 28,
             interval: 1,
-            getTitlesWidget: (x, meta) {
-              final i = x.toInt();
-              // Label from the newest bar back, so the current period is always named.
-              if (i != x || i < 0 || i >= series.length || (series.length - 1 - i) % every != 0) return const SizedBox.shrink();
-              return SideTitleWidget(meta: meta, child: Text(_label(period, series[i].start), style: const TextStyle(fontSize: 11)));
-            },
+            // Label from the newest bar back, so the current period is always named.
+            show: (x) => x == x.toInt() && x >= 0 && x < series.length && (series.length - 1 - x.toInt()) % every == 0,
+            label: (x) => _label(period, series[x.toInt()].start),
           ),
         ),
       ),
       barGroups: [
         for (var i = 0; i < series.length; i++)
           BarChartGroupData(x: i, barRods: [
-            BarChartRodData(toY: series[i].km, color: scheme.primary, width: series.length > 30 ? 6 : 12, borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
+            BarChartRodData(toY: series[i].km, color: scheme.primary, width: barWidth(box.maxWidth - 40, series.length), borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
           ]),
       ],
-    ));
+    )));
   }
 }

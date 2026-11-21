@@ -45,27 +45,38 @@ double haversineM(double lat1, double lon1, double lat2, double lon2) {
   return 2 * 6371000 * asin(sqrt(a.toDouble()));
 }
 
-/// [t] with its distance measured along its positions when it has two or more, so analysis never trusts a file's own DistanceMeters
-/// (some exports repeat the Run's total on every point, others update it only every 30 s). Points before the first position get null,
-/// points without one keep the distance so far. Without positions, [t] unchanged.
+/// Faster than this (m/s) between two points is a GPS or distance jump, not running.
+const maxRunSpeed = 10.0;
+
+/// [t] with a usable distance column for analysis. A healthy column is kept: it matches the Run's distance, while GPS points can be
+/// noisy or stray hundreds of km. A broken one (more than half the total in a single step, as exports that repeat the Run's total on
+/// every point do) is replaced by the distance along the positions, skipping jumps faster than [maxRunSpeed] and scaled to the column's
+/// total. Points before the first position get null, points without one keep the distance so far.
 Track withGpsDistance(Track t) {
-  final lat = t.lat, lon = t.lon;
-  if (lat == null || lon == null) return t;
+  final col = t.distance, lat = t.lat, lon = t.lon, time = t.time;
+  final known = col?.whereType<double>().toList() ?? const <double>[];
+  final total = known.isEmpty ? 0.0 : known.reduce(max);
+  final broken = total > 0 && [for (var k = 1; k < known.length; k++) known[k] - known[k - 1]].any((step) => step > total / 2);
+  if (!broken || lat == null || lon == null || time == null) return t;
   final dist = <double?>[];
   int? last;
   var positioned = 0;
   for (var i = 0; i < t.length; i++) {
-    final has = i < lat.length && i < lon.length && lat[i] != null && lon[i] != null;
+    final has = i < lat.length && i < lon.length && i < time.length && lat[i] != null && lon[i] != null && time[i] != null;
     if (has) {
-      dist.add(last == null ? 0 : dist[last]! + haversineM(lat[last]!, lon[last]!, lat[i]!, lon[i]!));
+      var step = last == null ? 0.0 : haversineM(lat[last]!, lon[last]!, lat[i]!, lon[i]!);
+      if (last != null && step > maxRunSpeed * max(1, time[i]! - time[last]!)) step = 0; // a jump
+      dist.add(last == null ? 0 : dist[last]! + step);
       last = i;
       positioned++;
     } else {
       dist.add(last == null ? null : dist[last]);
     }
   }
-  if (positioned < 2) return t;
-  return Track(time: t.time, distance: dist, lat: lat, lon: lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);
+  final gps = last == null ? 0.0 : dist[last]!;
+  if (positioned < 2 || gps <= 0) return t;
+  final scale = total / gps;
+  return Track(time: time, distance: [for (final d in dist) d == null ? null : d * scale], lat: lat, lon: lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);
 }
 
 /// [base] with every column it lacks filled from [other], matched by nearest absolute time within [toleranceSec]. A column [base] has is never touched.

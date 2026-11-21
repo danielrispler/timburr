@@ -15,7 +15,7 @@ const maxGapSec = 30;
 
 /// A window spanning two points that imply a faster speed than this (m/s, 36 km/h: quicker than any runner but an elite sprinter at full tilt) doesn't count
 /// either: the position or distance jumped, as some exports do between a first point at 0 and the next carrying the Run's total.
-const maxSpeed = 10.0;
+const maxSpeed = maxRunSpeed;
 
 /// The track's points as (time, distance) pairs in seconds and meters. With at least two positioned points the distance is the cumulative great-circle
 /// length over the positions (a file's own DistanceMeters is stale between updates and jumps when it catches up); otherwise the track's distance column.
