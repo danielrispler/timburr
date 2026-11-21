@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'hr_zones.dart';
 import 'recording.dart';
 import 'run_analysis.dart';
 import 'track.dart';
@@ -26,7 +27,7 @@ GpsSignal gpsSignalOf(PositionSample? last, DateTime now) {
 }
 
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds: `start` (type, id), `position`, `pause`, `resume`.
+/// Kinds: `start` (type, id), `position`, `pause`, `resume`, `hr` (bpm).
 /// shortcut for later tickets: heart rate (#68), laps (#69) and treadmill steps (#70) are new kinds with their own `data`; add a case in [Recorder] `_apply`.
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
@@ -52,6 +53,8 @@ class RunSnapshot {
     required this.gps,
     this.currentPaceSecPerKm,
     this.avgPaceSecPerKm,
+    this.hr,
+    this.hrZone,
   });
 
   final int elapsedSec; // clock time since the start, pauses included
@@ -61,7 +64,11 @@ class RunSnapshot {
   final bool autoPaused; // standing still
   final GpsSignal gps;
   final double? currentPaceSecPerKm, avgPaceSecPerKm;
+  final int? hr, hrZone; // live beats per minute and its zone (1-5); null when the band is silent
 }
+
+/// A heart-rate reading stands for this long; after it the point or the display has a gap.
+const hrStaleSec = 10;
 
 /// The live recording as a pure state machine: fixes and button presses in, a [Recording] out. It never reads a clock; every input carries its time,
 /// so tests drive it with fake streams. The platform (GPS, foreground service, autosave) lives in `LiveRecorder`.
@@ -91,7 +98,9 @@ class Recorder {
   final List<RecorderEvent> events = [];
 
   // Track columns of the accepted fixes.
-  final _t = <int?>[], _d = <double?>[], _lat = <double?>[], _lon = <double?>[], _alt = <double?>[];
+  final _t = <int?>[], _d = <double?>[], _lat = <double?>[], _lon = <double?>[], _alt = <double?>[], _hrCol = <int?>[];
+  int? _bpm; // latest heart-rate reading and when it came
+  DateTime? _bpmAt;
   PositionSample? _last; // last accepted fix of the current stretch
   PositionSample? _lastSeen; // any fix, for the GPS indicator
   double _dist = 0;
@@ -108,6 +117,12 @@ class Recorder {
     _lastSeen = s;
     if (paused) return; // not recorded, not saved
     _log(RecorderEvent('position', s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
+  }
+
+  /// A beats-per-minute reading from the band, [at] when it came. Not recorded while paused.
+  void heartRate(int bpm, DateTime at) {
+    if (paused) return;
+    _log(RecorderEvent('hr', at, {'bpm': bpm}));
   }
 
   void pause(DateTime at) {
@@ -133,6 +148,9 @@ class Recorder {
           altitude: (e.data['alt'] as num?)?.toDouble(),
           accuracy: (e.data['acc'] as num?)?.toDouble(),
         ));
+      case 'hr':
+        _bpm = (e.data['bpm'] as num).round();
+        _bpmAt = e.at;
       case 'pause':
         _closeSlow();
         _pausedAt = e.at;
@@ -166,6 +184,7 @@ class Recorder {
     _lat.add(s.lat);
     _lon.add(s.lon);
     _alt.add(s.altitude);
+    _hrCol.add(_bpmAt != null && s.time.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null);
   }
 
   /// Ends the slow stretch: counted as auto-paused when it lasted [autoPauseSec] or more (as `autoPauseMovingSec` does for a finished track).
@@ -181,12 +200,14 @@ class Recorder {
     return len >= autoPauseSec ? len : 0;
   }
 
-  RunSnapshot snapshot(DateTime now) {
+  /// The numbers at [now]. [maxHr] picks the zone of the live heart rate.
+  RunSnapshot snapshot(DateTime now, {int maxHr = defaultMaxHr}) {
     final elapsed = max(0.0, now.difference(start).inMilliseconds / 1000);
     final pausedNow = _pausedAt == null ? 0.0 : now.difference(_pausedAt!).inMilliseconds / 1000;
     final auto = _openAutoSec();
     final moving = max(0.0, elapsed - _pausedSec - pausedNow - _autoSec - auto);
     final standing = !paused && auto > 0;
+    final bpm = _bpmAt != null && now.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null;
     return RunSnapshot(
       elapsedSec: elapsed.round(),
       movingSec: moving.round(),
@@ -196,6 +217,8 @@ class Recorder {
       gps: gpsSignalOf(_lastSeen, now),
       currentPaceSecPerKm: paused || standing ? null : _currentPace(),
       avgPaceSecPerKm: _dist >= 10 && moving > 0 ? moving / (_dist / 1000) : null,
+      hr: bpm,
+      hrZone: bpm == null ? null : zoneOf(bpm, maxHr),
     );
   }
 
@@ -224,7 +247,7 @@ class Recorder {
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
       track: _t.isEmpty
           ? null
-          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null),
+          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null),
     );
   }
 }

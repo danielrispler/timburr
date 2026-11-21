@@ -8,10 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'data/cardio.dart';
+import 'data/ble_heart_rate.dart';
 import 'data/catalog.dart';
 import 'data/db.dart';
 import 'data/error_log.dart';
 import 'data/health_connect.dart';
+import 'data/heart_rate.dart';
+import 'data/hr_zones.dart';
 import 'data/live_recorder.dart';
 import 'data/platform_recording.dart';
 import 'data/supabase_remote.dart';
@@ -51,7 +54,18 @@ Future<void> main() async {
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
   // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
-  liveRecorder = LiveRecorder(source: GeolocatorSource(), service: ForegroundRecordingService(), journal: DbJournal(db), cardio: cardio);
+  // The Max HR in force sets the zone of the live heart rate; kept current from the settings row.
+  final settings = cardio.settings;
+  var maxHr = defaultMaxHr;
+  settings.watch().listen((s) => maxHr = effectiveMaxHr(s?.maxHr, s?.birthYear, DateTime.now()));
+  liveRecorder = LiveRecorder(
+    source: GeolocatorSource(),
+    service: ForegroundRecordingService(),
+    journal: DbJournal(db),
+    cardio: cardio,
+    heartRate: HeartRateLink(sensor: BleHeartRateSensor(), memory: FileDeviceMemory()),
+    maxHr: () => maxHr,
+  );
   await liveRecorder!.restore();
   runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
 }

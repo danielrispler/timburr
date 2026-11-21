@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/cardio.dart';
 import '../../data/live_recorder.dart';
 import '../cardio/run_page.dart';
+import 'heart_rate_panel.dart';
 import '../core/theme.dart';
 import '../routines/start.dart';
 
@@ -164,6 +165,7 @@ class _RecordScreenState extends State<RecordScreen> {
         ),
         if (_problem != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_problem!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         const SizedBox(height: 16),
+        HeartRateSetup(recorder: rec),
         if (_allowed) ...[
           Center(child: _GpsChip(rec.gps)),
           const SizedBox(height: 16),
@@ -206,6 +208,8 @@ class _RecordScreenState extends State<RecordScreen> {
       const Center(child: Text('km')),
       const SizedBox(height: 24),
       Row(children: [stat('Pace /km', pace(s.currentPaceSecPerKm)), stat('Avg pace /km', pace(s.avgPaceSecPerKm))]),
+      const SizedBox(height: 16),
+      LiveHeartRate(recorder: rec, snapshot: s),
       const SizedBox(height: 32),
       Row(children: [
         Expanded(
