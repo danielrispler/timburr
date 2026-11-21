@@ -10,6 +10,31 @@ import 'package:timburr/ui/cardio/cardio_form.dart';
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
+  testWidgets('an imported Run shows its local start time and a rounded distance, and saving unchanged marks nothing edited', (tester) async {
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDb(NativeDatabase.memory());
+    addTearDown(db.close);
+    final store = CardioStore(db);
+    final start = DateTime.utc(2026, 10, 10, 15, 16); // files carry UTC
+    final id = (await tester.runAsync(() async => (await store.ingest(Recording(source: 'file', type: 'run', start: start, elapsedSec: 1800, movingSec: 1209, externalId: 'b', distanceKm: 3.074752054663306))).id!))!;
+    final run = (await tester.runAsync(() => store.watch(id).first))!;
+    await tester.pumpWidget(MaterialApp(home: CardioForm(store: store, existing: run)));
+
+    final local = start.toLocal(), h = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    expect(find.textContaining(', $h:16 '), findsOneWidget);
+    expect(find.text('3.075'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 200)));
+    final saved = (await tester.runAsync(() => store.watch(id).first))!;
+    expect(saved.editedFields, isEmpty);
+    expect((saved.startedAt.isAtSameMomentAs(start), saved.distanceKm), (true, 3.074752054663306));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('the end time sets Elapsed time (end minus start) and marks only that edited', (tester) async {
     tester.view.physicalSize = const Size(800, 3000);
     tester.view.devicePixelRatio = 1;

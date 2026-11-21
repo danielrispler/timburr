@@ -3,6 +3,7 @@ package io.github.danielrispler.timburr
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -48,6 +49,7 @@ class MainActivity : FlutterActivity() {
                 }
                 mapOf("name" to name, "bytes" to bytes)
             } catch (e: Exception) {
+                Log.w("timburr/share", "could not read $uri", e) // the preview just won't list it
                 null
             }
         }

@@ -26,8 +26,8 @@ class CardioForm extends StatefulWidget {
 class _CardioFormState extends State<CardioForm> {
   late final c = widget.existing;
   late String? _type = c?.type ?? widget.type ?? 'run';
-  late DateTime _at = c?.startedAt ?? widget.startedAt ?? DateTime.now();
-  late final _km = TextEditingController(text: c?.distanceKm == null ? '' : _num(c!.distanceKm!));
+  late DateTime _at = (c?.startedAt ?? widget.startedAt ?? DateTime.now()).toLocal(); // imported and pulled Runs carry UTC
+  late final _km = TextEditingController(text: c?.distanceKm == null ? '' : _num(roundTo(c!.distanceKm!, 3)));
   late final _dur = TextEditingController(text: switch (c?.durationSec ?? widget.durationSec) { final s? => formatDuration(s), null => '' });
   late final _hr = TextEditingController(text: c?.avgHr?.toString() ?? '');
   late final _incline = TextEditingController(text: c?.inclinePct == null ? '' : _num(c!.inclinePct!));
@@ -84,7 +84,7 @@ class _CardioFormState extends State<CardioForm> {
 
       diff('type', _type, old.type);
       if (!_at.isAtSameMomentAs(old.startedAt)) fields['started_at'] = _at;
-      diff('distance_km', parseNum(_km.text), old.distanceKm);
+      diff('distance_km', parseNum(_km.text), old.distanceKm == null ? null : roundTo(old.distanceKm!, 3)); // as the field shows it
       diff('duration_sec', parseDuration(_dur.text), old.durationSec);
       diff('elapsed_sec', elapsed, old.elapsedSec ?? old.durationSec);
       diff('avg_hr', opt(_hr) == null ? null : int.parse(opt(_hr)!), old.avgHr);
