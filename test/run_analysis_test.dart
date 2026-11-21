@@ -21,7 +21,25 @@ Track withStop(int stop, {int n = 70}) {
   return Track(time: [for (var i = 0; i < n; i++) i], distance: dist);
 }
 
+/// [n] one-second points heading north at 3 m/s, whose distance column says 0 then the Run's total on every point (as some Strava exports do).
+Track totalOnEveryPoint(int n) {
+  const mPerDegLat = 111194.93; // haversineM's earth radius
+  return Track(
+    time: [for (var i = 0; i < n; i++) i],
+    distance: [for (var i = 0; i < n; i++) i == 0 ? 0 : (n - 1) * 3.0],
+    lat: [for (var i = 0; i < n; i++) 32.8 + i * 3 / mPerDegLat],
+    lon: [for (var i = 0; i < n; i++) 35.0],
+  );
+}
+
 void main() {
+  test('with GPS positions, splits, chart and Moving time measure distance along the positions, not a broken distance column', () {
+    final t = totalOnEveryPoint(1001); // 3000 m
+    expect(splitsPerKm(t).map((s) => s.paceSecPerKm.round()), [333, 333, 333]);
+    expect(chartSeries(t, RunMetric.pace).last.$1, closeTo(3.0, 0.01));
+    expect(autoPauseMovingSec(t), 1000);
+  });
+
   group('splitsPerKm', () {
     test('one split per km, with a last split when 100 m or more remain', () {
       final three = splitsPerKm(steady(1001)); // 3000 m

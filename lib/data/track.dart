@@ -45,6 +45,29 @@ double haversineM(double lat1, double lon1, double lat2, double lon2) {
   return 2 * 6371000 * asin(sqrt(a.toDouble()));
 }
 
+/// [t] with its distance measured along its positions when it has two or more, so analysis never trusts a file's own DistanceMeters
+/// (some exports repeat the Run's total on every point, others update it only every 30 s). Points before the first position get null,
+/// points without one keep the distance so far. Without positions, [t] unchanged.
+Track withGpsDistance(Track t) {
+  final lat = t.lat, lon = t.lon;
+  if (lat == null || lon == null) return t;
+  final dist = <double?>[];
+  int? last;
+  var positioned = 0;
+  for (var i = 0; i < t.length; i++) {
+    final has = i < lat.length && i < lon.length && lat[i] != null && lon[i] != null;
+    if (has) {
+      dist.add(last == null ? 0 : dist[last]! + haversineM(lat[last]!, lon[last]!, lat[i]!, lon[i]!));
+      last = i;
+      positioned++;
+    } else {
+      dist.add(last == null ? null : dist[last]);
+    }
+  }
+  if (positioned < 2) return t;
+  return Track(time: t.time, distance: dist, lat: lat, lon: lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);
+}
+
 /// [base] with every column it lacks filled from [other], matched by nearest absolute time within [toleranceSec]. A column [base] has is never touched.
 /// Times are seconds from each track's own start; [baseOffset] and [otherOffset] are how many seconds after the merged track's start each one starts.
 /// The result's times run from the merged start. Returns null when [base] needs nothing filled, so a caller can tell nothing changed.

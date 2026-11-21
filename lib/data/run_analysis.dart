@@ -28,7 +28,8 @@ List<int> timedIndices(Track t) {
 }
 
 /// Splits of [t] per km. Needs time and distance; no splits without them. Km marks are interpolated between the two points around them.
-List<KmSplit> splitsPerKm(Track t) {
+List<KmSplit> splitsPerKm(Track track) {
+  final t = withGpsDistance(track);
   final idx = timedIndices(t);
   if (idx.length < 2) return const [];
   final time = t.time!, dist = t.distance!;
@@ -92,7 +93,8 @@ const autoPauseSec = 5;
 
 /// Moving time in seconds: the track's duration minus every stretch slower than [autoPauseSpeed] that lasted [autoPauseSec] or more.
 /// Null when the track has no time and distance to judge by.
-int? autoPauseMovingSec(Track t) {
+int? autoPauseMovingSec(Track track) {
+  final t = withGpsDistance(track);
   final idx = timedIndices(t);
   if (idx.length < 2) return null;
   final time = t.time!, dist = t.distance!;
@@ -114,7 +116,8 @@ int? autoPauseMovingSec(Track t) {
 enum RunMetric { pace, hr, elevation }
 
 /// (km, value) points for the Run page chart: pace as sec/km over the last 100 m (stops left out), heart rate, or smoothed altitude. At most [maxPoints].
-List<(double, double)> chartSeries(Track t, RunMetric metric, {int maxPoints = 300}) {
+List<(double, double)> chartSeries(Track track, RunMetric metric, {int maxPoints = 300}) {
+  final t = withGpsDistance(track);
   final dist = t.distance;
   if (dist == null) return const [];
   final out = <(double, double)>[];

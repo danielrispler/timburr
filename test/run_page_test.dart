@@ -49,7 +49,7 @@ void main() {
   testWidgets('a Run with a route shows the map, its credit, stats and splits', (tester) async {
     await show(tester, gps: true);
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(find.text('© OpenStreetMap'), findsOneWidget);
+    expect(find.text('OpenStreetMap'), findsOneWidget);
     expect(find.text('Morning run'), findsOneWidget);
     expect(find.text('Moving time'), findsOneWidget);
     expect(find.text('km 1'), findsOneWidget);

@@ -197,7 +197,7 @@ class RunMap extends StatelessWidget {
             Marker(point: points.first, width: 24, height: 24, child: pin(Colors.green, Icons.play_arrow)),
             Marker(point: points.last, width: 24, height: 24, child: pin(Colors.red, Icons.flag)),
           ]),
-          SimpleAttributionWidget(source: const Text('© OpenStreetMap'), onTap: () => unawaited(launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication))),
+          SimpleAttributionWidget(source: const Text('OpenStreetMap') /* the widget adds "flutter_map | © " */, onTap: () => unawaited(launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication))),
         ],
       ),
     );

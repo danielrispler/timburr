@@ -6,11 +6,13 @@ import 'package:timburr/data/db.dart';
 import 'package:timburr/data/recording.dart';
 import 'package:timburr/data/track.dart';
 
+int _step(int i) => i < 40 ? i : i < 50 ? 40 : i - 10;
+
 /// 100 one-second points at 3 m/s heading north, with a 10 s stop and a 10 m climb.
 Track climb() => Track(
       time: [for (var i = 0; i < 100; i++) i],
-      distance: [for (var i = 0; i < 100; i++) (i < 40 ? i : i < 50 ? 40 : i - 10) * 3.0],
-      lat: [for (var i = 0; i < 100; i++) 32.0 + i * 0.00003],
+      distance: [for (var i = 0; i < 100; i++) _step(i) * 3.0],
+      lat: [for (var i = 0; i < 100; i++) 32.0 + _step(i) * 0.00003], // the stop stands still
       lon: [for (var i = 0; i < 100; i++) 34.8],
       altitude: [for (var i = 0; i < 100; i++) 100.0 + i / 10],
     );
