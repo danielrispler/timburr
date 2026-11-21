@@ -207,6 +207,13 @@ class _RecordScreenState extends State<RecordScreen> {
       const SizedBox(height: 24),
       Row(children: [stat('Pace /km', pace(s.currentPaceSecPerKm)), stat('Avg pace /km', pace(s.avgPaceSecPerKm))]),
       const SizedBox(height: 32),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        icon: const Icon(Icons.flag),
+        label: Text('Lap (${rec.lapCount})'),
+        onPressed: _busy || s.paused ? null : rec.lap,
+      ),
+      const SizedBox(height: 12),
       Row(children: [
         Expanded(
           child: FilledButton.tonalIcon(

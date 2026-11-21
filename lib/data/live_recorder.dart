@@ -10,7 +10,7 @@ import 'db.dart';
 import 'error_log.dart';
 import 'recorder.dart';
 
-export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot;
+export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot, kmCueText;
 
 /// The app's one recorder, set in main (like `errorLog`). Null in tests that do not record.
 LiveRecorder? liveRecorder;
@@ -34,6 +34,20 @@ abstract class PositionSource {
 abstract class RecordingService {
   Future<void> start();
   Future<void> stop();
+}
+
+/// Speaks the km cues. The one platform seam for text to speech; see `platform_recording.dart`.
+abstract class SpeechService {
+  Future<void> speak(String text);
+}
+
+/// The ongoing recording notification: time and distance, and a Pause/Resume button.
+abstract class RecordingNotification {
+  /// Called with `pause` or `resume` when its button is pressed.
+  void Function(String action)? onAction;
+
+  Future<void> update(RunSnapshot s);
+  Future<void> clear();
 }
 
 /// Where the in-progress recording is saved as it goes: the recorder's event log, in order.
@@ -67,15 +81,20 @@ class DbJournal implements RecordingJournal {
 /// The recording in progress: wires a [Recorder] to the location source, the foreground service, the autosave and the Run store.
 /// One per app. Listen for changes; the screen reads [snapshot] on its own 1 s timer, since time passes between fixes.
 class LiveRecorder extends ChangeNotifier {
-  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, DateTime Function()? now}) : _now = now ?? DateTime.now {
+    notification?.onAction = (a) => a == 'resume' ? resume() : pause();
+  }
 
   final PositionSource source;
   final RecordingService service;
   final RecordingJournal journal;
   final CardioStore cardio;
+  final SpeechService? speech;
+  final RecordingNotification? notification;
   final DateTime Function() _now;
 
   Recorder? _rec;
+  Timer? _noteTimer;
   StreamSubscription<PositionSample>? _sub;
   PositionSample? _lastSeen;
   Future<void> _queue = Future.value();
@@ -83,6 +102,7 @@ class LiveRecorder extends ChangeNotifier {
   /// True while a recording exists, running or paused.
   bool get active => _rec != null;
   String? get type => _rec?.type;
+  int get lapCount => _rec?.laps.length ?? 0;
 
   /// The recording's numbers now, null when nothing is being recorded.
   RunSnapshot? get snapshot => _rec?.snapshot(_now());
@@ -108,16 +128,32 @@ class LiveRecorder extends ChangeNotifier {
     _save(rec.events.last);
     await service.start();
     await _listen(background: true);
+    _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
+    refreshNotification();
     notifyListeners();
   }
 
-  void pause() => _act((r, at) => r.pause(at));
+  void pause() {
+    _act((r, at) => r.pause(at));
+    refreshNotification();
+  }
+
+  /// Marks a lap now.
+  void lap() => _act((r, at) => r.lap(at));
+
+  /// Puts the current time, distance and pause state in the notification.
+  void refreshNotification() {
+    final s = snapshot;
+    if (s != null) notification?.update(s);
+  }
 
   Future<void> resume() async {
     if (_rec == null) return;
     await service.start(); // after a restart the service is not running yet
     if (_sub == null || !_background) await _listen(background: true);
     _act((r, at) => r.resume(at));
+    _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
+    refreshNotification();
   }
 
   /// Saves the Run through ingest (so a later Fitbit session merges into it) and returns its id.
@@ -126,6 +162,7 @@ class LiveRecorder extends ChangeNotifier {
     if (rec == null) return null;
     final recording = rec.finish(_now());
     await _stopListening();
+    _stopNotification();
     await service.stop();
     await flush();
     final result = await cardio.ingest(recording);
@@ -139,11 +176,18 @@ class LiveRecorder extends ChangeNotifier {
   Future<void> discard() async {
     if (_rec == null) return;
     await _stopListening();
+    _stopNotification();
     await service.stop();
     await flush();
     await journal.clear();
     _rec = null;
     notifyListeners();
+  }
+
+  void _stopNotification() {
+    _noteTimer?.cancel();
+    _noteTimer = null;
+    notification?.clear();
   }
 
   /// Picks up a recording the app was killed in, as paused at its last point. True when there was one. Call once at startup.
@@ -182,9 +226,12 @@ class LiveRecorder extends ChangeNotifier {
     _lastSeen = s;
     final rec = _rec;
     if (rec != null) {
-      final before = rec.events.length;
+      final before = rec.events.length, cues = rec.kmCues.length;
       rec.position(s);
       if (rec.events.length > before) _save(rec.events.last);
+      for (final c in rec.kmCues.skip(cues)) {
+        speech?.speak(kmCueText(c)).catchError((Object e, StackTrace st) => reportError('km_voice', e, st));
+      }
     }
     notifyListeners();
   }
