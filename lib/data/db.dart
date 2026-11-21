@@ -149,6 +149,14 @@ class AppSettings extends Table with Synced {
   IntColumn get strideSamples => integer().nullable()(); // corrections behind strideM
 }
 
+/// The single goals row (id `goalsRowId`): weekly and yearly distance goals, null when not set.
+@TableIndex(name: 'goals_dirty', columns: {#dirty})
+@DataClassName('Goal')
+class Goals extends Table with Synced {
+  RealColumn get weeklyKm => real().nullable()();
+  RealColumn get yearlyKm => real().nullable()();
+}
+
 /// Local only: fastest times per Run and standard distance, rebuilt from tracks. Not synced or backed up.
 class BestEfforts extends Table {
   TextColumn get cardioId => text()();
@@ -194,12 +202,12 @@ class RecordingEvents extends Table {
   TextColumn get event => text()(); // a RecorderEvent as JSON
 }
 
-@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, BestEfforts, SyncCursors, ErrorLogs, RecordingEvents])
+@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, Goals, BestEfforts, SyncCursors, ErrorLogs, RecordingEvents])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -220,7 +228,7 @@ class AppDb extends _$AppDb {
           if (from < 4) await m.createTable(errorLogs);
           if (from < 5) {
             // Drop first: a file may already hold them (older test fixtures are built from today's schema).
-            for (final i in allSchemaEntities.whereType<Index>().where((i) => i.entityName != 'cardio_tracks_dirty' && i.entityName != 'settings_dirty')) {
+            for (final i in allSchemaEntities.whereType<Index>().where((i) => i.entityName != 'cardio_tracks_dirty' && i.entityName != 'settings_dirty' && i.entityName != 'goals_dirty')) {
               await customStatement('DROP INDEX IF EXISTS ${i.entityName}');
               await m.createIndex(i);
             }
@@ -245,6 +253,11 @@ class AppDb extends _$AppDb {
             }
           }
           if (from < 8) await m.createTable(recordingEvents);
+          if (from < 9) {
+            await m.createTable(goals);
+            await customStatement('DROP INDEX IF EXISTS goals_dirty');
+            await m.createIndex(allSchemaEntities.whereType<Index>().firstWhere((i) => i.entityName == 'goals_dirty'));
+          }
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
@@ -256,7 +269,7 @@ class AppDb extends _$AppDb {
   }
 
   /// Synced tables in dependency order, parents first.
-  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, cardio, cardioTracks, appSettings];
+  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, cardio, cardioTracks, appSettings, goals];
 
   /// The Run's track row, null when it has none or it is deleted.
   SimpleSelectStatement<$CardioTracksTable, CardioTrack> liveTrackRow(String cardioId) =>

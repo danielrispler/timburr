@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'best_efforts.dart';
 import 'db.dart';
+import 'goals.dart';
 import 'recording.dart';
 import 'settings.dart';
 import 'stride.dart';
@@ -113,6 +114,9 @@ class CardioStore {
 
   /// The settings row, for the Run page's zones and More. Shares this store's sync hook.
   late final settings = SettingsStore(_db, onSaved: onSaved);
+
+  /// The distance goals row, for Progress. Shares this store's sync hook.
+  late final goals = GoalStore(_db, onSaved: onSaved);
 
   /// Called after each save or delete; main wires it to sync.
   final Future<void> Function()? onSaved;

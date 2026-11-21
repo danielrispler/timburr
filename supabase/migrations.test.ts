@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_goals.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -223,5 +223,32 @@ describe('006_runs.sql', () => {
     ).rejects.toThrow(/unique/)
     expect(await as(other, () => rows('select * from settings'))).toHaveLength(0)
     await expect(put(300, '2026-10-24T11:00:00Z')).rejects.toThrow(/max_hr/)
+  })
+})
+
+describe('007_goals.sql', () => {
+  const id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+  const put = (weekly: number, at: string, uid = me) =>
+    as(uid, () =>
+      rows(
+        `insert into goals (id, user_id, weekly_km, yearly_km, updated_at) values ($1, $2, $3, 1500, $4)
+         on conflict (id) do update set weekly_km = excluded.weekly_km, updated_at = excluded.updated_at`,
+        [id, uid, weekly, at],
+      ),
+    )
+
+  it('keeps one goals row per user under RLS and last-write-wins', async () => {
+    await put(30, '2026-11-20T10:00:00Z')
+    await put(10, '2026-11-20T09:00:00Z')
+    expect(await as(me, () => rows('select weekly_km, yearly_km from goals'))).toEqual([{ weekly_km: '30.0', yearly_km: '1500.0' }])
+    await expect(as(me, () => rows(`insert into goals (id, weekly_km) values (gen_random_uuid(), 20)`))).rejects.toThrow(/unique/)
+    await expect(put(0, '2026-11-20T11:00:00Z')).rejects.toThrow(/weekly_km/)
+    // A goal can be unset.
+    await as(me, () => rows('update goals set yearly_km = null'))
+    expect(await as(other, () => rows('select * from goals'))).toHaveLength(0)
+    await expect(put(25, '2026-11-20T12:00:00Z', other)).rejects.toThrow() // same id, someone else's row
+    await db.exec('set role anon')
+    await expect(rows('select * from goals')).rejects.toThrow(/permission denied/)
+    await db.exec('reset role')
   })
 })
