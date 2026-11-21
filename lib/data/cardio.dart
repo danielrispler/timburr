@@ -4,7 +4,9 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'db.dart';
+import 'recording.dart';
 import 'records.dart' show Series;
+import 'track.dart';
 import 'stats.dart' show mondayOf;
 
 /// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
@@ -72,6 +74,22 @@ Map<String, String> validateCardio({
   return e;
 }
 
+enum IngestOutcome { created, merged, unchanged }
+
+/// What [CardioStore.ingest] did. [id] is the Run written or matched; null for a dry run that would create one.
+class IngestResult {
+  IngestResult(this.id, this.outcome);
+  final String? id;
+  final IngestOutcome outcome;
+}
+
+/// Who wins a field when two recordings disagree: Daniel's own entries, then the phone's live recording, then imports (file, Health Connect).
+/// Imports have the same rank, so they never replace each other; they only fill what is empty.
+int _rank(String? source) => switch (source) { null || 'manual' => 3, 'recorded' => 2, _ => 1 };
+
+DateTime _wholeSeconds(DateTime d) => DateTime.fromMillisecondsSinceEpoch(d.millisecondsSinceEpoch ~/ 1000 * 1000, isUtc: d.isUtc); // the column stores seconds
+DateTime _endOf(CardioData c) => c.startedAt.add(Duration(seconds: c.elapsedSec ?? c.durationSec));
+
 /// Cardio sessions. Every write goes through [AppDb.save].
 class CardioStore {
   CardioStore(this._db, {this.onSaved});
@@ -108,12 +126,111 @@ class CardioStore {
     return id;
   }
 
+  /// The one way a recording reaches the store, whatever its source. The same source and external id again changes nothing; a recording whose
+  /// times overlap a Run merges into it; anything else becomes a new Run. A dry run reports the outcome without writing.
+  ///
+  /// Merging, per field: [_rank] decides, an equal or lower rank only fills an empty field, and fields in `edited_fields` are never touched.
+  /// The span runs from the earliest start to the latest end. A track replaces the Run's only when the recording outranks the Run's source, else it fills a missing one.
+  Future<IngestResult> ingest(Recording r, {bool dryRun = false}) async {
+    final result = await _db.transaction(() async {
+      final start = _wholeSeconds(r.start), end = start.add(Duration(seconds: r.elapsedSec));
+      if (r.externalId != null) {
+        final same = await (_db.select(_db.cardio)..where((c) => c.source.equals(r.source) & c.externalId.equals(r.externalId!))).get(); // deleted Runs count: a deleted Run stays deleted
+        if (same.isNotEmpty) return IngestResult(same.first.id, IngestOutcome.unchanged);
+      }
+      final candidates = await (_db.select(_db.cardio)
+            ..where((c) => c.deletedAt.isNull() & c.type.isIn(cardioTypes) & c.startedAt.isSmallerThanValue(end) & c.startedAt.isBiggerThanValue(start.subtract(const Duration(days: 2))))
+            ..orderBy([(c) => OrderingTerm.asc(c.startedAt)]))
+          .get();
+      final match = candidates.where((c) => _endOf(c).isAfter(start)).firstOrNull;
+      if (match == null) {
+        final id = const Uuid().v4();
+        if (dryRun) return IngestResult(null, IngestOutcome.created);
+        await _db.save(_db.cardio, {
+          'id': id,
+          'type': r.type,
+          'started_at': start,
+          'distance_km': r.distanceKm,
+          'duration_sec': r.movingSec,
+          'elapsed_sec': r.elapsedSec,
+          'source': r.source,
+          'external_id': r.externalId,
+          'avg_hr': r.avgHr,
+          'max_hr': r.maxHr,
+          'calories': r.calories,
+          'avg_cadence': r.avgCadence,
+          'elevation_gain_m': r.elevationGainM,
+          'notes': r.notes,
+          'route': r.route,
+        });
+        if (r.track != null) await _saveTrack(id, r.track!);
+        return IngestResult(id, IngestOutcome.created);
+      }
+
+      final edited = match.editedFields.toSet();
+      final wins = _rank(r.source) > _rank(match.source);
+      final changes = <String, Object?>{};
+      void put(String column, Object? incoming, Object? current, {bool overwrite = true}) {
+        if (incoming == null || incoming == current || edited.contains(column)) return;
+        if (current == null || (overwrite && wins)) changes[column] = incoming;
+      }
+
+      put('type', r.type, match.type);
+      put('distance_km', r.distanceKm, match.distanceKm);
+      put('duration_sec', r.movingSec, match.durationSec);
+      put('avg_hr', r.avgHr, match.avgHr);
+      put('max_hr', r.maxHr, match.maxHr);
+      put('calories', r.calories, match.calories);
+      put('avg_cadence', r.avgCadence, match.avgCadence);
+      put('elevation_gain_m', r.elevationGainM, match.elevationGainM);
+      put('notes', r.notes, match.notes, overwrite: false); // Daniel's words, an import only fills them in
+      final writeTrack = r.track != null && (wins || await _hasTrack(match.id) == false);
+      if (writeTrack) put('route', r.route, match.route);
+      if (wins) {
+        changes['source'] = r.source;
+        changes['external_id'] = r.externalId;
+      }
+
+      final newStart = edited.contains('started_at') || !start.isBefore(match.startedAt) ? match.startedAt : start;
+      final newEnd = _endOf(match).isAfter(end) ? _endOf(match) : end;
+      final elapsed = edited.contains('elapsed_sec') ? match.elapsedSec : newEnd.difference(newStart).inSeconds;
+      if (!newStart.isAtSameMomentAs(match.startedAt)) changes['started_at'] = newStart;
+      if (elapsed != match.elapsedSec) changes['elapsed_sec'] = elapsed;
+
+      if (changes.isEmpty && !writeTrack) return IngestResult(match.id, IngestOutcome.unchanged);
+      if (!dryRun) {
+        if (changes.isNotEmpty) await _db.save(_db.cardio, {..._columns(match), ...changes});
+        if (writeTrack) await _saveTrack(match.id, r.track!);
+      }
+      return IngestResult(match.id, IngestOutcome.merged);
+    });
+    if (!dryRun && result.outcome != IngestOutcome.unchanged) unawaited(onSaved?.call()); // sync in the background; the local write is done
+    return result;
+  }
+
+  Future<bool> _hasTrack(String cardioId) async => (await (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull())).get()).isNotEmpty;
+
+  Future<void> _saveTrack(String cardioId, Track t) =>
+      _db.save(_db.cardioTracks, {'id': trackRowId(cardioId), 'cardio_id': cardioId, 'points': t.encode(), 'deleted_at': null});
+
+  /// Sets columns of a Run (SQL names to values) as Daniel's own edits: later recordings and syncs never replace them.
+  Future<void> edit(String id, Map<String, Object?> fields) async {
+    final c = await watch(id).first;
+    await _db.save(_db.cardio, {..._columns(c), ...fields, 'edited_fields': {...c.editedFields, ...fields.keys}.toList()});
+    unawaited(onSaved?.call()); // sync in the background; the local write is done
+  }
+
+  /// The Run's points, null when it has none.
+  Stream<Track?> watchTrack(String cardioId) => (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull()))
+      .watchSingleOrNull()
+      .map((t) => t == null ? null : Track.decode(t.points));
+
+  /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
+  Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));
+
   Future<void> delete(String id) async {
     final c = await watch(id).first;
-    await _db.save(_db.cardio, {
-      ...c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value)),
-      'deleted_at': DateTime.now(),
-    });
+    await _db.save(_db.cardio, {..._columns(c), 'deleted_at': DateTime.now()});
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
 

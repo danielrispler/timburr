@@ -74,7 +74,7 @@ class _AppShellState extends State<AppShell> {
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => Scaffold(
                   appBar: AppBar(title: const Text('More')),
-                  body: MoreScreen(engine: widget.sync, catalog: widget.catalog),
+                  body: MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio),
                 ),
               )),
             ),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/importer.dart';
 import '../../data/sync.dart';
 import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../import/import_screen.dart';
+import '../import/strava_import_screen.dart';
 
 /// Header status: `synced`, `N pending`, `offline` or `error` (tap for the message).
 class SyncBadge extends StatefulWidget {
@@ -55,8 +57,9 @@ class _SyncBadgeState extends State<SyncBadge> {
 
 /// More page (gear in the header): Import, Backup / Restore, Sync now and Sign out. Sign out needs 0 pending and wipes the local copy.
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.engine, required this.catalog});
+  const MoreScreen({super.key, required this.engine, required this.catalog, required this.cardio});
 
+  final CardioStore cardio;
   final SyncEngine? engine; // null when no Supabase project is configured
   final Catalog catalog;
 
@@ -87,6 +90,11 @@ class MoreScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ImportScreen(importer: Importer(catalog.db, catalog), catalog: catalog),
             )),
+          ),
+          ListTile(
+            leading: const IconTile(Icons.directions_run),
+            title: const Text('Import Strava runs'),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StravaImportScreen(cardio: cardio))),
           ),
           ListTile(
             leading: const IconTile(Icons.backup),
