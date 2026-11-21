@@ -15,6 +15,7 @@ import '../core/theme.dart';
 import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
+import 'race_predictor.dart';
 import 'running_records.dart';
 import 'training_log.dart';
 
@@ -54,7 +55,7 @@ class _RunningTabState extends State<RunningTab> {
           Expanded(
             child: TabBarView(children: [
               _RunsPage(stores: widget.stores, runs: _runs, health: widget.health),
-              _ProgressPage(stores: widget.stores, runs: _runs),
+              _ProgressPage(stores: widget.stores, store: widget.stores.cardio, runs: _runs),
               RunningRecords(stores: widget.stores, runs: _runs),
             ]),
           ),
@@ -175,9 +176,10 @@ class RouteThumbnail extends StatelessWidget {
 }
 
 class _ProgressPage extends StatefulWidget {
-  const _ProgressPage({required this.stores, required this.runs});
+  const _ProgressPage({required this.stores, required this.store, required this.runs});
 
   final Stores stores;
+  final CardioStore store;
   final Stream<List<CardioData>> runs;
 
   @override
@@ -212,6 +214,7 @@ class _ProgressPageState extends State<_ProgressPage> {
                 const SizedBox(height: 8),
                 AspectRatio(aspectRatio: 1.6, child: DistanceChart(series, _period)),
                 TrainingLog(stores: widget.stores, runs: widget.runs), // Progress sections: one line each, added below
+                RaceSection(store: widget.store, runs: widget.runs),
               ]),
             ),
           );
