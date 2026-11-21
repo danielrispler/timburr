@@ -15,6 +15,7 @@ import '../core/theme.dart';
 import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
+import 'record_screen.dart';
 import 'running_records.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -85,6 +86,16 @@ class _RunsPage extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 700),
               child: ListView(children: [
+                RecordingBanner(stores: stores),
+                TileGroup(children: [
+                  ListTile(
+                    leading: const IconTile(Icons.fiber_manual_record),
+                    title: const Text('Record run'),
+                    subtitle: const Text('Outdoor, with GPS'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openRecorder(context, stores),
+                  ),
+                ]),
                 TileGroup(title: 'This week', children: [
                   ListTile(
                     title: Text(_km(s.week.km), style: theme.textTheme.headlineMedium),

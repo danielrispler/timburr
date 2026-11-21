@@ -12,6 +12,8 @@ import 'data/catalog.dart';
 import 'data/db.dart';
 import 'data/error_log.dart';
 import 'data/health_connect.dart';
+import 'data/live_recorder.dart';
+import 'data/platform_recording.dart';
 import 'data/supabase_remote.dart';
 import 'data/sync.dart';
 import 'data/routines.dart';
@@ -48,6 +50,9 @@ Future<void> main() async {
   // Finishing a workout triggers sync (no-op without a Supabase project).
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
+  // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
+  liveRecorder = LiveRecorder(source: GeolocatorSource(), service: ForegroundRecordingService(), journal: DbJournal(db), cardio: cardio);
+  await liveRecorder!.restore();
   runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
 }
 
