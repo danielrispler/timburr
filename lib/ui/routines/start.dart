@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
 import '../../data/db.dart';
+import '../../data/live_recorder.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
 import '../cardio/activity_timer.dart';
 import '../cardio/cardio_form.dart';
 import '../core/theme.dart';
+import '../running/record_screen.dart';
 import '../workouts/workout_screen.dart';
 
 /// Stores the start flow needs, passed down together.
@@ -43,8 +45,10 @@ Future<void> startStrength(BuildContext context, Stores s, {String? routineId, r
   if (at != null) open(await s.workouts.start(routineId: routineId, at: at, done: true));
 }
 
-void startActivity(BuildContext context, Stores s, String type, {required bool now}) => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => now ? ActivityTimer(store: s.cardio, type: type) : CardioForm(store: s.cardio, type: type)));
+void startActivity(BuildContext context, Stores s, String type, {required bool now}) {
+  if (now && type == 'run' && liveRecorder != null) return openRecorder(context, s); // outdoor: GPS recording
+  Navigator.of(context).push(MaterialPageRoute(builder: (_) => now ? ActivityTimer(store: s.cardio, type: type) : CardioForm(store: s.cardio, type: type)));
+}
 
 /// Bottom sheet: Start now / I did it. Returns true for now, false for done, null when dismissed.
 Future<bool?> askWhen(BuildContext context, String title) => showModalBottomSheet<bool>(

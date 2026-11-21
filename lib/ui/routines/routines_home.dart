@@ -6,6 +6,7 @@ import '../backup/backup_screen.dart';
 import '../core/theme.dart';
 import '../stats/stats_screen.dart';
 import '../workouts/workout_screen.dart';
+import '../running/record_screen.dart';
 import 'routine_editor.dart';
 import 'start.dart';
 
@@ -25,6 +26,7 @@ class HomeScreen extends StatelessWidget {
               onOpen: () => Navigator.of(context)
                   .push(MaterialPageRoute(builder: (_) => BackupScreen(catalog: stores.catalog, engine: null))),
             ),
+            RecordingBanner(stores: stores),
             StreamBuilder<Workout?>(
               stream: stores.workouts.watchActive(),
               builder: (context, snap) => snap.data == null
