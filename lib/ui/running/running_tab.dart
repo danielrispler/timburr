@@ -95,6 +95,13 @@ class _RunsPage extends StatelessWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => openRecorder(context, stores),
                   ),
+                  ListTile(
+                    leading: const IconTile(Icons.directions_run),
+                    title: const Text('Record treadmill run'),
+                    subtitle: const Text('Steps, then check the distance'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => openRecorder(context, stores, type: 'treadmill'),
+                  ),
                 ]),
                 TileGroup(title: 'This week', children: [
                   ListTile(

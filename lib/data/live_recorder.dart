@@ -11,6 +11,7 @@ import 'error_log.dart';
 import 'recorder.dart';
 
 export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot, kmCueText;
+export 'stride.dart' show Stride;
 
 /// The app's one recorder, set in main (like `errorLog`). Null in tests that do not record.
 LiveRecorder? liveRecorder;
@@ -29,10 +30,23 @@ abstract class PositionSource {
   Stream<PositionSample> positions({required bool background});
 }
 
+/// The phone's step counter, for treadmill recordings. The platform seam for steps; see `platform_recording.dart`.
+abstract class StepSource {
+  /// Whether activity recognition is already allowed, without asking.
+  Future<bool> hasPermission();
+
+  /// Asks for the permission (the system dialog). True when granted.
+  Future<bool> ensurePermission();
+
+  /// The step counter's readings: cumulative steps since the phone booted.
+  Stream<int> steps();
+}
+
 /// The foreground service that keeps the app alive with the screen off, with its ongoing notification.
 /// shortcut for #69: add an `update(RunSnapshot)` here for the notification's time, distance and pause button.
 abstract class RecordingService {
-  Future<void> start();
+  /// [gps] false for a treadmill recording, which does not use the location permission.
+  Future<void> start({bool gps = true});
   Future<void> stop();
 }
 
@@ -81,7 +95,7 @@ class DbJournal implements RecordingJournal {
 /// The recording in progress: wires a [Recorder] to the location source, the foreground service, the autosave and the Run store.
 /// One per app. Listen for changes; the screen reads [snapshot] on its own 1 s timer, since time passes between fixes.
 class LiveRecorder extends ChangeNotifier {
-  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, DateTime Function()? now}) : _now = now ?? DateTime.now {
+  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, this.stepSource, DateTime Function()? now}) : _now = now ?? DateTime.now {
     notification?.onAction = (a) => a == 'resume' ? resume() : pause();
   }
 
@@ -91,11 +105,13 @@ class LiveRecorder extends ChangeNotifier {
   final CardioStore cardio;
   final SpeechService? speech;
   final RecordingNotification? notification;
+  final StepSource? stepSource; // null where there is no step counter (tests)
   final DateTime Function() _now;
 
   Recorder? _rec;
   Timer? _noteTimer;
-  StreamSubscription<PositionSample>? _sub;
+  StreamSubscription<Object?>? _sub;
+  int _finishedSteps = 0;
   PositionSample? _lastSeen;
   Future<void> _queue = Future.value();
 
@@ -110,6 +126,12 @@ class LiveRecorder extends ChangeNotifier {
   /// Signal of the latest fix, also before Start.
   GpsSignal get gps => gpsSignalOf(_lastSeen, _now());
 
+  /// Steps of the treadmill recording that [finish] last saved.
+  int get finishedSteps => _finishedSteps;
+
+  Future<bool> hasStepPermission() async => await stepSource?.hasPermission() ?? false;
+  Future<bool> requestStepPermission() async => await stepSource?.ensurePermission() ?? false;
+
   Future<PositionPermission> requestPermission() => source.ensurePermission();
   Future<bool> hasPermission() => source.hasPermission();
 
@@ -121,12 +143,13 @@ class LiveRecorder extends ChangeNotifier {
     if (_rec == null) await _stopListening();
   }
 
-  Future<void> start(String type) async {
+  /// [strideM] is the calibrated stride a treadmill recording measures distance with.
+  Future<void> start(String type, {double? strideM}) async {
     if (_rec != null) return;
-    final rec = Recorder.start(type, _now(), const Uuid().v4());
+    final rec = Recorder.start(type, _now(), const Uuid().v4(), strideM: strideM);
     _rec = rec;
     _save(rec.events.last);
-    await service.start();
+    await service.start(gps: !rec.isTreadmill);
     await _listen(background: true);
     _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
     refreshNotification();
@@ -149,7 +172,7 @@ class LiveRecorder extends ChangeNotifier {
 
   Future<void> resume() async {
     if (_rec == null) return;
-    await service.start(); // after a restart the service is not running yet
+    await service.start(gps: !_rec!.isTreadmill); // after a restart the service is not running yet
     if (_sub == null || !_background) await _listen(background: true);
     _act((r, at) => r.resume(at));
     _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
@@ -161,6 +184,7 @@ class LiveRecorder extends ChangeNotifier {
     final rec = _rec;
     if (rec == null) return null;
     final recording = rec.finish(_now());
+    _finishedSteps = rec.steps;
     await _stopListening();
     _stopNotification();
     await service.stop();
@@ -200,7 +224,7 @@ class LiveRecorder extends ChangeNotifier {
       _save(rec.events.last);
     }
     _rec = rec;
-    await _listen(background: false);
+    if (!rec.isTreadmill) await _listen(background: false); // a treadmill recording listens again on Resume
     notifyListeners();
     return true;
   }
@@ -213,6 +237,10 @@ class LiveRecorder extends ChangeNotifier {
   Future<void> _listen({required bool background}) async {
     await _stopListening();
     _background = background;
+    if (_rec?.isTreadmill ?? false) {
+      _sub = stepSource?.steps().listen(_onSteps, onError: (Object e, StackTrace st) => reportError('steps', e, st));
+      return;
+    }
     _sub = source.positions(background: background).listen(_onSample, onError: (Object e, StackTrace st) => reportError('location', e, st));
   }
 
@@ -233,6 +261,15 @@ class LiveRecorder extends ChangeNotifier {
         speech?.speak(kmCueText(c)).catchError((Object e, StackTrace st) => reportError('km_voice', e, st));
       }
     }
+    notifyListeners();
+  }
+
+  void _onSteps(int count) {
+    final rec = _rec;
+    if (rec == null) return;
+    final before = rec.events.length;
+    rec.stepCount(_now(), count);
+    if (rec.events.length > before) _save(rec.events.last);
     notifyListeners();
   }
 

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'recording.dart';
 import 'run_analysis.dart';
+import 'stride.dart';
 import 'track.dart';
 
 /// One fix from the phone's location sensor.
@@ -40,8 +41,8 @@ String kmCueText(KmCue c) {
 }
 
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds: `start` (type, id), `position`, `pause`, `resume`, `lap`.
-/// shortcut for later tickets: heart rate (#68), laps (#69) and treadmill steps (#70) are new kinds with their own `data`; add a case in [Recorder] `_apply`.
+/// Kinds: `start` (type, id, stride), `position`, `steps` (the phone's step counter reading), `pause`, `resume`, `lap`.
+/// shortcut for later tickets: heart rate (#68) is a new kind with its own `data`; add a case in [Recorder] `_apply`.
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
 
@@ -64,6 +65,7 @@ class RunSnapshot {
     required this.paused,
     required this.autoPaused,
     required this.gps,
+    this.steps = 0,
     this.currentPaceSecPerKm,
     this.avgPaceSecPerKm,
   });
@@ -74,25 +76,27 @@ class RunSnapshot {
   final bool paused; // Daniel paused it
   final bool autoPaused; // standing still
   final GpsSignal gps;
+  final int steps; // treadmill: steps counted so far
   final double? currentPaceSecPerKm, avgPaceSecPerKm;
 }
 
 /// The live recording as a pure state machine: fixes and button presses in, a [Recording] out. It never reads a clock; every input carries its time,
 /// so tests drive it with fake streams. The platform (GPS, foreground service, autosave) lives in `LiveRecorder`.
 class Recorder {
-  Recorder._(this.type, this.start, this.sessionId);
+  Recorder._(this.type, this.start, this.sessionId, this.strideM);
 
   /// A new recording of [type] ('run' or 'treadmill') starting at [at]. [sessionId] becomes the Recording's external id.
-  factory Recorder.start(String type, DateTime at, String sessionId) {
-    final r = Recorder._(type, at, sessionId);
-    r._log(RecorderEvent('start', at, {'type': type, 'id': sessionId}));
+  /// A treadmill recording measures distance as steps times [strideM] (the default stride when null) and ignores GPS.
+  factory Recorder.start(String type, DateTime at, String sessionId, {double? strideM}) {
+    final r = Recorder._(type, at, sessionId, strideM);
+    r._log(RecorderEvent('start', at, {'type': type, 'id': sessionId, 'stride': strideM}));
     return r;
   }
 
   /// Rebuilds a recorder from its saved [events] (the first is `start`).
   factory Recorder.replay(List<RecorderEvent> events) {
     final first = events.first;
-    final r = Recorder._(first.data['type'] as String, first.at, first.data['id'] as String);
+    final r = Recorder._(first.data['type'] as String, first.at, first.data['id'] as String, (first.data['stride'] as num?)?.toDouble());
     for (final e in events) {
       r._log(e);
     }
@@ -102,6 +106,7 @@ class Recorder {
   final String type;
   final DateTime start;
   final String sessionId;
+  final double? strideM;
   final List<RecorderEvent> events = [];
 
   // Track columns of the accepted fixes.
@@ -112,12 +117,18 @@ class Recorder {
   DateTime? _pausedAt;
   double _pausedSec = 0, _autoSec = 0;
   DateTime? _slowSince; // when the current slow stretch began
+  int _steps = 0;
+  int? _lastRaw; // the step counter's last reading in this stretch; null after a pause, so steps taken while paused are not counted
 
   final _laps = <int>[];
   final _kmCues = <KmCue>[];
   double _lastKmMoving = 0; // Moving time at the last km mark
 
   bool get paused => _pausedAt != null;
+  bool get isTreadmill => type == 'treadmill';
+
+  /// Steps counted so far (treadmill).
+  int get steps => _steps;
 
   /// Lap marks, seconds from the start.
   List<int> get laps => List.unmodifiable(_laps);
@@ -135,8 +146,14 @@ class Recorder {
 
   void position(PositionSample s) {
     _lastSeen = s;
-    if (paused) return; // not recorded, not saved
+    if (isTreadmill || paused) return; // not recorded, not saved
     _log(RecorderEvent('position', s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
+  }
+
+  /// The phone's step counter read [count] at [at]. The counter is cumulative since boot, so only the change between readings counts.
+  void stepCount(DateTime at, int count) {
+    if (!isTreadmill || paused) return;
+    _log(RecorderEvent('steps', at, {'n': count}));
   }
 
   void pause(DateTime at) {
@@ -164,10 +181,15 @@ class Recorder {
         ));
       case 'lap':
         _laps.add(max(0, e.at.difference(start).inMilliseconds / 1000).round());
+      case 'steps':
+        final n = (e.data['n'] as num).toInt(), prev = _lastRaw;
+        if (prev != null) _steps += n >= prev ? n - prev : n; // a smaller reading means the counter restarted
+        _lastRaw = n;
       case 'pause':
         _closeSlow();
         _pausedAt = e.at;
         _last = null;
+        _lastRaw = null;
       case 'resume':
         _pausedSec += e.at.difference(_pausedAt!).inMilliseconds / 1000;
         _pausedAt = null;
@@ -229,18 +251,20 @@ class Recorder {
   RunSnapshot snapshot(DateTime now) {
     final elapsed = max(0.0, now.difference(start).inMilliseconds / 1000);
     final pausedNow = _pausedAt == null ? 0.0 : now.difference(_pausedAt!).inMilliseconds / 1000;
-    final auto = _openAutoSec();
+    final auto = isTreadmill ? 0.0 : _openAutoSec();
     final moving = max(0.0, elapsed - _pausedSec - pausedNow - _autoSec - auto);
     final standing = !paused && auto > 0;
+    final dist = isTreadmill ? stepDistanceKm(_steps, strideM) * 1000 : _dist;
     return RunSnapshot(
       elapsedSec: elapsed.round(),
       movingSec: moving.round(),
-      distanceM: _dist,
+      distanceM: dist,
       paused: paused,
       autoPaused: standing,
       gps: gpsSignalOf(_lastSeen, now),
-      currentPaceSecPerKm: paused || standing ? null : _currentPace(),
-      avgPaceSecPerKm: _dist >= 10 && moving > 0 ? moving / (_dist / 1000) : null,
+      steps: _steps,
+      currentPaceSecPerKm: paused || standing || isTreadmill ? null : _currentPace(),
+      avgPaceSecPerKm: dist >= 10 && moving > 0 ? moving / (dist / 1000) : null,
     );
   }
 
@@ -267,7 +291,7 @@ class Recorder {
       movingSec: s.movingSec,
       externalId: sessionId,
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
-      track: _t.isEmpty
+      track: _t.isEmpty || isTreadmill
           ? null
           : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, laps: _laps.isEmpty ? null : List.of(_laps)),
     );

@@ -1,6 +1,8 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pedometer/pedometer.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'cardio.dart';
 import 'live_recorder.dart';
@@ -33,6 +35,18 @@ class GeolocatorSource implements PositionSource {
   Stream<PositionSample> positions({required bool background}) => Geolocator.getPositionStream(
         locationSettings: AndroidSettings(accuracy: LocationAccuracy.best, distanceFilter: 0, intervalDuration: const Duration(seconds: 1)),
       ).map((p) => PositionSample(time: p.timestamp, lat: p.latitude, lon: p.longitude, altitude: p.altitude, accuracy: p.accuracy));
+}
+
+/// Android adapter for [StepSource]: the phone's step counter through the pedometer plugin. No logic here; checked on the phone.
+class PedometerSource implements StepSource {
+  @override
+  Future<bool> hasPermission() => Permission.activityRecognition.isGranted;
+
+  @override
+  Future<bool> ensurePermission() async => (await Permission.activityRecognition.request()).isGranted;
+
+  @override
+  Stream<int> steps() => Pedometer.stepCountStream.map((e) => e.steps);
 }
 
 /// Android adapter for [RecordingService]: a location-type foreground service with an ongoing notification and a wake lock,
@@ -84,7 +98,7 @@ class ForegroundRecordingService implements RecordingService, RecordingNotificat
   }
 
   @override
-  Future<void> start() async {
+  Future<void> start({bool gps = true}) async {
     _init();
     FlutterForegroundTask.addTaskDataCallback(_onTaskData);
     if (await FlutterForegroundTask.isRunningService) return;
@@ -92,7 +106,7 @@ class ForegroundRecordingService implements RecordingService, RecordingNotificat
     await FlutterForegroundTask.startService(
       notificationButtons: _buttons,
       callback: recordingTaskCallback,
-      serviceTypes: [ForegroundServiceTypes.location],
+      serviceTypes: [gps ? ForegroundServiceTypes.location : ForegroundServiceTypes.health],
       notificationTitle: 'Recording run',
       notificationText: 'Tap to return to Timburr',
     );

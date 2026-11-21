@@ -46,7 +46,7 @@ Future<void> startStrength(BuildContext context, Stores s, {String? routineId, r
 }
 
 void startActivity(BuildContext context, Stores s, String type, {required bool now}) {
-  if (now && type == 'run' && liveRecorder != null) return openRecorder(context, s); // outdoor: GPS recording
+  if (now && liveRecorder != null) return openRecorder(context, s, type: type); // outdoor: GPS recording, treadmill: step counting
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => now ? ActivityTimer(store: s.cardio, type: type) : CardioForm(store: s.cardio, type: type)));
 }
 
