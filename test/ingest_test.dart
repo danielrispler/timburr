@@ -267,4 +267,31 @@ void main() {
       expect((await only()).avgHr, isNull);
     });
   });
+
+  group('a recorded Run with gaps in its live heart rate', () {
+    test('a Health Connect session fills the gaps and keeps the live readings', () async {
+      final live = gps(60);
+      final liveHr = Track(time: live.time, distance: live.distance, lat: live.lat, lon: live.lon, hr: [for (var i = 0; i < 60; i++) i >= 20 && i < 40 ? null : 150 + i % 3]);
+      final result = await store.ingest(rec(source: 'recorded', id: 's', start: at(10), elapsed: 60, moving: 60, track: liveHr));
+      final fromBand = Track(time: [for (var i = 0; i < 60; i++) i], hr: [for (var i = 0; i < 60; i++) 120]);
+      await store.ingest(rec(source: 'health_connect', id: 'h', start: at(10), elapsed: 60, moving: 60, track: fromBand));
+      final hr = (await store.watchTrack(result.id!).first)!.hr!;
+      expect(hr.length, 60);
+      expect(hr[10], 150 + 10 % 3); // live readings stay
+      expect(hr.sublist(20, 40), everyElement(120)); // the gap is filled
+      expect(hr.contains(null), isFalse);
+    });
+  });
+
+  test('0 km Runs left by old test recordings are removed at start; real Runs stay', () async {
+    await store.ingest(rec(id: 'real', start: at(8)));
+    await store.ingest(rec(id: 'zero', start: at(10), km: 0.0, track: gps(20)));
+    await store.ingest(rec(id: 'tiny', start: at(12), km: 0.0004));
+    expect(await runs(), hasLength(3));
+    expect(await store.dropUnsyncableRuns(), 2);
+    final left = await only();
+    expect(left.externalId, 'real');
+    expect(await db.select(db.cardioTracks).get(), isEmpty);
+    expect(await store.dropUnsyncableRuns(), 0);
+  });
 }

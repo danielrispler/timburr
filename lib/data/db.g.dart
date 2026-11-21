@@ -5686,6 +5686,15 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   ).withConverter<List<String>>($CardioTable.$convertereditedFields);
+  static const VerificationMeta _stepsMeta = const VerificationMeta('steps');
+  @override
+  late final GeneratedColumn<int> steps = GeneratedColumn<int>(
+    'steps',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5713,6 +5722,7 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     calories,
     route,
     editedFields,
+    steps,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5884,6 +5894,12 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         route.isAcceptableOrUnknown(data['route']!, _routeMeta),
       );
     }
+    if (data.containsKey('steps')) {
+      context.handle(
+        _stepsMeta,
+        steps.isAcceptableOrUnknown(data['steps']!, _stepsMeta),
+      );
+    }
     return context;
   }
 
@@ -5995,6 +6011,10 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
           data['${effectivePrefix}edited_fields'],
         )!,
       ),
+      steps: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}steps'],
+      ),
     );
   }
 
@@ -6033,6 +6053,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
   final int? calories;
   final String? route;
   final List<String> editedFields;
+  final int? steps;
   const CardioData({
     required this.id,
     this.userId,
@@ -6059,6 +6080,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     this.calories,
     this.route,
     required this.editedFields,
+    this.steps,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6126,6 +6148,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
         $CardioTable.$convertereditedFields.toSql(editedFields),
       );
     }
+    if (!nullToAbsent || steps != null) {
+      map['steps'] = Variable<int>(steps);
+    }
     return map;
   }
 
@@ -6188,6 +6213,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ? const Value.absent()
           : Value(route),
       editedFields: Value(editedFields),
+      steps: steps == null && nullToAbsent
+          ? const Value.absent()
+          : Value(steps),
     );
   }
 
@@ -6222,6 +6250,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       calories: serializer.fromJson<int?>(json['calories']),
       route: serializer.fromJson<String?>(json['route']),
       editedFields: serializer.fromJson<List<String>>(json['editedFields']),
+      steps: serializer.fromJson<int?>(json['steps']),
     );
   }
   @override
@@ -6253,6 +6282,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       'calories': serializer.toJson<int?>(calories),
       'route': serializer.toJson<String?>(route),
       'editedFields': serializer.toJson<List<String>>(editedFields),
+      'steps': serializer.toJson<int?>(steps),
     };
   }
 
@@ -6282,6 +6312,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     Value<int?> calories = const Value.absent(),
     Value<String?> route = const Value.absent(),
     List<String>? editedFields,
+    Value<int?> steps = const Value.absent(),
   }) => CardioData(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -6312,6 +6343,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     calories: calories.present ? calories.value : this.calories,
     route: route.present ? route.value : this.route,
     editedFields: editedFields ?? this.editedFields,
+    steps: steps.present ? steps.value : this.steps,
   );
   CardioData copyWithCompanion(CardioCompanion data) {
     return CardioData(
@@ -6358,6 +6390,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       editedFields: data.editedFields.present
           ? data.editedFields.value
           : this.editedFields,
+      steps: data.steps.present ? data.steps.value : this.steps,
     );
   }
 
@@ -6388,7 +6421,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ..write('avgCadence: $avgCadence, ')
           ..write('calories: $calories, ')
           ..write('route: $route, ')
-          ..write('editedFields: $editedFields')
+          ..write('editedFields: $editedFields, ')
+          ..write('steps: $steps')
           ..write(')'))
         .toString();
   }
@@ -6420,6 +6454,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     calories,
     route,
     editedFields,
+    steps,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6449,7 +6484,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           other.avgCadence == this.avgCadence &&
           other.calories == this.calories &&
           other.route == this.route &&
-          other.editedFields == this.editedFields);
+          other.editedFields == this.editedFields &&
+          other.steps == this.steps);
 }
 
 class CardioCompanion extends UpdateCompanion<CardioData> {
@@ -6478,6 +6514,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
   final Value<int?> calories;
   final Value<String?> route;
   final Value<List<String>> editedFields;
+  final Value<int?> steps;
   final Value<int> rowid;
   const CardioCompanion({
     this.id = const Value.absent(),
@@ -6505,6 +6542,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.calories = const Value.absent(),
     this.route = const Value.absent(),
     this.editedFields = const Value.absent(),
+    this.steps = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CardioCompanion.insert({
@@ -6533,6 +6571,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.calories = const Value.absent(),
     this.route = const Value.absent(),
     this.editedFields = const Value.absent(),
+    this.steps = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -6564,6 +6603,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Expression<int>? calories,
     Expression<String>? route,
     Expression<String>? editedFields,
+    Expression<int>? steps,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6592,6 +6632,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       if (calories != null) 'calories': calories,
       if (route != null) 'route': route,
       if (editedFields != null) 'edited_fields': editedFields,
+      if (steps != null) 'steps': steps,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6622,6 +6663,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Value<int?>? calories,
     Value<String?>? route,
     Value<List<String>>? editedFields,
+    Value<int?>? steps,
     Value<int>? rowid,
   }) {
     return CardioCompanion(
@@ -6650,6 +6692,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       calories: calories ?? this.calories,
       route: route ?? this.route,
       editedFields: editedFields ?? this.editedFields,
+      steps: steps ?? this.steps,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6734,6 +6777,9 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
         $CardioTable.$convertereditedFields.toSql(editedFields.value),
       );
     }
+    if (steps.present) {
+      map['steps'] = Variable<int>(steps.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6768,6 +6814,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
           ..write('calories: $calories, ')
           ..write('route: $route, ')
           ..write('editedFields: $editedFields, ')
+          ..write('steps: $steps, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9141,6 +9188,199 @@ class ErrorLogsCompanion extends UpdateCompanion<ErrorEntry> {
   }
 }
 
+class $RecordingEventsTable extends RecordingEvents
+    with TableInfo<$RecordingEventsTable, RecordingEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecordingEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _eventMeta = const VerificationMeta('event');
+  @override
+  late final GeneratedColumn<String> event = GeneratedColumn<String>(
+    'event',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, event];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recording_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecordingEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('event')) {
+      context.handle(
+        _eventMeta,
+        event.isAcceptableOrUnknown(data['event']!, _eventMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecordingEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecordingEventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      event: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event'],
+      )!,
+    );
+  }
+
+  @override
+  $RecordingEventsTable createAlias(String alias) {
+    return $RecordingEventsTable(attachedDatabase, alias);
+  }
+}
+
+class RecordingEventRow extends DataClass
+    implements Insertable<RecordingEventRow> {
+  final int id;
+  final String event;
+  const RecordingEventRow({required this.id, required this.event});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['event'] = Variable<String>(event);
+    return map;
+  }
+
+  RecordingEventsCompanion toCompanion(bool nullToAbsent) {
+    return RecordingEventsCompanion(id: Value(id), event: Value(event));
+  }
+
+  factory RecordingEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecordingEventRow(
+      id: serializer.fromJson<int>(json['id']),
+      event: serializer.fromJson<String>(json['event']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'event': serializer.toJson<String>(event),
+    };
+  }
+
+  RecordingEventRow copyWith({int? id, String? event}) =>
+      RecordingEventRow(id: id ?? this.id, event: event ?? this.event);
+  RecordingEventRow copyWithCompanion(RecordingEventsCompanion data) {
+    return RecordingEventRow(
+      id: data.id.present ? data.id.value : this.id,
+      event: data.event.present ? data.event.value : this.event,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordingEventRow(')
+          ..write('id: $id, ')
+          ..write('event: $event')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, event);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecordingEventRow &&
+          other.id == this.id &&
+          other.event == this.event);
+}
+
+class RecordingEventsCompanion extends UpdateCompanion<RecordingEventRow> {
+  final Value<int> id;
+  final Value<String> event;
+  const RecordingEventsCompanion({
+    this.id = const Value.absent(),
+    this.event = const Value.absent(),
+  });
+  RecordingEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required String event,
+  }) : event = Value(event);
+  static Insertable<RecordingEventRow> custom({
+    Expression<int>? id,
+    Expression<String>? event,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (event != null) 'event': event,
+    });
+  }
+
+  RecordingEventsCompanion copyWith({Value<int>? id, Value<String>? event}) {
+    return RecordingEventsCompanion(
+      id: id ?? this.id,
+      event: event ?? this.event,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (event.present) {
+      map['event'] = Variable<String>(event.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordingEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('event: $event')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDb extends GeneratedDatabase {
   _$AppDb(QueryExecutor e) : super(e);
   $AppDbManager get managers => $AppDbManager(this);
@@ -9161,6 +9401,9 @@ abstract class _$AppDb extends GeneratedDatabase {
   late final $BestEffortsTable bestEfforts = $BestEffortsTable(this);
   late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final $ErrorLogsTable errorLogs = $ErrorLogsTable(this);
+  late final $RecordingEventsTable recordingEvents = $RecordingEventsTable(
+    this,
+  );
   late final Index exercisesDirty = Index(
     'exercises_dirty',
     'CREATE INDEX exercises_dirty ON exercises (dirty)',
@@ -9219,6 +9462,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     bestEfforts,
     syncCursors,
     errorLogs,
+    recordingEvents,
     exercisesDirty,
     routinesDirty,
     routineExercisesDirty,
@@ -13241,6 +13485,7 @@ typedef $$CardioTableCreateCompanionBuilder =
       Value<int?> calories,
       Value<String?> route,
       Value<List<String>> editedFields,
+      Value<int?> steps,
       Value<int> rowid,
     });
 typedef $$CardioTableUpdateCompanionBuilder =
@@ -13270,6 +13515,7 @@ typedef $$CardioTableUpdateCompanionBuilder =
       Value<int?> calories,
       Value<String?> route,
       Value<List<String>> editedFields,
+      Value<int?> steps,
       Value<int> rowid,
     });
 
@@ -13430,6 +13676,11 @@ class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
+  ColumnFilters<int> get steps => $composableBuilder(
+    column: $table.steps,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> cardioTracksRefs(
     Expression<bool> Function($$CardioTracksTableFilterComposer f) f,
   ) {
@@ -13588,6 +13839,11 @@ class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
     column: $table.editedFields,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get steps => $composableBuilder(
+    column: $table.steps,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
@@ -13692,6 +13948,9 @@ class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
         builder: (column) => column,
       );
 
+  GeneratedColumn<int> get steps =>
+      $composableBuilder(column: $table.steps, builder: (column) => column);
+
   Expression<T> cardioTracksRefs<T extends Object>(
     Expression<T> Function($$CardioTracksTableAnnotationComposer a) f,
   ) {
@@ -13771,6 +14030,7 @@ class $$CardioTableTableManager
                 Value<int?> calories = const Value.absent(),
                 Value<String?> route = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
+                Value<int?> steps = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion(
                 id: id,
@@ -13798,6 +14058,7 @@ class $$CardioTableTableManager
                 calories: calories,
                 route: route,
                 editedFields: editedFields,
+                steps: steps,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13827,6 +14088,7 @@ class $$CardioTableTableManager
                 Value<int?> calories = const Value.absent(),
                 Value<String?> route = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
+                Value<int?> steps = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion.insert(
                 id: id,
@@ -13854,6 +14116,7 @@ class $$CardioTableTableManager
                 calories: calories,
                 route: route,
                 editedFields: editedFields,
+                steps: steps,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -15262,6 +15525,138 @@ typedef $$ErrorLogsTableProcessedTableManager =
       ErrorEntry,
       PrefetchHooks Function()
     >;
+typedef $$RecordingEventsTableCreateCompanionBuilder =
+    RecordingEventsCompanion Function({Value<int> id, required String event});
+typedef $$RecordingEventsTableUpdateCompanionBuilder =
+    RecordingEventsCompanion Function({Value<int> id, Value<String> event});
+
+class $$RecordingEventsTableFilterComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecordingEventsTableOrderingComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecordingEventsTableAnnotationComposer
+    extends Composer<_$AppDb, $RecordingEventsTable> {
+  $$RecordingEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get event =>
+      $composableBuilder(column: $table.event, builder: (column) => column);
+}
+
+class $$RecordingEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $RecordingEventsTable,
+          RecordingEventRow,
+          $$RecordingEventsTableFilterComposer,
+          $$RecordingEventsTableOrderingComposer,
+          $$RecordingEventsTableAnnotationComposer,
+          $$RecordingEventsTableCreateCompanionBuilder,
+          $$RecordingEventsTableUpdateCompanionBuilder,
+          (
+            RecordingEventRow,
+            BaseReferences<_$AppDb, $RecordingEventsTable, RecordingEventRow>,
+          ),
+          RecordingEventRow,
+          PrefetchHooks Function()
+        > {
+  $$RecordingEventsTableTableManager(_$AppDb db, $RecordingEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecordingEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecordingEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecordingEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> event = const Value.absent(),
+              }) => RecordingEventsCompanion(id: id, event: event),
+          createCompanionCallback:
+              ({Value<int> id = const Value.absent(), required String event}) =>
+                  RecordingEventsCompanion.insert(id: id, event: event),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecordingEventsTable, RecordingEventRow>(table),
+                  BaseReferences<
+                    _$AppDb,
+                    $RecordingEventsTable,
+                    RecordingEventRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecordingEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $RecordingEventsTable,
+      RecordingEventRow,
+      $$RecordingEventsTableFilterComposer,
+      $$RecordingEventsTableOrderingComposer,
+      $$RecordingEventsTableAnnotationComposer,
+      $$RecordingEventsTableCreateCompanionBuilder,
+      $$RecordingEventsTableUpdateCompanionBuilder,
+      (
+        RecordingEventRow,
+        BaseReferences<_$AppDb, $RecordingEventsTable, RecordingEventRow>,
+      ),
+      RecordingEventRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDbManager {
   final _$AppDb _db;
@@ -15292,4 +15687,6 @@ class $AppDbManager {
       $$SyncCursorsTableTableManager(_db, _db.syncCursors);
   $$ErrorLogsTableTableManager get errorLogs =>
       $$ErrorLogsTableTableManager(_db, _db.errorLogs);
+  $$RecordingEventsTableTableManager get recordingEvents =>
+      $$RecordingEventsTableTableManager(_db, _db.recordingEvents);
 }

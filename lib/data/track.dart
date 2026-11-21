@@ -15,18 +15,19 @@ final settingsRowId = const Uuid().v5(_trackNamespace, 'settings');
 /// A Run's points as column arrays. A column is null when the source had none of it; an element is null for a gap.
 /// Stored in `cardio_tracks.points` as base64 of gzipped JSON.
 class Track {
-  Track({this.time, this.distance, this.lat, this.lon, this.altitude, this.hr, this.cadence});
+  Track({this.time, this.distance, this.lat, this.lon, this.altitude, this.hr, this.cadence, this.laps});
 
   final List<int?>? time; // seconds from the start
   final List<double?>? distance; // meters from the start
   final List<double?>? lat, lon, altitude;
   final List<int?>? hr;
   final List<double?>? cadence;
+  final List<int>? laps; // seconds from the start where Daniel pressed Lap (#69); not a per-point column
 
   int get length => [time, distance, lat, lon, altitude, hr, cadence].map((c) => c?.length ?? 0).fold(0, (a, b) => a > b ? a : b);
 
   String encode() {
-    final cols = {'t': time, 'd': distance, 'lat': lat, 'lon': lon, 'alt': altitude, 'hr': hr, 'cad': cadence};
+    final cols = {'t': time, 'd': distance, 'lat': lat, 'lon': lon, 'alt': altitude, 'hr': hr, 'cad': cadence, 'lap': laps};
     return base64.encode(gzip.encode(utf8.encode(jsonEncode({for (final e in cols.entries) if (e.value != null) e.key: e.value}))));
   }
 
@@ -34,7 +35,7 @@ class Track {
     final j = jsonDecode(utf8.decode(gzip.decode(base64.decode(points)))) as Map<String, dynamic>;
     List<double?>? d(String k) => (j[k] as List?)?.map((v) => (v as num?)?.toDouble()).toList();
     List<int?>? i(String k) => (j[k] as List?)?.map((v) => (v as num?)?.round()).toList();
-    return Track(time: i('t'), distance: d('d'), lat: d('lat'), lon: d('lon'), altitude: d('alt'), hr: i('hr'), cadence: d('cad'));
+    return Track(time: i('t'), distance: d('d'), lat: d('lat'), lon: d('lon'), altitude: d('alt'), hr: i('hr'), cadence: d('cad'), laps: (j['lap'] as List?)?.map((v) => (v as num).round()).toList());
   }
 }
 
@@ -76,7 +77,7 @@ Track withGpsDistance(Track t) {
   final gps = last == null ? 0.0 : dist[last]!;
   if (positioned < 2 || gps <= 0) return t;
   final scale = total / gps;
-  return Track(time: time, distance: [for (final d in dist) d == null ? null : d * scale], lat: lat, lon: lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);
+  return Track(time: time, distance: [for (final d in dist) d == null ? null : d * scale], lat: lat, lon: lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence, laps: t.laps);
 }
 
 /// [base] with every column it lacks filled from [other], matched by nearest absolute time within [toleranceSec]. A column [base] has is never touched.
@@ -88,7 +89,7 @@ Track? fillMissingColumns(Track base, int baseOffset, Track other, int otherOffs
   final wantPos = base.lat == null && other.lat != null && other.lon != null;
   final wantDist = base.distance == null && other.distance != null;
   final wantAlt = base.altitude == null && other.altitude != null;
-  final wantHr = base.hr == null && other.hr != null;
+  final wantHr = other.hr != null && (base.hr == null || base.hr!.length < bt.length || base.hr!.contains(null)); // a live heart rate with gaps still takes the other's readings where it has none
   final wantCad = base.cadence == null && other.cadence != null;
   if (!(wantPos || wantDist || wantAlt || wantHr || wantCad)) return null;
   final oIdx = [for (var i = 0; i < ot.length; i++) if (ot[i] != null) i]; // by time, as stored
@@ -117,12 +118,21 @@ Track? fillMissingColumns(Track base, int baseOffset, Track other, int otherOffs
     lat: wantPos ? take(other.lat) : base.lat,
     lon: wantPos ? take(other.lon) : base.lon,
     altitude: wantAlt ? take(other.altitude) : base.altitude,
-    hr: wantHr ? take(other.hr) : base.hr,
+    hr: wantHr ? _fillGaps(base.hr, take(other.hr)) : base.hr,
     cadence: wantCad ? take(other.cadence) : base.cadence,
+    laps: base.laps?.map((l) => l + baseOffset).toList(),
   );
+}
+
+/// [base] with each missing element taken from [other] (same length as the track); null when neither has any.
+List<int?>? _fillGaps(List<int?>? base, List<int?>? other) {
+  if (base == null) return other;
+  if (other == null) return base;
+  final out = [for (var i = 0; i < other.length; i++) i < base.length && base[i] != null ? base[i] : other[i]];
+  return out.any((v) => v != null) ? out : null;
 }
 
 /// [t] with its times moved [seconds] later.
 Track shiftedBy(Track t, int seconds) => seconds == 0
     ? t
-    : Track(time: t.time?.map((v) => v == null ? null : v + seconds).toList(), distance: t.distance, lat: t.lat, lon: t.lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);
+    : Track(time: t.time?.map((v) => v == null ? null : v + seconds).toList(), distance: t.distance, lat: t.lat, lon: t.lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence, laps: t.laps?.map((l) => l + seconds).toList());

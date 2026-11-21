@@ -8,10 +8,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'data/cardio.dart';
+import 'data/ble_heart_rate.dart';
 import 'data/catalog.dart';
 import 'data/db.dart';
 import 'data/error_log.dart';
 import 'data/health_connect.dart';
+import 'data/heart_rate.dart';
+import 'data/hr_zones.dart';
+import 'data/live_recorder.dart';
+import 'data/platform_recording.dart';
 import 'data/supabase_remote.dart';
 import 'data/sync.dart';
 import 'data/routines.dart';
@@ -48,7 +53,25 @@ Future<void> main() async {
   // Finishing a workout triggers sync (no-op without a Supabase project).
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
-  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
+  await cardio.dropUnsyncableRuns(); // 0 km test recordings from before Finish refused them; the server rejects them forever
+  // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
+  // The Max HR in force sets the zone of the live heart rate; kept current from the settings row.
+  final recordingService = ForegroundRecordingService();
+  final settings = cardio.settings;
+  var maxHr = defaultMaxHr;
+  settings.watch().listen((s) => maxHr = effectiveMaxHr(s?.maxHr, s?.birthYear, DateTime.now()));
+  liveRecorder = LiveRecorder(
+    source: GeolocatorSource(),
+    service: recordingService,
+    notification: recordingService,
+    speech: TtsSpeech(),
+    journal: DbJournal(db),
+    cardio: cardio,
+    heartRate: HeartRateLink(sensor: BleHeartRateSensor(), memory: FileDeviceMemory()),
+    maxHr: () => maxHr,
+  );
+  await liveRecorder!.restore();
+  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: healthConnect = HealthConnect(cardio, workouts), sync: sync));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();

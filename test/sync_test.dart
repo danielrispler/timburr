@@ -109,6 +109,20 @@ void main() {
     expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
   });
 
+  test('the treadmill columns (incline, steps, calories) push and pull with their edited fields', () async {
+    await db.save(db.cardio, {'id': 'c1', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 4.8, 'duration_sec': 1500, 'incline_pct': 1.5, 'steps': 6100, 'calories': 380, 'edited_fields': ['steps', 'incline_pct']});
+    await engine.sync();
+    final row = remote.tables['cardio']!['c1']!;
+    expect((row['incline_pct'], row['steps'], row['calories']), (1.5, 6100, 380));
+    expect(row['edited_fields'], ['steps', 'incline_pct']);
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    final c = await other.select(other.cardio).getSingle();
+    expect((c.inclinePct, c.steps, c.calories), (1.5, 6100, 380));
+    expect(c.editedFields, ['steps', 'incline_pct']);
+  });
+
   test('a pulled Run and track rebuild the Best efforts, a pulled Treadmill run adds none', () async {
     final track = Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode();
     await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 1.2, 'duration_sec': 300});
