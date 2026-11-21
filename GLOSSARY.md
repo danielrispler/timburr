@@ -18,16 +18,16 @@ _Avoid_: backup exercise
 
 **Skipped exercise**: an exercise in a workout that Daniel didn't do that day. None of its sets count, and skipping it never changes the routine.
 
-**Health stats**: the numbers Google Health records for a strength workout: average heart rate, calories, duration, effort (1-10) and cardio load. They are optional.
+**Health stats**: the numbers Google Health records for a strength workout: average heart rate, calories, duration, effort (1-10) and cardio load. They are optional. Heart rate, calories and duration fill in from an overlapping Fitbit session; what Daniel typed is never replaced.
 
 ## Running
 
-**Run**: an outdoor run or a treadmill run. Runs count toward running distance, time, weekly totals and goals. Recordings whose times overlap are one Run, wherever they came from.
+**Run**: an outdoor run or a treadmill run. Runs count toward running distance, time, weekly totals and goals. A Run exists only because Daniel recorded it, imported a file or typed it in. Recordings whose times overlap are one Run, wherever they came from.
 _Avoid_: cardio, activity
 
 **Treadmill run**: a Run on a treadmill. It counts toward totals, but its distance comes from the treadmill or the watch, so it never sets a best effort.
 
-**Auto-detected run**: a Run the Fitbit noticed by itself, starting 10 to 20 minutes late and without a route.
+**Auto-detected run**: a running session the Fitbit noticed by itself, starting 10 to 20 minutes late and without a route. It never becomes a Run on its own: it only fills in the Run it overlaps.
 
 **Run/walk**: a Run with walking breaks. It is a Run with a note, not its own type.
 

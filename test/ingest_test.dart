@@ -137,11 +137,11 @@ void main() {
 
   group('precedence', () {
     test('outdoor: the phone GPS wins route and distance, and an import fills the rest', () async {
-      await store.ingest(rec(source: 'health_connect', id: 'h', km: 4.6, moving: 1650, avgHr: 148));
+      await store.ingest(rec(id: 'f', km: 4.6, moving: 1650, avgHr: 148));
       await store.ingest(rec(source: 'recorded', id: 'r', km: 5.2, moving: 1740, track: gps(300)));
       final run = await only();
       expect((run.distanceKm, run.durationSec), (5.2, 1740));
-      expect(run.avgHr, 148); // the recording has none, so the Fitbit's stays
+      expect(run.avgHr, 148); // the recording has none, so the file's stays
       expect(run.route, isNotNull);
       expect((run.source, run.externalId), ('recorded', 'r'));
       expect((await store.watchTrack(run.id).first)!.length, 300);
@@ -163,8 +163,8 @@ void main() {
       expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
     });
 
-    test('treadmill: a Fitbit session already there keeps its distance, the phone recording sets type and time', () async {
-      await store.ingest(rec(source: 'health_connect', id: 'h', type: 'run', km: 2.4, moving: 1400, avgHr: 141));
+    test('treadmill: an imported file keeps its distance, the phone recording sets type and time', () async {
+      await store.ingest(rec(id: 'f', type: 'run', km: 2.4, moving: 1400, avgHr: 141));
       await store.ingest(rec(source: 'recorded', id: 'r', type: 'treadmill', km: 1.9, moving: 1500));
       final run = await only();
       expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
@@ -218,6 +218,43 @@ void main() {
     expect((await store.watchTrack(run.id).first)!.hr, [120, 150, 140]);
     // Importing the file again changes nothing.
     expect((await store.ingest(rec(type: 'treadmill', start: at(17, 17), elapsed: 813, moving: 813, km: 1.07, id: 'strava-24-oct', avgHr: 142))).outcome, IngestOutcome.unchanged);
+  });
+
+  group('Health Connect', () {
+    test('a session that overlaps no Run creates nothing, however often it is checked', () async {
+      final h = rec(source: 'health_connect', id: 'h', start: at(10, 15), elapsed: 1500, avgHr: 150);
+      expect((await store.ingest(h)).outcome, IngestOutcome.ignored);
+      expect((await store.ingest(h)).outcome, IngestOutcome.ignored);
+      expect((await store.ingest(h, dryRun: true)).outcome, IngestOutcome.ignored);
+      expect(await runs(), isEmpty);
+    });
+
+    test('the same session checked again after Daniel records the Run fills it in', () async {
+      final h = rec(source: 'health_connect', id: 'h', start: at(10, 15), elapsed: 1500, km: 4.6, avgHr: 150);
+      await store.ingest(h);
+      await store.ingest(rec(source: 'recorded', id: 'r', start: at(10), elapsed: 2400, moving: 2300, km: 5.2, track: gps(300)));
+      expect((await store.ingest(h)).outcome, IngestOutcome.merged);
+      final run = await only();
+      expect((run.distanceKm, run.durationSec, run.avgHr), (5.2, 2300, 150));
+      expect((run.source, run.externalId), ('recorded', 'r'));
+      expect(run.startedAt.toUtc(), at(10));
+      expect(run.elapsedSec, 2400);
+    });
+
+    test('a merged session checked again changes nothing', () async {
+      await store.ingest(rec(source: 'recorded', id: 'r', track: gps(300)));
+      final h = rec(source: 'health_connect', id: 'h', start: at(10, 10), elapsed: 1500, avgHr: 150, track: Track(time: [0, 60, 120], hr: [140, 150, 160]));
+      expect((await store.ingest(h)).outcome, IngestOutcome.merged);
+      final before = await only();
+      expect((await store.ingest(h)).outcome, IngestOutcome.unchanged);
+      expect((await only()).updatedAt, before.updatedAt);
+    });
+
+    test('a session on the same day that does not overlap leaves the Run alone', () async {
+      await store.ingest(rec(source: 'recorded', id: 'r', start: at(7), elapsed: 1800));
+      expect((await store.ingest(rec(source: 'health_connect', id: 'h', start: at(18), avgHr: 150))).outcome, IngestOutcome.ignored);
+      expect((await only()).avgHr, isNull);
+    });
   });
 
   group('a dry run', () {

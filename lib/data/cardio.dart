@@ -80,16 +80,18 @@ Map<String, String> validateCardio({
   return e;
 }
 
-enum IngestOutcome { created, merged, unchanged }
+enum IngestOutcome { created, merged, unchanged, ignored }
 
-/// What [CardioStore.ingest] did. [id] is the Run written or matched; null for a dry run that would create one.
+/// What [CardioStore.ingest] did. [id] is the Run written or matched; null for a dry run that would create one, and for [IngestOutcome.ignored]:
+/// a Health Connect session that overlaps no Run, which never creates one.
 class IngestResult {
   IngestResult(this.id, this.outcome);
   final String? id;
   final IngestOutcome outcome;
 }
 
-/// Which source wins a field when two recordings disagree, by the Run's type. Nothing else is ever replaced: an import only fills what is empty.
+/// Which source wins a field when the phone's recording and an import disagree, by the Run's type. Nothing else is ever replaced: an import into an
+/// imported Run only fills what is empty.
 /// Outdoor Run: route, distance and pace from the phone's GPS (`recorded`), heart rate from the Fitbit (`health_connect`).
 /// Treadmill run: time from the phone, heart rate and distance from the Fitbit (until Daniel corrects it, which is an edit and always wins).
 String? _preferredSource(String type, String column) => switch (column) {
@@ -144,10 +146,11 @@ class CardioStore {
   }
 
   /// The one way a recording reaches the store, whatever its source. The same source and external id again changes nothing; a recording whose
-  /// times overlap a Run merges into it; anything else becomes a new Run. A dry run reports the outcome without writing.
+  /// times overlap a Run merges into it; anything else becomes a new Run, except a Health Connect session: the Fitbit only fills in Runs Daniel recorded
+  /// or imported, so one that overlaps nothing is ignored. A dry run reports the outcome without writing.
   ///
   /// Merging, per field: a field in `edited_fields` is never touched, nor is any value on a hand-typed Run. Otherwise the field's preferred source
-  /// ([_preferredSource]) replaces a value another source put there; everything else only fills an empty field. The span runs from the earliest
+  /// ([_preferredSource]) replaces a value between the phone's recording and an import; everything else only fills an empty field. The span runs from the earliest
   /// start to the latest end. The track is merged column by column ([fillMissingColumns]): the live recording's track is the base and a column it lacks is filled from the other.
   Future<IngestResult> ingest(Recording r, {bool dryRun = false}) async {
     final result = await _db.transaction(() async {
@@ -161,6 +164,7 @@ class CardioStore {
             ..orderBy([(c) => OrderingTerm.asc(c.startedAt)]))
           .get();
       final match = candidates.where((c) => _endOf(c).isAfter(start)).firstOrNull;
+      if (match == null && r.source == 'health_connect') return IngestResult(null, IngestOutcome.ignored);
       if (match == null) {
         final id = const Uuid().v4();
         if (dryRun) return IngestResult(null, IngestOutcome.created);
@@ -191,7 +195,7 @@ class CardioStore {
       var type = match.type; // the Run's type once this recording is merged: it decides who is preferred for the other fields
       void put(String column, Object? incoming, Object? current) {
         if (incoming == null || incoming == current || edited.contains(column)) return;
-        final replaces = !handTyped && r.source != match.source && _preferredSource(type, column) == r.source;
+        final replaces = !handTyped && r.source != match.source && _preferredSource(type, column) == r.source && (r.source == 'recorded' || match.source == 'recorded'); // import against import: fill only
         if (current == null || replaces) changes[column] = incoming;
       }
 
@@ -243,7 +247,7 @@ class CardioStore {
       }
       return IngestResult(match.id, IngestOutcome.merged);
     });
-    if (!dryRun && result.outcome != IngestOutcome.unchanged) {
+    if (!dryRun && (result.outcome == IngestOutcome.created || result.outcome == IngestOutcome.merged)) {
       await _db.rebuildBestEfforts([result.id!]);
       unawaited(onSaved?.call()); // sync in the background; the local write is done
     }

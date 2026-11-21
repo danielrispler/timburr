@@ -11,6 +11,7 @@ import 'data/cardio.dart';
 import 'data/catalog.dart';
 import 'data/db.dart';
 import 'data/error_log.dart';
+import 'data/health_connect.dart';
 import 'data/supabase_remote.dart';
 import 'data/sync.dart';
 import 'data/routines.dart';
@@ -46,18 +47,20 @@ Future<void> main() async {
   }
   // Finishing a workout triggers sync (no-op without a Supabase project).
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
-  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: CardioStore(db, onSaved: sync?.sync), sync: sync));
+  final cardio = CardioStore(db, onSaved: sync?.sync);
+  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
 class TimburrApp extends StatefulWidget {
-  const TimburrApp({super.key, required this.catalog, required this.routines, required this.workouts, required this.cardio, this.sync});
+  const TimburrApp({super.key, required this.catalog, required this.routines, required this.workouts, required this.cardio, required this.health, this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
   final WorkoutStore workouts;
   final CardioStore cardio;
+  final HealthConnect health;
   final SyncEngine? sync;
 
   @override
@@ -66,6 +69,7 @@ class TimburrApp extends StatefulWidget {
 
 class _TimburrAppState extends State<TimburrApp> {
   late final ShareIntake _share;
+  late final AppLifecycleListener _lifecycle;
 
   /// A GPX/TCX shared to Timburr opens the import preview; backing out saves nothing.
   void _openShared(List<SharedFile> files) =>
@@ -76,31 +80,41 @@ class _TimburrAppState extends State<TimburrApp> {
     super.initState();
     _share = ShareIntake(_openShared);
     WidgetsBinding.instance.addPostFrameCallback((_) => _share.checkLaunch());
+    // The Fitbit's sessions fill in Runs on start and resume; does nothing until Daniel connects.
+    widget.health.checkQuietly();
+    _lifecycle = AppLifecycleListener(onResume: widget.health.checkQuietly);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final catalog = widget.catalog, routines = widget.routines, workouts = widget.workouts, cardio = widget.cardio, sync = widget.sync;
+    final catalog = widget.catalog, routines = widget.routines, workouts = widget.workouts, cardio = widget.cardio, health = widget.health, sync = widget.sync;
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'Timburr',
       themeMode: ThemeMode.dark,
       darkTheme: buildDarkTheme(),
       home: sync == null
-          ? AppShell(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio)
-          : _AuthGate(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio, sync: sync),
+          ? AppShell(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio, health: health)
+          : _AuthGate(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio, health: health, sync: sync),
     );
   }
 }
 
 /// Login on a fresh install; afterwards the app, syncing on start, resume, every 5 minutes and when back online.
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({required this.catalog, required this.routines, required this.workouts, required this.cardio, required this.sync});
+  const _AuthGate({required this.catalog, required this.routines, required this.workouts, required this.cardio, required this.health, required this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
   final WorkoutStore workouts;
   final CardioStore cardio;
+  final HealthConnect health;
   final SyncEngine sync;
 
   @override
@@ -146,5 +160,5 @@ class _AuthGateState extends State<_AuthGate> {
 
   @override
   Widget build(BuildContext context) =>
-      _signedIn ? AppShell(catalog: widget.catalog, routines: widget.routines, workouts: widget.workouts, cardio: widget.cardio, sync: widget.sync) : const LoginScreen();
+      _signedIn ? AppShell(catalog: widget.catalog, routines: widget.routines, workouts: widget.workouts, cardio: widget.cardio, health: widget.health, sync: widget.sync) : const LoginScreen();
 }

@@ -64,7 +64,7 @@ Future<({int created, int merged})> importStrava(CardioStore store, List<ParsedF
         created++;
       case IngestOutcome.merged:
         merged++;
-      case IngestOutcome.unchanged:
+      case IngestOutcome.unchanged || IngestOutcome.ignored:
     }
   }
   return (created: created, merged: merged);

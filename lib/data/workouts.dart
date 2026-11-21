@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math' show min;
+import 'dart:math' show max, min;
 
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -179,6 +179,30 @@ class WorkoutStore {
           activeSec: Value(h.activeSec),
           effort: Value(h.effort),
           cardioLoad: Value(h.cardioLoad)));
+
+  /// Fills empty Health stats of finished Workouts from Fitbit sessions. Each Workout takes the session that overlaps it most, counting only a
+  /// session that spent at least half its time inside the Workout (a walk home that clips its end doesn't). A value already there, typed or
+  /// filled before, is never replaced. Returns how many Workouts changed.
+  Future<int> fillHealth(List<({DateTime start, DateTime end, HealthStats stats})> sessions) async {
+    if (sessions.isEmpty) return 0;
+    final from = sessions.map((s) => s.start).reduce((a, b) => a.isBefore(b) ? a : b);
+    final to = sessions.map((s) => s.end).reduce((a, b) => a.isAfter(b) ? a : b);
+    final workouts = await (_db.select(_db.workouts)
+          ..where((w) => w.deletedAt.isNull() & w.finishedAt.isBiggerThanValue(from) & w.startedAt.isSmallerThanValue(to)))
+        .get();
+    var changed = 0;
+    for (final w in workouts) {
+      int overlap(({DateTime start, DateTime end, HealthStats stats}) s) =>
+          max(0, min(w.finishedAt!.millisecondsSinceEpoch, s.end.millisecondsSinceEpoch) - max(w.startedAt.millisecondsSinceEpoch, s.start.millisecondsSinceEpoch));
+      final inside = sessions.where((s) => overlap(s) > 0 && overlap(s) * 2 >= s.end.difference(s.start).inMilliseconds);
+      if (inside.isEmpty) continue;
+      final h = inside.reduce((a, b) => overlap(b) > overlap(a) ? b : a).stats;
+      if (!(w.avgHr == null && h.avgHr != null || w.calories == null && h.calories != null || w.activeSec == null && h.activeSec != null)) continue;
+      await _saveWorkout(w.id, (w) => w.copyWith(avgHr: Value(w.avgHr ?? h.avgHr), calories: Value(w.calories ?? h.calories), activeSec: Value(w.activeSec ?? h.activeSec)));
+      changed++;
+    }
+    return changed;
+  }
 
   Future<void> finish(String id) async {
     await _saveWorkout(id, (w) => w.copyWith(finishedAt: Value(DateTime.now())));

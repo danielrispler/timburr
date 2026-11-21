@@ -5,12 +5,14 @@ import 'package:latlong2/latlong.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/health_connect.dart';
 import '../../data/recording.dart' show drawsRoute;
 import '../../data/running.dart';
 import '../cardio/activity_timer.dart';
 import '../cardio/run_page.dart';
 import '../core/chart_axis.dart';
 import '../core/theme.dart';
+import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
 import 'running_records.dart';
@@ -27,9 +29,10 @@ String _time(int sec) {
 
 /// The Running tab: top tabs Runs, Progress and Records.
 class RunningTab extends StatefulWidget {
-  const RunningTab({super.key, required this.stores});
+  const RunningTab({super.key, required this.stores, this.health});
 
   final Stores stores;
+  final HealthConnect? health; // offers Check Fitbit now once connected
 
   @override
   State<RunningTab> createState() => _RunningTabState();
@@ -49,7 +52,7 @@ class _RunningTabState extends State<RunningTab> {
           ),
           Expanded(
             child: TabBarView(children: [
-              _RunsPage(stores: widget.stores, runs: _runs),
+              _RunsPage(stores: widget.stores, runs: _runs, health: widget.health),
               _ProgressPage(runs: _runs),
               RunningRecords(stores: widget.stores, runs: _runs),
             ]),
@@ -59,10 +62,11 @@ class _RunningTabState extends State<RunningTab> {
 }
 
 class _RunsPage extends StatelessWidget {
-  const _RunsPage({required this.stores, required this.runs});
+  const _RunsPage({required this.stores, required this.runs, this.health});
 
   final Stores stores;
   final Stream<List<CardioData>> runs;
+  final HealthConnect? health;
 
   @override
   Widget build(BuildContext context) => StreamBuilder<List<CardioData>>(
@@ -100,6 +104,18 @@ class _RunsPage extends StatelessWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StravaImportScreen(cardio: stores.cardio))),
                   ),
+                  if (health case final health?)
+                    ValueListenableBuilder(
+                      valueListenable: health.status,
+                      builder: (context, status, _) => status != HcStatus.connected
+                          ? const SizedBox.shrink()
+                          : ListTile(
+                              leading: const IconTile(Icons.watch),
+                              title: const Text('Check Fitbit now'),
+                              subtitle: const Text('Fill in Runs from Health Connect'),
+                              onTap: () => checkFitbitNow(context, health),
+                            ),
+                    ),
                 ]),
                 TileGroup(title: 'Recent Runs', children: [
                   if (all.isEmpty) const ListTile(title: Text('No Runs yet')),
