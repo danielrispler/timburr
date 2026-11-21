@@ -51,7 +51,7 @@ Future<void> main() async {
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
   // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
-  liveRecorder = LiveRecorder(source: GeolocatorSource(), service: ForegroundRecordingService(), journal: DbJournal(db), cardio: cardio);
+  liveRecorder = LiveRecorder(source: GeolocatorSource(), service: ForegroundRecordingService(), stepSource: PedometerSource(), journal: DbJournal(db), cardio: cardio);
   await liveRecorder!.restore();
   runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
 }

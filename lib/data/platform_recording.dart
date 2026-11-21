@@ -1,5 +1,7 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pedometer/pedometer.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'live_recorder.dart';
 
@@ -33,6 +35,18 @@ class GeolocatorSource implements PositionSource {
       ).map((p) => PositionSample(time: p.timestamp, lat: p.latitude, lon: p.longitude, altitude: p.altitude, accuracy: p.accuracy));
 }
 
+/// Android adapter for [StepSource]: the phone's step counter through the pedometer plugin. No logic here; checked on the phone.
+class PedometerSource implements StepSource {
+  @override
+  Future<bool> hasPermission() => Permission.activityRecognition.isGranted;
+
+  @override
+  Future<bool> ensurePermission() async => (await Permission.activityRecognition.request()).isGranted;
+
+  @override
+  Stream<int> steps() => Pedometer.stepCountStream.map((e) => e.steps);
+}
+
 /// Android adapter for [RecordingService]: a location-type foreground service with an ongoing notification and a wake lock,
 /// so recording continues with the screen off. It runs no task of its own; the recorder stays in the app's isolate.
 class ForegroundRecordingService implements RecordingService {
@@ -54,11 +68,11 @@ class ForegroundRecordingService implements RecordingService {
   }
 
   @override
-  Future<void> start() async {
+  Future<void> start({bool gps = true}) async {
     _init();
     if (await FlutterForegroundTask.isRunningService) return;
     await FlutterForegroundTask.startService(
-      serviceTypes: [ForegroundServiceTypes.location],
+      serviceTypes: [gps ? ForegroundServiceTypes.location : ForegroundServiceTypes.health],
       notificationTitle: 'Recording run',
       notificationText: 'Tap to return to Timburr',
     );
