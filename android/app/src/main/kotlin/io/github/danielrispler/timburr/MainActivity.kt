@@ -4,14 +4,18 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-/** Hands files shared to Timburr (GPX/TCX) to Dart: `takeShared` returns and clears what arrived at launch, `shared` is pushed when the app is already open. */
-class MainActivity : FlutterActivity() {
+/**
+ * Hands files shared to Timburr (GPX/TCX) to Dart: `takeShared` returns and clears what arrived at launch, `shared` is pushed when the app is already open.
+ * Also hosts the Health Connect channel ([HealthChannel]); its permission prompt needs a fragment activity.
+ */
+class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
     private var pending: List<Map<String, Any?>> = emptyList()
+    private val health = HealthChannel(this)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -24,6 +28,12 @@ class MainActivity : FlutterActivity() {
         }
         channel = ch
         pending = read(intent)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "timburr/health").setMethodCallHandler(health::handle)
+    }
+
+    override fun onDestroy() {
+        health.close()
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

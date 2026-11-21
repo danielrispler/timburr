@@ -22,12 +22,12 @@ _Avoid_: backup exercise
 
 ## Running
 
-**Run**: an outdoor run or a treadmill run. Runs count toward running distance, time, weekly totals and goals. Recordings whose times overlap are one Run, wherever they came from.
+**Run**: an outdoor run or a treadmill run. Runs count toward running distance, time, weekly totals and goals. A Run exists only because Daniel recorded it, imported a file or typed it in. Recordings whose times overlap are one Run, wherever they came from.
 _Avoid_: cardio, activity
 
 **Treadmill run**: a Run on a treadmill. It counts toward totals, but its distance comes from the treadmill or the watch, so it never sets a best effort.
 
-**Auto-detected run**: a Run the Fitbit noticed by itself, starting 10 to 20 minutes late and without a route.
+**Auto-detected run**: a running session the Fitbit noticed by itself, starting 10 to 20 minutes late and without a route. It never becomes a Run on its own: it only fills in the Run it overlaps.
 
 **Run/walk**: a Run with walking breaks. It is a Run with a note, not its own type.
 

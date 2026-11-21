@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/cardio.dart';
 import '../../data/catalog.dart';
+import '../../data/health_connect.dart';
 import '../../data/sync.dart';
 import '../../data/routines.dart';
 import '../../data/workouts.dart';
@@ -23,12 +24,13 @@ const _tabs = <_Tab>[
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
 /// pops that stack, then returns to Home, then leaves the app.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.catalog, required this.routines, required this.workouts, required this.cardio, this.sync});
+  const AppShell({super.key, required this.catalog, required this.routines, required this.workouts, required this.cardio, required this.health, this.sync});
 
   final Catalog catalog;
   final RoutineStore routines;
   final WorkoutStore workouts;
   final CardioStore cardio;
+  final HealthConnect health;
   final SyncEngine? sync; // null when no Supabase project is configured
 
   @override
@@ -75,7 +77,7 @@ class _AppShellState extends State<AppShell> {
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => Scaffold(
                   appBar: AppBar(title: const Text('More')),
-                  body: MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio),
+                  body: MoreScreen(engine: widget.sync, catalog: widget.catalog, cardio: widget.cardio, health: widget.health),
                 ),
               )),
             ),
@@ -110,6 +112,6 @@ class _AppShellState extends State<AppShell> {
   Widget _tabRoot(int i) => switch (_tabs[i].label) {
         'Home' => HomeScreen(stores: _stores),
         'Workouts' => WorkoutsTab(stores: _stores),
-        _ => RunningTab(stores: _stores),
+        _ => RunningTab(stores: _stores, health: widget.health),
       };
 }
