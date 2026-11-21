@@ -136,6 +136,23 @@ void main() {
     expect(remote.tables['routines']!['r1']!['name'], 'Push day');
   });
 
+  test('a Run and track saved during the push wait for the next sync, so no track reaches the server before its Run', () async {
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
+    remote.onUpsert = (table) async {
+      if (table != 'cardio') return;
+      remote.onUpsert = null;
+      await db.save(db.cardio, {'id': 'c2', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 5.0, 'duration_sec': 1500});
+      await db.save(db.cardioTracks, {'id': 't2', 'cardio_id': 'c2', 'points': 'H4sIAAAA'});
+    };
+    await engine.sync();
+    expect(remote.tables['cardio_tracks']!.keys, ['t1']);
+    expect(await engine.pending(), 2);
+    await engine.sync();
+    expect(remote.tables['cardio_tracks']!.keys.toSet(), {'t1', 't2'});
+    expect(await engine.pending(), 0);
+  });
+
   test('fresh install pulls everything, paged, and soft deletes propagate', () async {
     await seedWorkout(db);
     await db.save(db.workoutSets, {'id': 's2', 'workout_exercise_id': 'we1', 'set_number': 2, 'deleted_at': DateTime.now()}); // shortcut: save needs full rows (#6 gap)

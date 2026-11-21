@@ -31,7 +31,7 @@ class RunningRecords extends StatelessWidget {
             }
             Widget row(String title, String value, DateTime at, String id, {bool pr = false}) => ListTile(
                   title: Text(title),
-                  subtitle: Text(loc.formatMediumDate(at.toLocal())),
+                  subtitle: Text('${loc.formatMediumDate(at.toLocal())}, ${at.toLocal().year}'), // records span years
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                     if (pr) const Padding(padding: EdgeInsets.only(right: 8), child: PrBadge()),
                     Text(value, style: Theme.of(context).textTheme.titleMedium),

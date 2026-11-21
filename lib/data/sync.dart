@@ -60,8 +60,14 @@ class SyncEngine {
     if (offline.value) return;
     _rejected.clear();
     try {
-      for (final t in _tables) {
-        await _push(t);
+      // One snapshot of every table before pushing: a child saved mid-push (a track, a set) waits for
+      // the next sync with its parent instead of reaching the server before it.
+      final dirty = await _db.transaction(() async => [
+            for (final t in _tables)
+              await _db.customSelect('select * from ${t.actualTableName} where dirty = 1', readsFrom: {t}).get(),
+          ]);
+      for (var i = 0; i < _tables.length; i++) {
+        await _push(_tables[i], dirty[i]);
       }
       for (final t in _tables) {
         await _pull(t);
@@ -77,9 +83,8 @@ class SyncEngine {
     } catch (_) {} // stays local; the next sync retries
   }
 
-  Future<void> _push(TableInfo table) async {
+  Future<void> _push(TableInfo table, List<QueryRow> rows) async {
     final name = table.actualTableName;
-    final rows = await _db.customSelect('select * from $name where dirty = 1', readsFrom: {table}).get();
     for (var i = 0; i < rows.length; i += chunkSize) {
       final chunk = rows.sublist(i, (i + chunkSize).clamp(0, rows.length));
       var pushed = chunk;
