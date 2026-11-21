@@ -14,6 +14,7 @@ import '../../data/settings.dart';
 import '../../data/track.dart';
 import '../core/chart_axis.dart';
 import '../core/theme.dart';
+import '../running/race_predictor.dart';
 import 'activity_timer.dart';
 import 'max_hr.dart';
 import 'cardio_form.dart';
@@ -146,6 +147,7 @@ class _RunBodyState extends State<_RunBody> {
           ),
       ]),
       RunBestEfforts(store: widget.store, runId: c.id),
+      MatchedRouteTile(store: widget.store, runId: c.id),
     ]);
   }
 }
