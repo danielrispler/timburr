@@ -89,7 +89,7 @@ Track? fillMissingColumns(Track base, int baseOffset, Track other, int otherOffs
   final wantPos = base.lat == null && other.lat != null && other.lon != null;
   final wantDist = base.distance == null && other.distance != null;
   final wantAlt = base.altitude == null && other.altitude != null;
-  final wantHr = base.hr == null && other.hr != null;
+  final wantHr = other.hr != null && (base.hr == null || base.hr!.length < bt.length || base.hr!.contains(null)); // a live heart rate with gaps still takes the other's readings where it has none
   final wantCad = base.cadence == null && other.cadence != null;
   if (!(wantPos || wantDist || wantAlt || wantHr || wantCad)) return null;
   final oIdx = [for (var i = 0; i < ot.length; i++) if (ot[i] != null) i]; // by time, as stored
@@ -118,10 +118,18 @@ Track? fillMissingColumns(Track base, int baseOffset, Track other, int otherOffs
     lat: wantPos ? take(other.lat) : base.lat,
     lon: wantPos ? take(other.lon) : base.lon,
     altitude: wantAlt ? take(other.altitude) : base.altitude,
-    hr: wantHr ? take(other.hr) : base.hr,
+    hr: wantHr ? _fillGaps(base.hr, take(other.hr)) : base.hr,
     cadence: wantCad ? take(other.cadence) : base.cadence,
     laps: base.laps?.map((l) => l + baseOffset).toList(),
   );
+}
+
+/// [base] with each missing element taken from [other] (same length as the track); null when neither has any.
+List<int?>? _fillGaps(List<int?>? base, List<int?>? other) {
+  if (base == null) return other;
+  if (other == null) return base;
+  final out = [for (var i = 0; i < other.length; i++) i < base.length && base[i] != null ? base[i] : other[i]];
+  return out.any((v) => v != null) ? out : null;
 }
 
 /// [t] with its times moved [seconds] later.

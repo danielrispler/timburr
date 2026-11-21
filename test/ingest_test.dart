@@ -267,4 +267,19 @@ void main() {
       expect((await only()).avgHr, isNull);
     });
   });
+
+  group('a recorded Run with gaps in its live heart rate', () {
+    test('a Health Connect session fills the gaps and keeps the live readings', () async {
+      final live = gps(60);
+      final liveHr = Track(time: live.time, distance: live.distance, lat: live.lat, lon: live.lon, hr: [for (var i = 0; i < 60; i++) i >= 20 && i < 40 ? null : 150 + i % 3]);
+      final result = await store.ingest(rec(source: 'recorded', id: 's', start: at(10), elapsed: 60, moving: 60, track: liveHr));
+      final fromBand = Track(time: [for (var i = 0; i < 60; i++) i], hr: [for (var i = 0; i < 60; i++) 120]);
+      await store.ingest(rec(source: 'health_connect', id: 'h', start: at(10), elapsed: 60, moving: 60, track: fromBand));
+      final hr = (await store.watchTrack(result.id!).first)!.hr!;
+      expect(hr.length, 60);
+      expect(hr[10], 150 + 10 % 3); // live readings stay
+      expect(hr.sublist(20, 40), everyElement(120)); // the gap is filled
+      expect(hr.contains(null), isFalse);
+    });
+  });
 }

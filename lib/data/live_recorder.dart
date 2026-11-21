@@ -8,8 +8,11 @@ import 'package:uuid/uuid.dart';
 import 'cardio.dart';
 import 'db.dart';
 import 'error_log.dart';
+import 'heart_rate.dart';
+import 'hr_zones.dart';
 import 'recorder.dart';
 
+export 'heart_rate.dart' show HrLink;
 export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot, kmCueText;
 export 'stride.dart' show Stride;
 
@@ -95,14 +98,22 @@ class DbJournal implements RecordingJournal {
 /// The recording in progress: wires a [Recorder] to the location source, the foreground service, the autosave and the Run store.
 /// One per app. Listen for changes; the screen reads [snapshot] on its own 1 s timer, since time passes between fixes.
 class LiveRecorder extends ChangeNotifier {
-  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, this.stepSource, DateTime Function()? now}) : _now = now ?? DateTime.now {
+  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, this.stepSource, this.heartRate, this.maxHr, DateTime Function()? now}) : _now = now ?? DateTime.now {
     notification?.onAction = (a) => a == 'resume' ? resume() : pause();
+    heartRate?.onReading = _onHeartRate;
+    heartRate?.addListener(notifyListeners);
   }
 
   final PositionSource source;
   final RecordingService service;
   final RecordingJournal journal;
   final CardioStore cardio;
+
+  /// The Bluetooth heart-rate band, null when the phone has none wired (tests). Runs only while a recording runs.
+  final HeartRateLink? heartRate;
+
+  /// The Max HR in force, for the zone. Defaults to [defaultMaxHr].
+  final int Function()? maxHr;
   final SpeechService? speech;
   final RecordingNotification? notification;
   final StepSource? stepSource; // null where there is no step counter (tests)
@@ -121,7 +132,10 @@ class LiveRecorder extends ChangeNotifier {
   int get lapCount => _rec?.laps.length ?? 0;
 
   /// The recording's numbers now, null when nothing is being recorded.
-  RunSnapshot? get snapshot => _rec?.snapshot(_now());
+  RunSnapshot? get snapshot => _rec?.snapshot(_now(), maxHr: maxHr?.call() ?? defaultMaxHr);
+
+  /// State of the heart-rate link.
+  HrLink get hrState => heartRate?.state ?? HrLink.off;
 
   /// Signal of the latest fix, also before Start.
   GpsSignal get gps => gpsSignalOf(_lastSeen, _now());
@@ -151,6 +165,7 @@ class LiveRecorder extends ChangeNotifier {
     _save(rec.events.last);
     await service.start(gps: !rec.isTreadmill);
     await _listen(background: true);
+    heartRate?.start();
     _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
     refreshNotification();
     notifyListeners();
@@ -174,6 +189,7 @@ class LiveRecorder extends ChangeNotifier {
     if (_rec == null) return;
     await service.start(gps: !_rec!.isTreadmill); // after a restart the service is not running yet
     if (_sub == null || !_background) await _listen(background: true);
+    if (hrState == HrLink.off) heartRate?.start();
     _act((r, at) => r.resume(at));
     _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
     refreshNotification();
@@ -184,6 +200,7 @@ class LiveRecorder extends ChangeNotifier {
     final rec = _rec;
     if (rec == null) return null;
     final recording = rec.finish(_now());
+    await heartRate?.stop();
     _finishedSteps = rec.steps;
     await _stopListening();
     _stopNotification();
@@ -199,6 +216,7 @@ class LiveRecorder extends ChangeNotifier {
   /// Drops the recording: nothing is saved.
   Future<void> discard() async {
     if (_rec == null) return;
+    await heartRate?.stop();
     await _stopListening();
     _stopNotification();
     await service.stop();
@@ -261,6 +279,15 @@ class LiveRecorder extends ChangeNotifier {
         speech?.speak(kmCueText(c)).catchError((Object e, StackTrace st) => reportError('km_voice', e, st));
       }
     }
+    notifyListeners();
+  }
+
+  void _onHeartRate(int bpm) {
+    final rec = _rec;
+    if (rec == null) return;
+    final before = rec.events.length;
+    rec.heartRate(bpm, _now());
+    if (rec.events.length > before) _save(rec.events.last);
     notifyListeners();
   }
 
