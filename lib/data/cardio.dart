@@ -149,7 +149,7 @@ class CardioStore {
           'type': r.type,
           'started_at': start,
           'distance_km': r.distanceKm,
-          'duration_sec': r.movingSec,
+          'duration_sec': r.moving,
           'elapsed_sec': r.elapsedSec,
           'source': r.source,
           'external_id': r.externalId,
@@ -157,7 +157,7 @@ class CardioStore {
           'max_hr': r.maxHr,
           'calories': r.calories,
           'avg_cadence': r.avgCadence,
-          'elevation_gain_m': r.elevationGainM,
+          'elevation_gain_m': r.elevation,
           'notes': r.notes,
           'route': r.route,
         });
@@ -175,12 +175,12 @@ class CardioStore {
 
       put('type', r.type, match.type);
       put('distance_km', r.distanceKm, match.distanceKm);
-      put('duration_sec', r.movingSec, match.durationSec);
+      put('duration_sec', r.moving, match.durationSec);
       put('avg_hr', r.avgHr, match.avgHr);
       put('max_hr', r.maxHr, match.maxHr);
       put('calories', r.calories, match.calories);
       put('avg_cadence', r.avgCadence, match.avgCadence);
-      put('elevation_gain_m', r.elevationGainM, match.elevationGainM);
+      put('elevation_gain_m', r.elevation, match.elevationGainM);
       put('notes', r.notes, match.notes, overwrite: false); // Daniel's words, an import only fills them in
       final writeTrack = r.track != null && (wins || await _hasTrack(match.id) == false);
       if (writeTrack) put('route', r.route, match.route);
@@ -226,9 +226,15 @@ class CardioStore {
   /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
   Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));
 
+  /// Soft-deletes the Run and its track.
   Future<void> delete(String id) async {
     final c = await watch(id).first;
-    await _db.save(_db.cardio, {..._columns(c), 'deleted_at': DateTime.now()});
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      await _db.save(_db.cardio, {..._columns(c), 'deleted_at': now});
+      final track = await (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
+      if (track != null) await _db.save(_db.cardioTracks, {'id': track.id, 'cardio_id': id, 'points': track.points, 'deleted_at': now});
+    });
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
 

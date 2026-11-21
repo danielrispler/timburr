@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/run_analysis.dart';
 import '../routines/start.dart';
 import '../core/theme.dart';
 import '../cardio/activity_timer.dart';
-import '../cardio/cardio_form.dart';
+import '../cardio/run_page.dart';
 import '../workouts/workout_screen.dart';
 
 enum _Type { all, strength, cardio }
@@ -90,13 +91,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     return ListTile(
       leading: IconTile(activityIcon(c.type)),
-      title: Text(activityLabel(c.type)),
+      title: Text(c.title ?? runTitle(c.startedAt.toLocal(), treadmill: c.type == 'treadmill')),
       subtitle: Text(
           [_when(context, c.startedAt), if (c.distanceKm != null) '${c.distanceKm} km', '${c.durationSec ~/ 60} min', if (pace != null) '${formatPace(pace)} /km'].join(' · '),
           maxLines: 1,
           overflow: TextOverflow.ellipsis),
-      onTap: () => Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => CardioForm(store: widget.stores.cardio, existing: c))),
+      onTap: () => openRun(context, widget.stores.cardio, c.id),
     );
   }
 }

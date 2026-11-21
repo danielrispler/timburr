@@ -1,0 +1,159 @@
+import 'track.dart';
+
+/// One kilometer of a Run (the last may be shorter): how long it took and the average heart rate over it.
+class KmSplit {
+  KmSplit(this.index, this.distanceM, this.seconds, this.avgHr);
+  final int index; // 1 for the first km
+  final double distanceM;
+  final double seconds;
+  final int? avgHr;
+
+  double get paceSecPerKm => seconds / (distanceM / 1000);
+}
+
+/// A final stretch shorter than this is dropped instead of shown as a split (its pace would be noise).
+const minLastSplitM = 100.0;
+
+/// Indices of [t] that have both time and distance, with distances that never go backwards.
+List<int> _timed(Track t) {
+  final time = t.time, dist = t.distance;
+  if (time == null || dist == null) return const [];
+  final idx = <int>[];
+  for (var i = 0; i < time.length && i < dist.length; i++) {
+    if (time[i] == null || dist[i] == null) continue;
+    if (idx.isNotEmpty && dist[i]! < dist[idx.last]!) continue; // a GPS jump backwards
+    idx.add(i);
+  }
+  return idx;
+}
+
+/// Splits of [t] per km. Needs time and distance; no splits without them. Km marks are interpolated between the two points around them.
+List<KmSplit> splitsPerKm(Track t) {
+  final idx = _timed(t);
+  if (idx.length < 2) return const [];
+  final time = t.time!, dist = t.distance!;
+  final splits = <KmSplit>[];
+  var d0 = dist[idx.first]!, t0 = time[idx.first]!.toDouble(); // where the current split began
+  var hrs = <int>[];
+  void addHr(int i) {
+    final v = t.hr != null && i < t.hr!.length ? t.hr![i] : null;
+    if (v != null) hrs.add(v);
+  }
+
+  int? avg() => hrs.isEmpty ? null : (hrs.reduce((a, b) => a + b) / hrs.length).round();
+  addHr(idx.first);
+  for (var k = 1; k < idx.length; k++) {
+    final i = idx[k], p = idx[k - 1];
+    final di = dist[i]!, ti = time[i]!.toDouble(), dp = dist[p]!, tp = time[p]!.toDouble();
+    while (di >= d0 + 1000 && di > dp) {
+      final mark = d0 + 1000;
+      final tm = tp + (ti - tp) * (mark - dp) / (di - dp);
+      splits.add(KmSplit(splits.length + 1, 1000, tm - t0, avg()));
+      d0 = mark;
+      t0 = tm;
+      hrs = [];
+    }
+    addHr(i);
+  }
+  final last = idx.last;
+  final rest = dist[last]! - d0;
+  if (rest >= minLastSplitM && time[last]! > t0) splits.add(KmSplit(splits.length + 1, rest, time[last]! - t0, avg()));
+  return splits;
+}
+
+/// Altitudes averaged over [window] neighbours (gaps skipped), which takes the GPS and barometer jitter out before climbs are added up.
+List<double> smoothAltitude(List<double?> altitude, {int window = 5}) {
+  final a = [for (final v in altitude) ?v];
+  return [
+    for (var i = 0; i < a.length; i++)
+      () {
+        final lo = (i - window ~/ 2).clamp(0, a.length - 1), hi = (i + window ~/ 2).clamp(0, a.length - 1);
+        return a.sublist(lo, hi + 1).reduce((x, y) => x + y) / (hi - lo + 1);
+      }(),
+  ];
+}
+
+/// Total climb in meters over the smoothed altitude, 0.1 m precision; null without altitude.
+double? elevationGain(Track t) {
+  final alt = t.altitude;
+  if (alt == null) return null;
+  final s = smoothAltitude(alt);
+  if (s.length < 2) return null;
+  var gain = 0.0;
+  for (var i = 1; i < s.length; i++) {
+    if (s[i] > s[i - 1]) gain += s[i] - s[i - 1];
+  }
+  return double.parse(gain.toStringAsFixed(1));
+}
+
+/// Below this speed, for [autoPauseSec] or longer, the runner counts as stopped.
+const autoPauseSpeed = 0.5; // m/s
+const autoPauseSec = 5;
+
+/// Moving time in seconds: the track's duration minus every stretch slower than [autoPauseSpeed] that lasted [autoPauseSec] or more.
+/// Null when the track has no time and distance to judge by.
+int? autoPauseMovingSec(Track t) {
+  final idx = _timed(t);
+  if (idx.length < 2) return null;
+  final time = t.time!, dist = t.distance!;
+  var paused = 0, slow = 0;
+  for (var k = 1; k < idx.length; k++) {
+    final dt = time[idx[k]]! - time[idx[k - 1]]!;
+    if (dt <= 0) continue;
+    if ((dist[idx[k]]! - dist[idx[k - 1]]!) / dt < autoPauseSpeed) {
+      slow += dt;
+    } else {
+      if (slow >= autoPauseSec) paused += slow;
+      slow = 0;
+    }
+  }
+  if (slow >= autoPauseSec) paused += slow;
+  return time[idx.last]! - time[idx.first]! - paused;
+}
+
+enum RunMetric { pace, hr, elevation }
+
+/// (km, value) points for the Run page chart: pace as sec/km over the last 100 m (stops left out), heart rate, or smoothed altitude. At most [maxPoints].
+List<(double, double)> chartSeries(Track t, RunMetric metric, {int maxPoints = 300}) {
+  final dist = t.distance;
+  if (dist == null) return const [];
+  final out = <(double, double)>[];
+  switch (metric) {
+    case RunMetric.pace:
+      final idx = _timed(t);
+      final time = t.time;
+      var j = 0;
+      for (var k = 0; k < idx.length; k++) {
+        while (j + 1 < k && dist[idx[k]]! - dist[idx[j + 1]]! >= 100) {
+          j++;
+        }
+        final dd = dist[idx[k]]! - dist[idx[j]]!, dt = time![idx[k]]! - time[idx[j]]!;
+        if (dd >= 100 && dt > 0 && dt / (dd / 1000) <= 1200) out.add((dist[idx[k]]! / 1000, dt / (dd / 1000))); // slower than 20 min/km is a stop, not a pace
+      }
+    case RunMetric.hr:
+      final hr = t.hr;
+      if (hr == null) return const [];
+      for (var i = 0; i < hr.length && i < dist.length; i++) {
+        if (hr[i] != null && dist[i] != null) out.add((dist[i]! / 1000, hr[i]!.toDouble()));
+      }
+    case RunMetric.elevation:
+      final alt = t.altitude;
+      if (alt == null) return const [];
+      final idx = [for (var i = 0; i < alt.length && i < dist.length; i++) if (alt[i] != null && dist[i] != null) i];
+      final s = smoothAltitude(alt);
+      for (var k = 0; k < idx.length && k < s.length; k++) {
+        out.add((dist[idx[k]]! / 1000, s[k]));
+      }
+  }
+  if (out.length <= maxPoints) return out;
+  final step = out.length / maxPoints;
+  return [for (var k = 0; k < maxPoints; k++) out[(k * step).floor()]];
+}
+
+/// "Morning run", "Lunch run", "Afternoon run", "Evening run" or "Night run" by the hour of [start] (local time):
+/// 5-10 Morning, 11-13 Lunch, 14-17 Afternoon, 18-21 Evening, 22-4 Night. A treadmill Run says "treadmill run".
+String runTitle(DateTime start, {bool treadmill = false}) {
+  final h = start.hour;
+  final part = h >= 5 && h < 11 ? 'Morning' : h >= 11 && h < 14 ? 'Lunch' : h >= 14 && h < 18 ? 'Afternoon' : h >= 18 && h < 22 ? 'Evening' : 'Night';
+  return '$part ${treadmill ? 'treadmill run' : 'run'}';
+}

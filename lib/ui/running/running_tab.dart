@@ -7,7 +7,7 @@ import '../../data/cardio.dart';
 import '../../data/db.dart';
 import '../../data/running.dart';
 import '../cardio/activity_timer.dart';
-import '../cardio/cardio_form.dart';
+import '../cardio/run_page.dart';
 import '../core/theme.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
@@ -117,8 +117,7 @@ class _RunsPage extends StatelessWidget {
           : IconTile(activityIcon(c.type)),
       title: Text('${c.distanceKm == null ? '-' : _km(c.distanceKm!)} · ${_time(c.durationSec)}'),
       subtitle: Text([MaterialLocalizations.of(context).formatMediumDate(c.startedAt), if (c.type == 'treadmill') 'Treadmill', if (pace != null) '${formatPace(pace)} /km'].join(' · ')),
-      // Opens a Run the same way History does, so the Run page (#59) replaces it in both.
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CardioForm(store: stores.cardio, existing: c))),
+      onTap: () => openRun(context, stores.cardio, c.id),
     );
   }
 }

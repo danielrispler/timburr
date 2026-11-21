@@ -1,3 +1,4 @@
+import 'run_analysis.dart';
 import 'track.dart';
 
 /// Fewer positioned points than this and a recording has no route (old Strava files have a handful).
@@ -10,7 +11,7 @@ class Recording {
     required this.type,
     required this.start,
     required this.elapsedSec,
-    required this.movingSec,
+    this.movingSec,
     this.externalId,
     this.distanceKm,
     this.track,
@@ -26,7 +27,7 @@ class Recording {
   final String type; // run or treadmill
   final DateTime start;
   final int elapsedSec; // start to end, pauses included
-  final int movingSec;
+  final int? movingSec; // null when the source has none: [moving] then comes from the track
   final String? externalId; // with source, identifies the recording so ingesting it twice changes nothing
   final double? distanceKm;
   final Track? track;
@@ -36,6 +37,12 @@ class Recording {
 
   /// The route stored on the Run for thumbnails: [simplifyRoute] of the track, null when there is no route.
   String? get route => hasRoute ? simplifyRoute(track!) : null;
+
+  /// Moving time: the source's, else auto-pause over the track, else Elapsed time.
+  int get moving => movingSec ?? (track == null ? null : autoPauseMovingSec(track!)) ?? elapsedSec;
+
+  /// Elevation gain: the source's, else the climb over the track's altitudes.
+  double? get elevation => elevationGainM ?? (track == null ? null : elevationGain(track!));
 
   DateTime get end => start.add(Duration(seconds: elapsedSec));
 

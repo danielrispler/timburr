@@ -39,7 +39,7 @@ ParsedFile parseStravaTcx(String fileName, String xml) {
 
   // Strava restarts the trackpoint distance in every lap; the track runs on from the previous lap's end.
   final time = <DateTime>[], dist = <double?>[], lat = <double?>[], lon = <double?>[], alt = <double?>[], hr = <int?>[];
-  var offset = 0.0, lapSeconds = 0.0;
+  var offset = 0.0;
   for (final lap in activity.findElements('Lap')) {
     var lapEnd = 0.0;
     for (final tp in lap.findAllElements('Trackpoint')) {
@@ -57,14 +57,13 @@ ParsedFile parseStravaTcx(String fileName, String xml) {
       if (d != null && d > lapEnd) lapEnd = d;
     }
     offset += double.tryParse(text(lap, 'DistanceMeters') ?? '') ?? lapEnd;
-    lapSeconds += double.tryParse(text(lap, 'TotalTimeSeconds') ?? '') ?? 0;
   }
-  return buildRunFile(name, text(activity, 'Id') ?? name, time: time, dist: dist, lat: lat, lon: lon, alt: alt, hr: hr, distanceM: offset, lapSeconds: lapSeconds);
+  return buildRunFile(name, text(activity, 'Id') ?? name, time: time, dist: dist, lat: lat, lon: lon, alt: alt, hr: hr, distanceM: offset);
 }
 
-/// Turns parsed points into a [Recording] (source `file`) using the Strava file-name rules, shared by the TCX and GPX readers. [distanceM] is the total, [lapSeconds] the fallback Moving time.
+/// Turns parsed points into a [Recording] (source `file`) using the Strava file-name rules, shared by the TCX and GPX readers. [distanceM] is the total.
 ParsedFile buildRunFile(String fileName, String externalId,
-    {required List<DateTime> time, required List<double?> dist, required List<double?> lat, required List<double?> lon, required List<double?> alt, required List<int?> hr, required double distanceM, double lapSeconds = 0}) {
+    {required List<DateTime> time, required List<double?> dist, required List<double?> lat, required List<double?> lon, required List<double?> alt, required List<int?> hr, required double distanceM}) {
   final name = fileName.split('/').last;
   final warnings = <String>[];
   final offset = distanceM;
@@ -91,10 +90,9 @@ ParsedFile buildRunFile(String fileName, String externalId,
         warnings.add('Unknown type "${m[4]}", saved as Run');
     }
   }
-  var moving = m == null ? null : _movingFromName(m);
+  final moving = m == null ? null : _movingFromName(m);
   if (moving == null) {
-    moving = lapSeconds > 0 ? lapSeconds.round() : elapsed;
-    warnings.add('No Moving time in the file name, using ${lapSeconds > 0 ? 'the lap times' : 'Elapsed time'}');
+    warnings.add('No Moving time in the file name, so it comes from the track with auto-pause');
   }
 
   final positioned = [for (var i = 0; i < lat.length; i++) if (lat[i] != null && lon[i] != null) i].length;

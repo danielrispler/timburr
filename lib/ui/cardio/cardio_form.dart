@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/run_analysis.dart';
 import '../core/text_direction.dart';
 import '../core/theme.dart';
 import 'activity_timer.dart';
@@ -32,6 +33,8 @@ class _CardioFormState extends State<CardioForm> {
   late final _incline = TextEditingController(text: c?.inclinePct == null ? '' : _num(c!.inclinePct!));
   late final _rpe = TextEditingController(text: c?.rpe?.toString() ?? '');
   late final _notes = TextEditingController(text: c?.notes ?? '');
+  late final _title = TextEditingController(text: c?.title ?? '');
+  late final _elapsed = TextEditingController(text: c?.elapsedSec == null ? '' : _hms(c!.elapsedSec!));
   Map<String, String> _errors = {};
 
   static String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
@@ -42,7 +45,7 @@ class _CardioFormState extends State<CardioForm> {
 
   @override
   void dispose() {
-    for (final t in [_km, _dur, _hr, _incline, _rpe, _notes]) {
+    for (final t in [_km, _dur, _hr, _incline, _rpe, _notes, _title, _elapsed]) {
       t.dispose();
     }
     super.dispose();
@@ -59,9 +62,32 @@ class _CardioFormState extends State<CardioForm> {
   Future<void> _save() async {
     final errors = validateCardio(
         type: _type, distance: _km.text, duration: _dur.text, avgHr: _hr.text, incline: _type == 'treadmill' ? _incline.text : '', rpe: _rpe.text);
+    final elapsed = parseDuration(_elapsed.text);
+    if (c != null && _elapsed.text.trim().isNotEmpty && (elapsed == null || elapsed <= 0)) errors['elapsed'] = 'Enter a time like 31:10';
     setState(() => _errors = errors);
     if (errors.isNotEmpty) return;
     String? opt(TextEditingController t) => t.text.trim().isEmpty ? null : t.text.trim();
+    if (c != null) {
+      // Only what changed is saved, and only that is marked as edited, so a later recording still fills the rest.
+      final old = c!, fields = <String, Object?>{};
+      void diff(String column, Object? now, Object? before) {
+        if (now != before) fields[column] = now;
+      }
+
+      diff('type', _type, old.type);
+      if (!_at.isAtSameMomentAs(old.startedAt)) fields['started_at'] = _at;
+      diff('distance_km', parseNum(_km.text), old.distanceKm);
+      diff('duration_sec', parseDuration(_dur.text), old.durationSec);
+      if (elapsed != null) diff('elapsed_sec', elapsed, old.elapsedSec);
+      diff('avg_hr', opt(_hr) == null ? null : int.parse(opt(_hr)!), old.avgHr);
+      diff('incline_pct', _type != 'treadmill' || opt(_incline) == null ? null : parseNum(_incline.text), old.inclinePct);
+      diff('rpe', opt(_rpe) == null ? null : int.parse(opt(_rpe)!), old.rpe);
+      diff('title', opt(_title), old.title);
+      diff('notes', opt(_notes), old.notes);
+      if (fields.isNotEmpty) await widget.store.edit(old.id, fields);
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     await widget.store.save(
       id: c?.id,
       type: _type!,
@@ -146,8 +172,10 @@ class _CardioFormState extends State<CardioForm> {
                       onTap: _pickDate,
                     )),
               ),
+              if (c != null) _field('title', _title, 'Title', keyboard: TextInputType.text, hint: runTitle(_at, treadmill: _type == 'treadmill')),
               _field('distance', _km, 'Distance (km)'),
-              _field('duration', _dur, 'Duration', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
+              _field('duration', _dur, c == null ? 'Duration' : 'Moving time', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
+              if (c != null) _field('elapsed', _elapsed, 'Elapsed time (optional)', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(pace == null ? 'Pace: -' : 'Pace: ${formatPace(pace)} min/km', style: Theme.of(context).textTheme.titleMedium),

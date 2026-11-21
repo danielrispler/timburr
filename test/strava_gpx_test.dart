@@ -51,7 +51,7 @@ void main() {
     expect(parseStravaGpx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה,הליכה.gpx', gpx(60)).recording!.notes, 'run/walk');
     final plain = parseStravaGpx('morning.gpx', gpx(60));
     expect(plain.warnings, isNotEmpty);
-    expect(plain.recording!.movingSec, 59);
+    expect(plain.recording!.moving, 59);
   });
 
   test('a short track keeps distance and time but no route', () {

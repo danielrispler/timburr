@@ -96,9 +96,10 @@ void main() {
     expect(p.skipReason, contains('distance'));
   });
 
-  test('a name without Moving time falls back to the lap times, with a warning', () {
+  test('a name without Moving time leaves it to the track (auto-pause), with a warning', () {
     final p = parseStravaTcx('mystery.tcx', tcx([points(60)]));
-    expect(p.recording!.movingSec, 600); // the lap's TotalTimeSeconds
+    expect(p.recording!.movingSec, isNull);
+    expect(p.recording!.moving, 59);
     expect(p.warnings, contains(contains('Moving time')));
   });
 
