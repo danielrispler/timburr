@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/hr_zones.dart';
+import '../../data/load.dart';
 import '../../data/recording.dart' show drawsRoute;
 import '../../data/run_analysis.dart';
 import '../../data/settings.dart';
@@ -118,6 +120,13 @@ class _RunBodyState extends State<_RunBody> {
           _Stat('Pace', pace == null ? '-' : '${formatPace(pace)} /km'),
           _Stat('Avg HR', c.avgHr?.toString() ?? '-'),
           _Stat('Max HR', c.maxHr?.toString() ?? '-'),
+          StreamBuilder<AppSetting?>(
+            stream: widget.settings.watch(),
+            builder: (context, s) {
+              final load = runLoad(c, t, effectiveMaxHr(s.data?.maxHr, s.data?.birthYear, DateTime.now()));
+              return _Stat('Relative Effort', load.estimated ? '-' : load.effort.round().toString()); // no HR, no score
+            },
+          ),
           _Stat('Elevation gain', c.elevationGainM == null ? '-' : '${c.elevationGainM!.round()} m'),
         ]),
       ),
@@ -152,7 +161,7 @@ class _RunBodyState extends State<_RunBody> {
           ListTile(
             dense: true,
             leading: SizedBox(width: 56, child: Text('Lap ${l.index}')),
-            title: Text('${formatDuration(l.durationSec)} · ${(l.distanceM / 1000).toStringAsFixed(2)} km'),
+            title: Text(l.distanceM == null ? formatDuration(l.durationSec) : '${formatDuration(l.durationSec)} · ${(l.distanceM! / 1000).toStringAsFixed(2)} km'),
             trailing: Text(l.paceSecPerKm == null ? '' : '${formatPace(l.paceSecPerKm!)} /km'),
           ),
       ]),

@@ -16,6 +16,7 @@ import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
 import 'goals_section.dart';
+import 'fitness_section.dart';
 import 'race_predictor.dart';
 import 'record_screen.dart';
 import 'running_records.dart';
@@ -235,6 +236,7 @@ class _ProgressPageState extends State<_ProgressPage> {
                 TrainingLog(stores: widget.stores, runs: widget.runs), // Progress sections: one line each, added below
                 RaceSection(store: widget.store, runs: widget.runs),
                 GoalsSection(store: widget.store, runs: widget.runs),
+                FitnessSection(store: widget.store, runs: widget.runs),
               ]),
             ),
           );

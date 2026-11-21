@@ -117,6 +117,9 @@ Future<HcCheck> applySessions(CardioStore cardio, WorkoutStore workouts, List<Hc
   return (runs: runs, workouts: filled);
 }
 
+/// The app's one Health Connect, set in main (like `liveRecorder`). Null in tests.
+HealthConnect? healthConnect;
+
 enum HcStatus { unknown, unavailable, updateNeeded, disconnected, connected }
 
 /// The Fitbit's data through Health Connect. The platform side is MainActivity.kt (channel `timburr/health`); everything it reads goes through

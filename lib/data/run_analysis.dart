@@ -171,15 +171,16 @@ class Lap {
   Lap(this.index, this.durationSec, this.distanceM);
   final int index; // 1 for the first
   final int durationSec;
-  final double distanceM;
+  final double? distanceM; // null when the track has no distance (a treadmill Run)
 
-  double? get paceSecPerKm => distanceM < 10 ? null : durationSec / (distanceM / 1000);
+  double? get paceSecPerKm => distanceM == null || distanceM! < 10 ? null : durationSec / (distanceM! / 1000);
 }
 
 /// The laps of [track], empty when it has no Lap marks or no time and distance to measure them with.
 List<Lap> lapsOf(Track track) {
   final marks = track.laps;
   if (marks == null || marks.isEmpty) return const [];
+  if (track.distance == null) return _timeOnlyLaps(track, marks);
   final t = withGpsDistance(track);
   final idx = timedIndices(t);
   if (idx.length < 2) return const [];
@@ -200,5 +201,16 @@ List<Lap> lapsOf(Track track) {
   return [
     for (var k = 0; k + 1 < bounds.length; k++)
       if (bounds[k + 1] > bounds[k]) Lap(k + 1, bounds[k + 1] - bounds[k], distAt(bounds[k + 1]) - distAt(bounds[k])),
+  ];
+}
+
+/// Laps of a track that has times but no distance: their durations only.
+List<Lap> _timeOnlyLaps(Track track, List<int> marks) {
+  final time = track.time?.whereType<int>().toList() ?? const <int>[];
+  if (time.length < 2) return const [];
+  final bounds = [time.first, ...marks, time.last];
+  return [
+    for (var k = 0; k + 1 < bounds.length; k++)
+      if (bounds[k + 1] > bounds[k]) Lap(k + 1, bounds[k + 1] - bounds[k], null),
   ];
 }
