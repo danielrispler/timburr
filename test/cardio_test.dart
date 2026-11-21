@@ -35,8 +35,10 @@ void main() {
             String dur = '27:30',
             String hr = '',
             String incline = '',
-            String rpe = ''}) =>
-        validateCardio(type: type, distance: km, duration: dur, avgHr: hr, incline: incline, rpe: rpe);
+            String rpe = '',
+            String steps = '',
+            String calories = ''}) =>
+        validateCardio(type: type, distance: km, duration: dur, avgHr: hr, incline: incline, rpe: rpe, steps: steps, calories: calories);
 
     test('valid input has no errors', () => expect(v(hr: '150', incline: '0', rpe: '7'), isEmpty));
     test('required fields', () {
@@ -57,15 +59,19 @@ void main() {
       expect(v(rpe: '10'), isEmpty);
     });
     test('server column limits are rejected', () {
-      expect(v(incline: '1000').keys, ['incline']); // numeric(4, 1)
-      expect(v(incline: '999.96').keys, ['incline']); // rounds to 1000.0
+      expect(v(incline: '41').keys, ['incline']); // check 0..40
+      expect(v(incline: '40.04'), isEmpty); // rounds to 40.0
+      expect(v(incline: '40.06').keys, ['incline']); // rounds to 40.1
+      expect(v(steps: '-1').keys, ['steps']);
+      expect(v(steps: '5000.5').keys, ['steps']);
+      expect(v(calories: '2147483648').keys, ['calories']);
       expect(v(km: '10000').keys, ['distance']); // numeric(7, 3)
       expect(v(km: '0.0004').keys, ['distance']); // rounds to 0
       expect(v(hr: '2147483648').keys, ['avgHr']); // int4
       expect(v(dur: '35791395:00').keys, ['duration']); // 2147483700 s > int4
     });
     test('valid edge values pass', () {
-      expect(v(incline: '999.9', km: '9999.999', hr: '2147483647', dur: '35791394:07'), isEmpty);
+      expect(v(incline: '40', steps: '6200', calories: '410', km: '9999.999', hr: '2147483647', dur: '35791394:07'), isEmpty);
       expect(v(km: '0.0005'), isEmpty);
     });
     test('decimal comma is accepted', () => expect(v(km: '5,2'), isEmpty));

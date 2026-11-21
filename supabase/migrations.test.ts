@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_treadmill.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -223,5 +223,40 @@ describe('006_runs.sql', () => {
     ).rejects.toThrow(/unique/)
     expect(await as(other, () => rows('select * from settings'))).toHaveLength(0)
     await expect(put(300, '2026-10-24T11:00:00Z')).rejects.toThrow(/max_hr/)
+  })
+})
+
+describe('007_treadmill.sql', () => {
+  const id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+  const put = (incline: number | null, steps: number | null, calories: number | null = 380) =>
+    as(me, () =>
+      rows(
+        `insert into cardio (id, type, started_at, distance_km, duration_sec, incline_pct, steps, calories, edited_fields)
+         values ($1, 'treadmill', now(), 5, 1800, $2, $3, $4, array['distance_km', 'incline_pct', 'steps'])
+         on conflict (id) do update set incline_pct = excluded.incline_pct, steps = excluded.steps, calories = excluded.calories`,
+        [id, incline, steps, calories],
+      ),
+    )
+
+  it('stores incline, steps and calories on a treadmill Run, all optional', async () => {
+    await put(2.5, 6100)
+    expect(await as(me, () => rows('select incline_pct, steps, calories, edited_fields from cardio where id = $1', [id]))).toEqual([
+      { incline_pct: '2.5', steps: 6100, calories: 380, edited_fields: ['distance_km', 'incline_pct', 'steps'] },
+    ])
+    await put(null, null, null)
+    expect(await as(me, () => rows('select incline_pct, steps, calories from cardio where id = $1', [id]))).toEqual([{ incline_pct: null, steps: null, calories: null }])
+    // Rows from before the migration have no steps and stay valid.
+    await as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), 'run', now(), 5, 1500)`))
+  })
+
+  it('rejects an incline outside 0 to 40 and negative steps', async () => {
+    await expect(put(41, 100)).rejects.toThrow(/cardio_incline_pct_range/)
+    await expect(put(-1, 100)).rejects.toThrow(/cardio_incline_pct_range/)
+    await expect(put(1, -1)).rejects.toThrow(/steps/)
+    await put(40, 0)
+  })
+
+  it('keeps the new columns under the existing RLS', async () => {
+    expect(await as(other, () => rows('select steps from cardio where id = $1', [id]))).toHaveLength(0)
   })
 })

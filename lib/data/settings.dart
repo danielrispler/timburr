@@ -22,9 +22,6 @@ class SettingsStore {
   /// Remembers [birthYear] and sets Max HR to 220 minus age.
   Future<void> setBirthYear(int birthYear, {DateTime? now}) => _write({'birth_year': birthYear, 'max_hr': maxHrFromBirthYear(birthYear, now ?? DateTime.now())});
 
-  /// Saves the calibrated stride: [strideM] meters a step, the average of [samples] corrections.
-  Future<void> setStride(double strideM, int samples) => _write({'stride_m': strideM, 'stride_samples': samples});
-
   Future<void> _write(Map<String, Object?> fields) async {
     final existing = await (_db.select(_db.appSettings)..where((s) => s.id.equals(settingsRowId))).getSingleOrNull();
     final revive = existing?.deletedAt != null;

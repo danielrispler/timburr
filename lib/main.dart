@@ -64,7 +64,6 @@ Future<void> main() async {
     service: recordingService,
     notification: recordingService,
     speech: TtsSpeech(),
-    stepSource: PedometerSource(),
     journal: DbJournal(db),
     cardio: cardio,
     heartRate: HeartRateLink(sensor: BleHeartRateSensor(), memory: FileDeviceMemory()),
