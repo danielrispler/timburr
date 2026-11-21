@@ -95,37 +95,34 @@ class StatsBuilder extends StatelessWidget {
       );
 }
 
-/// Stats tab: Me, Workouts, Exercises and Records.
-class StatsScreen extends StatelessWidget {
-  const StatsScreen({super.key, required this.stores});
+/// Workouts > Stats: totals, heatmap, weekly charts, most trained and per-saved-workout stats in one scroll.
+class WorkoutStatsPage extends StatelessWidget {
+  const WorkoutStatsPage({super.key, required this.stores});
 
   final Stores stores;
 
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-    length: 4,
-    child: Column(
-      children: [
-        const TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.center,
-          tabs: [
-            Tab(text: 'Me'),
-            Tab(text: 'Workouts'),
-            Tab(text: 'Exercises'),
-            Tab(text: 'Records'),
-          ],
-        ),
-        Expanded(
-          child: StatsBuilder(
-            stores: stores,
-            builder: (context, d) =>
-                TabBarView(children: [_Me(d), _Routines(d), _Exercises(d, stores), _Records(d, stores)]),
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Me(d));
+}
+
+/// Workouts > Exercises.
+class ExercisesPage extends StatelessWidget {
+  const ExercisesPage({super.key, required this.stores});
+
+  final Stores stores;
+
+  @override
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Exercises(d, stores));
+}
+
+/// Workouts > Records.
+class RecordsPage extends StatelessWidget {
+  const RecordsPage({super.key, required this.stores});
+
+  final Stores stores;
+
+  @override
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Records(d, stores));
 }
 
 Widget _page(List<Widget> children) => Center(
@@ -158,7 +155,6 @@ class _Me extends StatelessWidget {
             StatChip('Lifted', fmtVolume(t.volume)),
             StatChip('Sets', '${t.sets}'),
             StatChip('Time', fmtDuration(t.time)),
-            StatChip('Cardio', '${fmtNum(t.cardioKm)} km'),
             StatChip('Streak', '${streak.current} wk'),
             StatChip('Best streak', '${streak.longest} wk'),
           ],
@@ -175,6 +171,7 @@ class _Me extends StatelessWidget {
             ListTile(dense: true, title: Text(d.exercises[id]?.name ?? '…'), trailing: Text('$n sets')),
         ],
       ),
+      _RoutineStats(d),
     ]);
   }
 }
@@ -314,8 +311,9 @@ class _Bars extends StatelessWidget {
   }
 }
 
-class _Routines extends StatelessWidget {
-  const _Routines(this.d);
+/// Per-saved-workout stats, a section of the Stats scroll.
+class _RoutineStats extends StatelessWidget {
+  const _RoutineStats(this.d);
 
   final StatsData d;
 
@@ -327,8 +325,8 @@ class _Routines extends StatelessWidget {
       for (final r in routineStats(d.workouts))
         if (names.containsKey(r.routineId)) r,
     ];
-    return _page([
-      TileGroup(
+    return TileGroup(
+        title: 'Saved workouts',
         children: [
           if (stats.isEmpty) const ListTile(title: Text('No saved workout done yet')),
           for (final r in stats)
@@ -352,8 +350,7 @@ class _Routines extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    ]);
+      );
   }
 }
 

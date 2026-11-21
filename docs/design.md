@@ -54,7 +54,7 @@ Changes from the brief:
 
 ## Screens
 
-Header on every screen: title and sync status. Bottom tabs: Home, History, Workouts, More. Saved routines are called "workouts" in the UI.
+Header on every screen: title, History icon, More icon and sync status. Bottom tabs: Home, Workouts, Running. Workouts has top tabs Saved, Stats, Exercises and Records. Running is a placeholder until the Runs view lands. Each tab keeps its own navigation stack. Saved routines are called "workouts" in the UI.
 
 1. **Login.** Shown once on a fresh install. Email and password.
 2. **Home.** Resume-workout banner, the backup reminder (dismissible, shown when the last export is older than 14 days), and "Start workout". That opens a list of saved workouts, Empty workout and the activities. Each asks **Start now** (live workout, or a timer for activities) or **I did it** (logged at a picked time, all sets done).
@@ -67,10 +67,11 @@ Header on every screen: title and sync status. Bottom tabs: Home, History, Worko
    Below the cards: add exercise, then finish or discard. A non-blocking rest bar appears at the bottom after a set is marked done.
 4. **Exercise picker.** Search by name, filter by muscle and equipment, thumbnails, optional multi-select. Used by the workout and routine screens.
 5. **Workout builder (routine editor).** Exercise cards with photo and planned sets ("3 sets • 10 reps"), swipe to delete, long-press to reorder, tap to edit sets. Bookmark names and saves it; a new one never named is deleted on leaving. Add exercises (multi-select), Start workout, I have done this workout. Finishing a workout that differs from its routine asks whether to update the routine.
-6. **History.** Workouts and cardio by date, with a type filter. Opens the workout or cardio detail.
+6. **History** (header icon, opens over the tabs; back returns to the tab). Workouts and cardio by date, with a type filter. Opens the workout or cardio detail.
 7. **Cardio form.** New or edit: type, date, distance, duration, average HR, incline, RPE, notes. Pace is computed.
-8. **Exercises** (under More). Media: the exercises-dataset thumbnail and looping GIF (© Gym visual, credited under the GIF), downloaded on first view into the cache dir (not synced or backed up); plus a YouTube search link. Library and custom exercises with search and filters. The detail page shows instructions, load type, sticky note, last session, PRs and charts. Custom exercises can be created, edited and deleted.
-9. **More.** Exercises, Cardio stats (sports: time and sessions per week), Import, Backup / Restore, Sync now, Sign out.
+8. **Exercises** (Workouts top tab). Media: the exercises-dataset thumbnail and looping GIF (© Gym visual, credited under the GIF), downloaded on first view into the cache dir (not synced or backed up); plus a YouTube search link. Library and custom exercises with search and filters. The detail page shows instructions, load type, sticky note, last session, PRs and charts. Custom exercises can be created, edited and deleted.
+9. **More.** Import, Backup / Restore, Sync now, Sign out.
+10. **Stats** (Workouts top tab). One scroll: totals, streaks, heatmap, weekly charts, most trained and per-saved-workout stats. **Records** (Workouts top tab) holds PRs and all-time bests, plus the Cardio stats link until it is removed.
 
 ## Defaults decided during planning
 

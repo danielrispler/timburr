@@ -9,16 +9,14 @@ import '../../data/workouts.dart';
 import '../history/history_screen.dart';
 import '../routines/routines_home.dart';
 import '../routines/start.dart';
-import '../stats/stats_screen.dart';
 import '../sync/sync_ui.dart';
 
 typedef _Tab = ({String label, IconData icon});
 
 const _tabs = <_Tab>[
   (label: 'Home', icon: Icons.home),
-  (label: 'History', icon: Icons.history),
   (label: 'Workouts', icon: Icons.fitness_center),
-  (label: 'Stats', icon: Icons.insights),
+  (label: 'Running', icon: Icons.directions_run),
 ];
 
 /// Header plus bottom tabs. Each tab keeps its own navigator stack; Android back
@@ -61,6 +59,16 @@ class _AppShellState extends State<AppShell> {
           title: Text(_tabs[_index].label),
           actions: [
             IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'History',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('History')),
+                  body: HistoryScreen(stores: _stores),
+                ),
+              )),
+            ),
+            IconButton(
               icon: const Icon(Icons.settings),
               tooltip: 'More',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
@@ -100,8 +108,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _tabRoot(int i) => switch (_tabs[i].label) {
         'Home' => HomeScreen(stores: _stores),
-        'History' => HistoryScreen(stores: _stores),
         'Workouts' => WorkoutsTab(stores: _stores),
-        _ => StatsScreen(stores: _stores),
+        _ => const Center(child: Text('Running is coming soon')),
       };
 }
