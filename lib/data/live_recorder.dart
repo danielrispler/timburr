@@ -46,7 +46,6 @@ abstract class StepSource {
 }
 
 /// The foreground service that keeps the app alive with the screen off, with its ongoing notification.
-/// shortcut for #69: add an `update(RunSnapshot)` here for the notification's time, distance and pause button.
 abstract class RecordingService {
   /// [gps] false for a treadmill recording, which does not use the location permission.
   Future<void> start({bool gps = true});
@@ -166,8 +165,7 @@ class LiveRecorder extends ChangeNotifier {
     await service.start(gps: !rec.isTreadmill);
     await _listen(background: true);
     heartRate?.start();
-    _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
-    refreshNotification();
+    _startNotifying();
     notifyListeners();
   }
 
@@ -191,6 +189,10 @@ class LiveRecorder extends ChangeNotifier {
     if (_sub == null || !_background) await _listen(background: true);
     if (hrState == HrLink.off) heartRate?.start();
     _act((r, at) => r.resume(at));
+    _startNotifying();
+  }
+
+  void _startNotifying() {
     _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
     refreshNotification();
   }
@@ -235,7 +237,7 @@ class LiveRecorder extends ChangeNotifier {
   /// Picks up a recording the app was killed in, as paused at its last point. True when there was one. Call once at startup.
   Future<bool> restore() async {
     final events = await journal.load();
-    if (events.isEmpty || events.first.kind != 'start') return false;
+    if (events.isEmpty || events.first.kind != EventKind.start) return false;
     final rec = Recorder.replay(events);
     if (!rec.paused) {
       rec.pause(rec.lastEventAt);
@@ -270,42 +272,26 @@ class LiveRecorder extends ChangeNotifier {
 
   void _onSample(PositionSample s) {
     _lastSeen = s;
+    _input((r, _) => r.position(s));
+  }
+
+  void _onHeartRate(int bpm) => _input((r, at) => r.heartRate(bpm, at));
+
+  void _onSteps(int count) => _input((r, at) => r.stepCount(at, count));
+
+  void _act(void Function(Recorder, DateTime) f) => _input(f);
+
+  /// Gives the recorder one input: saves the event it logged, speaks any km it completed, and notifies. Before Start there is no recorder, so only the notify.
+  void _input(void Function(Recorder, DateTime) f) {
     final rec = _rec;
     if (rec != null) {
       final before = rec.events.length, cues = rec.kmCues.length;
-      rec.position(s);
+      f(rec, _now());
       if (rec.events.length > before) _save(rec.events.last);
       for (final c in rec.kmCues.skip(cues)) {
         speech?.speak(kmCueText(c)).catchError((Object e, StackTrace st) => reportError('km_voice', e, st));
       }
     }
-    notifyListeners();
-  }
-
-  void _onHeartRate(int bpm) {
-    final rec = _rec;
-    if (rec == null) return;
-    final before = rec.events.length;
-    rec.heartRate(bpm, _now());
-    if (rec.events.length > before) _save(rec.events.last);
-    notifyListeners();
-  }
-
-  void _onSteps(int count) {
-    final rec = _rec;
-    if (rec == null) return;
-    final before = rec.events.length;
-    rec.stepCount(_now(), count);
-    if (rec.events.length > before) _save(rec.events.last);
-    notifyListeners();
-  }
-
-  void _act(void Function(Recorder, DateTime) f) {
-    final rec = _rec;
-    if (rec == null) return;
-    final before = rec.events.length;
-    f(rec, _now());
-    if (rec.events.length > before) _save(rec.events.last);
     notifyListeners();
   }
 

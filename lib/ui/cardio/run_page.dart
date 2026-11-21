@@ -151,7 +151,7 @@ class _RunBodyState extends State<_RunBody> {
           ListTile(
             dense: true,
             leading: SizedBox(width: 56, child: Text('Lap ${l.index}')),
-            title: Text('${formatDuration(l.durationSec)} · ${(l.distanceM / 1000).toStringAsFixed(2)} km'),
+            title: Text(l.distanceM == null ? formatDuration(l.durationSec) : '${formatDuration(l.durationSec)} · ${(l.distanceM! / 1000).toStringAsFixed(2)} km'),
             trailing: Text(l.paceSecPerKm == null ? '' : '${formatPace(l.paceSecPerKm!)} /km'),
           ),
       ]),

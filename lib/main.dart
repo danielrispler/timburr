@@ -71,7 +71,7 @@ Future<void> main() async {
     maxHr: () => maxHr,
   );
   await liveRecorder!.restore();
-  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
+  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: healthConnect = HealthConnect(cardio, workouts), sync: sync));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();

@@ -44,3 +44,12 @@ _Avoid_: personal best, record
 **Max HR**: the highest heart rate Daniel can reach. HR zones are set from it.
 
 **HR zone**: one of five equal bands of Max HR, from 50% to 100%. Zone 1 is the easiest.
+
+**Recording**: what Daniel captures live with the phone: GPS for an outdoor Run, steps for a treadmill Run, plus the heart rate band when connected. It is saved as it goes, and finishing it makes a Run. The same word covers what any source (file, Health Connect, live) hands to the Run store.
+
+**Lap**: a stretch of a Run between two presses of the Lap button (the first starts at the start, the last ends with the Run). An outdoor lap shows time and distance; a treadmill lap shows time only.
+
+**Stride**: the length of one step, used to turn a treadmill Run's steps into distance. It starts at a default and is learned from each Check distance, where Daniel types the distance the treadmill showed.
+_Avoid_: step length
+
+**HR band**: the Bluetooth heart rate band (the Fitbit Air) that streams live heart rate during a Recording. Daniel chooses it once on the recording setup screen and it is remembered; a Recording never picks one on its own.
