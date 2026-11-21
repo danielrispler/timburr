@@ -11,10 +11,31 @@ import 'package:timburr/data/workouts.dart';
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
+  test('v6 to v7 adds the Run columns, tracks, settings and the best-effort cache, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await _dropV7Schema(db);
+    await db.customStatement('pragma user_version = 6');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    final run = (await CardioStore(db).watchAll().first).single;
+    expect((run.distanceKm, run.durationSec, run.elapsedSec, run.source), (5.0, 1500, null, null));
+    expect(run.editedFields, isEmpty);
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': run.id, 'points': 'x'});
+    await db.save(db.appSettings, {'id': 's1', 'max_hr': 190, 'birth_year': 1990, 'stride_m': 0.9});
+    await db.into(db.bestEfforts).insert(BestEffortsCompanion.insert(cardioId: run.id, distanceM: 1000, seconds: 240));
+    final idx = await db.customSelect("select name from sqlite_master where type = 'index' and name like '%_dirty'").get();
+    expect(idx.map((r) => r.read<String>('name')), containsAll(['cardio_tracks_dirty', 'settings_dirty']));
+    await db.close();
+  });
+
   test('v1 to v2 adds routine_sets and makes cardio distance optional, keeping rows', () async {
     final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
     // Build a v1 file: today's schema minus routine_sets, with distance_km NOT NULL again.
     var db = AppDb(NativeDatabase(file));
+    await _dropV7Schema(db);
     final ddl = (await db.customSelect("select sql from sqlite_master where name = 'cardio'").getSingle()).read<String>('sql');
     expect(ddl, contains('"distance_km" REAL NULL'));
     await _dropV6Columns(db);
@@ -22,7 +43,7 @@ void main() {
     await db.customStatement('drop table routine_sets');
     await db.customStatement('drop table cardio');
     await db.customStatement(ddl.replaceFirst('"distance_km" REAL NULL', '"distance_km" REAL NOT NULL'));
-    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await db.customStatement("insert into cardio (id, type, started_at, distance_km, duration_sec, created_at, updated_at, dirty) values ('c1', 'run', '2026-01-01T00:00:00.000Z', 5, 1500, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', 1)");
     await db.customStatement('pragma user_version = 1');
     await db.close();
 
@@ -38,6 +59,7 @@ void main() {
     final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
     var db = AppDb(NativeDatabase(file));
     final w = await WorkoutStore(db).start();
+    await _dropV7Schema(db);
     await _dropV6Columns(db);
     await _dropV3Columns(db);
     await db.customStatement('pragma user_version = 2');
@@ -57,6 +79,7 @@ void main() {
     for (final n in names) {
       await db.customStatement('drop index $n');
     }
+    await _dropV7Schema(db);
     await _dropV6Columns(db);
     await db.customStatement('pragma user_version = 4');
     await db.close();
@@ -74,6 +97,7 @@ void main() {
     final w = await WorkoutStore(db).start();
     await WorkoutStore(db).addExercise(w, CatalogEntry(name: 'A', libraryId: 'A', loadType: 'weighted'));
     await db.customStatement("update workout_exercises set backup_exercise_id = '${libraryRowId('A')}'");
+    await _dropV7Schema(db);
     await _dropV6Columns(db);
     await db.customStatement('pragma user_version = 5');
     await db.close();
@@ -99,6 +123,16 @@ Future<void> _dropV3Columns(AppDb db) async {
     ('workouts', 'cardio_load'),
   ]) {
     await db.customStatement('alter table $t drop column $c');
+  }
+}
+
+/// Back to the v6 schema: drops what v7 added.
+Future<void> _dropV7Schema(AppDb db) async {
+  for (final t in ['cardio_tracks', 'settings', 'best_efforts']) {
+    await db.customStatement('drop table $t');
+  }
+  for (final c in ['elapsed_sec', 'title', 'source', 'external_id', 'elevation_gain_m', 'max_hr', 'avg_cadence', 'calories', 'route', 'edited_fields']) {
+    await db.customStatement('alter table cardio drop column $c');
   }
 }
 

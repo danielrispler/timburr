@@ -58,7 +58,7 @@ Future<bool?> askWhen(BuildContext context, String title) => showModalBottomShee
       ),
     );
 
-/// Saved workouts, an empty one, and the activities. Each asks Start now or I did it.
+/// Saved workouts, an empty one, Run and Treadmill run. Each asks Start now or I did it.
 class StartWorkoutScreen extends StatelessWidget {
   const StartWorkoutScreen({super.key, required this.stores});
 
@@ -91,7 +91,7 @@ class StartWorkoutScreen extends StatelessWidget {
                     onTap: () => _strength(context, 'Empty workout', null),
                   ),
                 ]),
-                TileGroup(title: 'Activities', children: [
+                TileGroup(title: 'Runs', children: [
                   for (final t in cardioTypes)
                     ListTile(
                       leading: IconTile(activityIcon(t)),

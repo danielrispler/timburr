@@ -12,7 +12,7 @@ for line in open(os.path.join(ROOT, '.env')):
 url, key = env['VITE_SUPABASE_URL'], env['SUPABASE_SERVICE_ROLE_KEY']
 
 tables = {}
-for t in ['exercises', 'routines', 'routine_exercises', 'routine_sets', 'workouts', 'workout_exercises', 'sets']:
+for t in ['exercises', 'routines', 'routine_exercises', 'routine_sets', 'workouts', 'workout_exercises', 'sets', 'cardio', 'cardio_tracks', 'settings']:
     rows, off = [], 0
     while True:
         req = urllib.request.Request(f'{url}/rest/v1/{t}?select=*&order=id&offset={off}&limit=1000',

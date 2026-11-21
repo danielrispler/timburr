@@ -17,6 +17,8 @@ import 'data/routines.dart';
 import 'data/workouts.dart';
 import 'ui/core/app_shell.dart';
 import 'ui/core/theme.dart';
+import 'ui/import/shared_files.dart';
+import 'ui/import/strava_import_screen.dart';
 import 'ui/sync/sync_ui.dart';
 
 Future<void> main() async {
@@ -47,7 +49,9 @@ Future<void> main() async {
   runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: CardioStore(db, onSaved: sync?.sync), sync: sync));
 }
 
-class TimburrApp extends StatelessWidget {
+final _navigatorKey = GlobalKey<NavigatorState>();
+
+class TimburrApp extends StatefulWidget {
   const TimburrApp({super.key, required this.catalog, required this.routines, required this.workouts, required this.cardio, this.sync});
 
   final Catalog catalog;
@@ -57,14 +61,34 @@ class TimburrApp extends StatelessWidget {
   final SyncEngine? sync;
 
   @override
+  State<TimburrApp> createState() => _TimburrAppState();
+}
+
+class _TimburrAppState extends State<TimburrApp> {
+  late final ShareIntake _share;
+
+  /// A GPX/TCX shared to Timburr opens the import preview; backing out saves nothing.
+  void _openShared(List<SharedFile> files) =>
+      _navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => StravaImportScreen(cardio: widget.cardio, shared: files)));
+
+  @override
+  void initState() {
+    super.initState();
+    _share = ShareIntake(_openShared);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _share.checkLaunch());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final catalog = widget.catalog, routines = widget.routines, workouts = widget.workouts, cardio = widget.cardio, sync = widget.sync;
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Timburr',
       themeMode: ThemeMode.dark,
       darkTheme: buildDarkTheme(),
       home: sync == null
           ? AppShell(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio)
-          : _AuthGate(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio, sync: sync!),
+          : _AuthGate(catalog: catalog, routines: routines, workouts: workouts, cardio: cardio, sync: sync),
     );
   }
 }

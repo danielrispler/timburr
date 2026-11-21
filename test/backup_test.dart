@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/backup.dart';
 import 'package:timburr/data/catalog.dart' show libraryRowId;
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/track.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -32,7 +33,9 @@ void main() {
     await d.save(d.workoutExercises, {'id': 'we1', 'workout_id': 'w1', 'exercise_id': 'e1', 'position': 0, 'superset_with_next': true});
     await d.save(d.workoutSets, {'id': 's1', 'workout_exercise_id': 'we1', 'set_number': 0, 'weight_kg': 20.5, 'reps': 8, 'done': true});
     await d.save(d.workoutSets, {'id': 's2', 'workout_exercise_id': 'we1', 'set_number': 1, 'deleted_at': DateTime.utc(2026, 10, 2)});
-    await d.save(d.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500});
+    await d.save(d.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title'], 'route': 'abc', 'elapsed_sec': 1620});
+    await d.save(d.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
+    await d.save(d.appSettings, {'id': 'settings1', 'max_hr': 190, 'birth_year': 1990, 'stride_m': 0.92});
   }
 
   /// Every row of every synced table (times as instants), minus the local-only columns restore does not carry over.
@@ -52,6 +55,25 @@ void main() {
     expect(await dump(b), await dump(a));
     final dirty = await b.customSelect('select count(*) as n from sets where dirty = 1').getSingle();
     expect(dirty.read<int>('n'), 2);
+  });
+
+  test('restoring a backup rebuilds the Best efforts', () async {
+    final a = newDb();
+    await seed(a);
+    await a.save(a.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode()});
+    final b = newDb();
+    await Backup(b).restore(await Backup(a).export(), replace: false);
+    expect({for (final e in await b.select(b.bestEfforts).get()) e.distanceM}, {400, 1000});
+  });
+
+  test('a backup with walk and padel rows still restores', () async {
+    final a = newDb();
+    await seed(a);
+    await a.save(a.cardio, {'id': 'c3', 'type': 'walk', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 3.0, 'duration_sec': 2000});
+    await a.save(a.cardio, {'id': 'c4', 'type': 'padel', 'started_at': DateTime.utc(2026, 10, 5), 'duration_sec': 3600});
+    final b = newDb();
+    await Backup(b).restore(await Backup(a).export(), replace: false);
+    expect(await dump(b), await dump(a));
   });
 
   test('export carries every column, soft-deleted rows included', () async {

@@ -35,7 +35,7 @@ Turn my workout screenshot into JSON in this exact format (version 1). Output on
       "avgHr": 158, "inclinePct": null, "rpe": 7, "notes": "" }
   ]
 }
-Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball; distanceKm is left out for padel, tennis, soccer and basketball; rpe is 1-10. Use my exercise names below when they match.''';
+Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is run or treadmill; rpe is 1-10. Use my exercise names below when they match.''';
 
 /// Every problem in [data] as `path: message`; empty means valid v1.
 List<String> validateImport(Object? data) {
@@ -139,7 +139,7 @@ List<String> validateImport(Object? data) {
     fields(c, p, {'type', 'date', 'distanceKm', 'durationSec', 'avgHr', 'inclinePct', 'rpe', 'notes'});
     if (!cardioTypes.contains(c['type'])) err('$p.type', 'must be one of ${cardioTypes.join(', ')}');
     date(c, p);
-    number(c, p, 'distanceKm', positive: true, below: distanceBelow, required: hasDistance(c['type']));
+    number(c, p, 'distanceKm', positive: true, below: distanceBelow, required: true);
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
     if (c['inclinePct'] != null && (c['inclinePct'] is! num || roundTo((c['inclinePct'] as num).abs(), 1) >= inclineBelow)) {

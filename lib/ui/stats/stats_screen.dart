@@ -7,7 +7,7 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart';
-import '../cardio/cardio_stats.dart';
+import '../core/chart_axis.dart';
 import '../core/series_chart.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_detail.dart';
@@ -95,37 +95,34 @@ class StatsBuilder extends StatelessWidget {
       );
 }
 
-/// Stats tab: Me, Workouts, Exercises and Records.
-class StatsScreen extends StatelessWidget {
-  const StatsScreen({super.key, required this.stores});
+/// Workouts > Stats: totals, heatmap, weekly charts, most trained and per-saved-workout stats in one scroll.
+class WorkoutStatsPage extends StatelessWidget {
+  const WorkoutStatsPage({super.key, required this.stores});
 
   final Stores stores;
 
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-    length: 4,
-    child: Column(
-      children: [
-        const TabBar(
-          isScrollable: true,
-          tabAlignment: TabAlignment.center,
-          tabs: [
-            Tab(text: 'Me'),
-            Tab(text: 'Workouts'),
-            Tab(text: 'Exercises'),
-            Tab(text: 'Records'),
-          ],
-        ),
-        Expanded(
-          child: StatsBuilder(
-            stores: stores,
-            builder: (context, d) =>
-                TabBarView(children: [_Me(d), _Routines(d), _Exercises(d, stores), _Records(d, stores)]),
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Me(d));
+}
+
+/// Workouts > Exercises.
+class ExercisesPage extends StatelessWidget {
+  const ExercisesPage({super.key, required this.stores});
+
+  final Stores stores;
+
+  @override
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Exercises(d, stores));
+}
+
+/// Workouts > Records.
+class RecordsPage extends StatelessWidget {
+  const RecordsPage({super.key, required this.stores});
+
+  final Stores stores;
+
+  @override
+  Widget build(BuildContext context) => StatsBuilder(stores: stores, builder: (context, d) => _Records(d, stores));
 }
 
 Widget _page(List<Widget> children) => Center(
@@ -158,7 +155,6 @@ class _Me extends StatelessWidget {
             StatChip('Lifted', fmtVolume(t.volume)),
             StatChip('Sets', '${t.sets}'),
             StatChip('Time', fmtDuration(t.time)),
-            StatChip('Cardio', '${fmtNum(t.cardioKm)} km'),
             StatChip('Streak', '${streak.current} wk'),
             StatChip('Best streak', '${streak.longest} wk'),
           ],
@@ -175,6 +171,7 @@ class _Me extends StatelessWidget {
             ListTile(dense: true, title: Text(d.exercises[id]?.name ?? '…'), trailing: Text('$n sets')),
         ],
       ),
+      _RoutineStats(d),
     ]);
   }
 }
@@ -276,25 +273,21 @@ class _Bars extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           AspectRatio(
-            aspectRatio: 2,
-            child: BarChart(
+            aspectRatio: 1.6,
+            child: LayoutBuilder(builder: (context, box) => BarChart(
               BarChartData(
                 gridData: const FlGridData(drawVerticalLine: false),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(),
                   rightTitles: const AxisTitles(),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 44)),
+                  leftTitles: AxisTitles(sideTitles: axisTitles(reservedSize: 44)),
                   bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
+                    sideTitles: axisTitles(
                       reservedSize: 24,
-                      getTitlesWidget: (x, meta) {
-                        final i = x.toInt();
-                        if (i % 3 != 0 || i >= points.length) return const SizedBox.shrink();
-                        final d = points[i].$1;
-                        return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                      },
+                      interval: 1,
+                      show: (x) => x == x.toInt() && x >= 0 && x < points.length && x.toInt() % 3 == 0,
+                      label: (x) => '${points[x.toInt()].$1.day}/${points[x.toInt()].$1.month}',
                     ),
                   ),
                 ),
@@ -302,11 +295,11 @@ class _Bars extends StatelessWidget {
                   for (final (i, (_, v)) in points.indexed)
                     BarChartGroupData(
                       x: i,
-                      barRods: [BarChartRodData(toY: v, color: color, width: 12)],
+                      barRods: [BarChartRodData(toY: v, color: color, width: barWidth(box.maxWidth - 44, points.length))],
                     ),
                 ],
               ),
-            ),
+            )),
           ),
         ],
       ),
@@ -314,8 +307,9 @@ class _Bars extends StatelessWidget {
   }
 }
 
-class _Routines extends StatelessWidget {
-  const _Routines(this.d);
+/// Per-saved-workout stats, a section of the Stats scroll.
+class _RoutineStats extends StatelessWidget {
+  const _RoutineStats(this.d);
 
   final StatsData d;
 
@@ -327,8 +321,8 @@ class _Routines extends StatelessWidget {
       for (final r in routineStats(d.workouts))
         if (names.containsKey(r.routineId)) r,
     ];
-    return _page([
-      TileGroup(
+    return TileGroup(
+        title: 'Saved workouts',
         children: [
           if (stats.isEmpty) const ListTile(title: Text('No saved workout done yet')),
           for (final r in stats)
@@ -352,8 +346,7 @@ class _Routines extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    ]);
+      );
   }
 }
 
@@ -519,17 +512,6 @@ class _Records extends StatelessWidget {
                 ),
             ],
           ),
-      TileGroup(
-        children: [
-          ListTile(
-            leading: const IconTile(Icons.directions_run),
-            title: const Text('Cardio stats'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () =>
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => CardioStatsScreen(cardio: stores.cardio))),
-          ),
-        ],
-      ),
     ]);
   }
 }

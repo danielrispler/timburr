@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -157,5 +157,71 @@ describe('005_alternatives_and_skip.sql', () => {
     expect(await as(me, () => rows('select alternative_ids, skipped from workout_exercises where workout_id = $1', [w.id]))).toEqual([
       { alternative_ids: [b.id], skipped: true },
     ])
+  })
+})
+
+describe('006_runs.sql', () => {
+  const cardioId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+  const trackId = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+  const upsertTrack = (points: string, updatedAt: string, uid = me) =>
+    as(uid, () =>
+      rows(
+        `insert into cardio_tracks (id, user_id, cardio_id, points, updated_at) values ($1, $2, $3, $4, $5)
+         on conflict (id) do update set points = excluded.points, updated_at = excluded.updated_at`,
+        [trackId, uid, cardioId, points, updatedAt],
+      ),
+    )
+
+  it('stores the Run columns on cardio', async () => {
+    await as(me, () =>
+      rows(
+        `insert into cardio (id, type, started_at, distance_km, duration_sec, elapsed_sec, title, source, external_id, elevation_gain_m, max_hr, avg_cadence, calories, route, edited_fields)
+         values ($1, 'run', now(), 5.2, 1500, 1620, 'Morning run', 'file', 'strava-1', 42.5, 181, 84.5, 350, 'abc', $2)`,
+        [cardioId, ['title']],
+      ),
+    )
+    expect(await as(me, () => rows('select title, source, edited_fields, elapsed_sec from cardio where id = $1', [cardioId]))).toEqual([
+      { title: 'Morning run', source: 'file', edited_fields: ['title'], elapsed_sec: 1620 },
+    ])
+    await expect(as(me, () => rows(`update cardio set source = 'strava' where id = $1`, [cardioId]))).rejects.toThrow(/source/)
+    // Existing rows (old types, no new columns) are still valid.
+    await as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), 'swim', now(), 1, 1800)`))
+  })
+
+  it('keeps one track per Run, newest write wins, hidden from others and anon', async () => {
+    await upsertTrack('v2', '2026-10-24T10:00:00Z')
+    await upsertTrack('stale', '2026-10-24T09:00:00Z')
+    expect(await as(me, () => rows('select points from cardio_tracks'))).toEqual([{ points: 'v2' }])
+    await upsertTrack('v3', '2026-10-24T11:00:00Z')
+    expect(await as(me, () => rows('select points from cardio_tracks'))).toEqual([{ points: 'v3' }])
+    await expect(
+      as(me, () => rows(`insert into cardio_tracks (id, cardio_id, points) values (gen_random_uuid(), $1, 'dup')`, [cardioId])),
+    ).rejects.toThrow(/unique/)
+
+    expect(await as(other, () => rows('select * from cardio_tracks'))).toHaveLength(0)
+    await expect(upsertTrack('mine now', '2026-10-24T12:00:00Z', other)).rejects.toThrow()
+    await db.exec('set role anon')
+    await expect(rows('select * from cardio_tracks')).rejects.toThrow(/permission denied/)
+    await db.exec('reset role')
+  })
+
+  it('keeps one settings row per user under RLS and last-write-wins', async () => {
+    const id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+    const put = (maxHr: number, at: string) =>
+      as(me, () =>
+        rows(
+          `insert into settings (id, max_hr, birth_year, stride_m, updated_at) values ($1, $2, 1990, 0.915, $3)
+           on conflict (id) do update set max_hr = excluded.max_hr, updated_at = excluded.updated_at`,
+          [id, maxHr, at],
+        ),
+      )
+    await put(190, '2026-10-24T10:00:00Z')
+    await put(150, '2026-10-24T09:00:00Z')
+    expect(await as(me, () => rows('select max_hr, stride_m from settings'))).toEqual([{ max_hr: 190, stride_m: '0.915' }])
+    await expect(
+      as(me, () => rows(`insert into settings (id, max_hr) values (gen_random_uuid(), 180)`)),
+    ).rejects.toThrow(/unique/)
+    expect(await as(other, () => rows('select * from settings'))).toHaveLength(0)
+    await expect(put(300, '2026-10-24T11:00:00Z')).rejects.toThrow(/max_hr/)
   })
 })

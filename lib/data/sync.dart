@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import 'best_efforts.dart';
 import 'db.dart';
 import 'error_log.dart';
 
@@ -59,8 +60,14 @@ class SyncEngine {
     if (offline.value) return;
     _rejected.clear();
     try {
-      for (final t in _tables) {
-        await _push(t);
+      // One snapshot of every table before pushing: a child saved mid-push (a track, a set) waits for
+      // the next sync with its parent instead of reaching the server before it.
+      final dirty = await _db.transaction(() async => [
+            for (final t in _tables)
+              await _db.customSelect('select * from ${t.actualTableName} where dirty = 1', readsFrom: {t}).get(),
+          ]);
+      for (var i = 0; i < _tables.length; i++) {
+        await _push(_tables[i], dirty[i]);
       }
       for (final t in _tables) {
         await _pull(t);
@@ -76,9 +83,8 @@ class SyncEngine {
     } catch (_) {} // stays local; the next sync retries
   }
 
-  Future<void> _push(TableInfo table) async {
+  Future<void> _push(TableInfo table, List<QueryRow> rows) async {
     final name = table.actualTableName;
-    final rows = await _db.customSelect('select * from $name where dirty = 1', readsFrom: {table}).get();
     for (var i = 0; i < rows.length; i += chunkSize) {
       final chunk = rows.sublist(i, (i + chunkSize).clamp(0, rows.length));
       var pushed = chunk;
@@ -111,12 +117,15 @@ class SyncEngine {
     final since = cursorRow?.cursor?.subtract(overlap);
     DateTime? newest = cursorRow?.cursor, key = since;
     String? afterId;
+    final touched = <String>{}; // Runs whose Best efforts may have changed
     while (true) {
       // Keyset, not OFFSET: a row bumped mid-pull moves behind the key and is still reached.
       final page = await _remote.changedSince(name, key, afterId, pageSize);
       await _db.transaction(() async {
         for (final r in page) {
           await _apply(table, r);
+          if (name == 'cardio') touched.add(r['id'] as String);
+          if (name == 'cardio_tracks') touched.add(r['cardio_id'] as String);
           final s = DateTime.parse(r['server_updated_at'] as String);
           if (newest == null || s.isAfter(newest!)) newest = s;
         }
@@ -125,6 +134,7 @@ class SyncEngine {
       key = DateTime.parse(page.last['server_updated_at'] as String);
       afterId = page.last['id'] as String;
     }
+    await _db.rebuildBestEfforts(touched);
     if (newest != null) {
       await _db.into(_db.syncCursors).insertOnConflictUpdate(SyncCursorsCompanion.insert(syncedTable: name, cursor: Value(newest)));
     }
@@ -166,6 +176,7 @@ class SyncEngine {
           await _db.delete(t).go();
         }
         await _db.delete(_db.syncCursors).go();
+        await _db.delete(_db.bestEfforts).go();
       });
 }
 
@@ -177,7 +188,7 @@ Map<String, Object?> rowToJson(TableInfo table, Map<String, Object?> raw) => {
             null => null,
             final v when c.type == DriftSqlType.dateTime => DateTime.parse(v as String).toUtc().toIso8601String(),
             final v when c.type == DriftSqlType.bool => v == 1,
-            final String v when c.name == 'muscles' || c.name == 'alternative_ids' => jsonDecode(v),
+            final String v when c.name == 'muscles' || c.name == 'alternative_ids' || c.name == 'edited_fields' => jsonDecode(v),
             final v => v,
           },
     };

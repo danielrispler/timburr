@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/records.dart';
+import 'chart_axis.dart';
 
 /// Titled line chart of [points], one per session, dates along the bottom.
 class SeriesChart extends StatelessWidget {
@@ -25,7 +26,7 @@ class SeriesChart extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           AspectRatio(
-            aspectRatio: 2,
+            aspectRatio: 1.6,
             child: LineChart(
               LineChartData(
                 gridData: const FlGridData(drawVerticalLine: false),
@@ -34,26 +35,15 @@ class SeriesChart extends StatelessWidget {
                   topTitles: const AxisTitles(),
                   rightTitles: const AxisTitles(),
                   bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
+                    sideTitles: axisTitles(
                       reservedSize: 24,
                       interval: points.length > 4 ? (points.length / 4).ceilToDouble() : 1,
-                      getTitlesWidget: (x, meta) {
-                        final i = x.toInt();
-                        if (i != x || i < 0 || i >= points.length) return const SizedBox.shrink();
-                        final d = points[i].$1;
-                        return SideTitleWidget(meta: meta, child: Text('${d.day}/${d.month}'));
-                      },
+                      show: (x) => x == x.toInt() && x >= 0 && x < points.length,
+                      label: (x) => '${points[x.toInt()].$1.day}/${points[x.toInt()].$1.month}',
                     ),
                   ),
                   leftTitles: AxisTitles(
-                    sideTitles: label == null
-                        ? SideTitles(showTitles: true, reservedSize: leftReserved)
-                        : SideTitles(
-                            showTitles: true,
-                            reservedSize: leftReserved,
-                            getTitlesWidget: (y, meta) => SideTitleWidget(meta: meta, child: Text(label(y))),
-                          ),
+                    sideTitles: axisTitles(reservedSize: leftReserved, label: label),
                   ),
                 ),
                 lineBarsData: [

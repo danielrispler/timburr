@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/catalog.dart' show libraryRowId;
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/sync.dart';
+import 'package:timburr/data/track.dart';
 
 /// In-memory Supabase: last write wins by updated_at and bumps server_updated_at, like touch_row.
 class FakeRemote implements Remote {
@@ -93,6 +94,34 @@ void main() {
     expect(set.containsKey('dirty'), isFalse);
   });
 
+  test('a Run, its track and the settings push after their parents and pull onto a fresh phone', () async {
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title']});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
+    await db.save(db.appSettings, {'id': 'settings1', 'max_hr': 190, 'stride_m': 0.92});
+    await engine.sync();
+    expect(remote.upserts, ['cardio', 'cardio_tracks', 'settings']);
+    expect(remote.tables['cardio']!['c1']!['edited_fields'], ['title']);
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    expect((await other.select(other.cardioTracks).getSingle()).points, 'H4sIAAAA');
+    expect((await other.select(other.appSettings).getSingle()).maxHr, 190);
+    expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
+  });
+
+  test('a pulled Run and track rebuild the Best efforts, a pulled Treadmill run adds none', () async {
+    final track = Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode();
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 1.2, 'duration_sec': 300});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': track});
+    await db.save(db.cardio, {'id': 'c2', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 1.2, 'duration_sec': 300});
+    await db.save(db.cardioTracks, {'id': 't2', 'cardio_id': 'c2', 'points': track});
+    await engine.sync();
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    expect({for (final b in await other.select(other.bestEfforts).get()) b.cardioId}, {'c1'});
+  });
+
   test('an edit made during the push stays dirty', () async {
     await db.save(db.routines, {'id': 'r1', 'name': 'Push'});
     remote.onUpsert = (_) async {
@@ -105,6 +134,23 @@ void main() {
     await engine.sync();
     expect(await engine.pending(), 0);
     expect(remote.tables['routines']!['r1']!['name'], 'Push day');
+  });
+
+  test('a Run and track saved during the push wait for the next sync, so no track reaches the server before its Run', () async {
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
+    remote.onUpsert = (table) async {
+      if (table != 'cardio') return;
+      remote.onUpsert = null;
+      await db.save(db.cardio, {'id': 'c2', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 5.0, 'duration_sec': 1500});
+      await db.save(db.cardioTracks, {'id': 't2', 'cardio_id': 'c2', 'points': 'H4sIAAAA'});
+    };
+    await engine.sync();
+    expect(remote.tables['cardio_tracks']!.keys, ['t1']);
+    expect(await engine.pending(), 2);
+    await engine.sync();
+    expect(remote.tables['cardio_tracks']!.keys.toSet(), {'t1', 't2'});
+    expect(await engine.pending(), 0);
   });
 
   test('fresh install pulls everything, paged, and soft deletes propagate', () async {
@@ -218,6 +264,7 @@ void main() {
 
   test('offline skips sync and wipe clears the local copy', () async {
     await seedWorkout(db);
+    await db.into(db.bestEfforts).insert(BestEffortsCompanion.insert(cardioId: 'c1', distanceM: 1000, seconds: 240));
     final offline = SyncEngine(db, remote, isOnline: () async => false);
     await offline.sync();
     expect(offline.offline.value, isTrue);
@@ -227,6 +274,7 @@ void main() {
     await engine.wipe();
     expect(await db.select(db.workoutSets).get(), isEmpty);
     expect(await db.select(db.syncCursors).get(), isEmpty);
+    expect(await db.select(db.bestEfforts).get(), isEmpty);
   });
   // Mis-sorted as text only where UTC is behind local time by 3h or more, for example TZ=Asia/Jerusalem.
   test('pulled datetimes sort with local writes by started_at', () async {

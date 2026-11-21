@@ -127,9 +127,36 @@ class _Summary extends StatelessWidget {
   }
 }
 
-/// Workouts tab: the saved workouts (reads the local store, so it works offline) plus "New workout".
+/// Workouts tab: top tabs Saved, Stats, Exercises and Records.
 class WorkoutsTab extends StatelessWidget {
   const WorkoutsTab({super.key, required this.stores});
+
+  final Stores stores;
+
+  @override
+  Widget build(BuildContext context) => DefaultTabController(
+        length: 4,
+        child: Column(children: [
+          const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.center,
+            tabs: [Tab(text: 'Saved'), Tab(text: 'Stats'), Tab(text: 'Exercises'), Tab(text: 'Records')],
+          ),
+          Expanded(
+            child: TabBarView(children: [
+              _SavedWorkouts(stores: stores),
+              WorkoutStatsPage(stores: stores),
+              ExercisesPage(stores: stores),
+              RecordsPage(stores: stores),
+            ]),
+          ),
+        ]),
+      );
+}
+
+/// The saved workouts (reads the local store, so it works offline) plus "New workout".
+class _SavedWorkouts extends StatelessWidget {
+  const _SavedWorkouts({required this.stores});
 
   final Stores stores;
 
