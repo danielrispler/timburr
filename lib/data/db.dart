@@ -126,6 +126,7 @@ class Cardio extends Table with Synced {
   RealColumn get avgCadence => real().nullable()();
   IntColumn get calories => integer().nullable()();
   TextColumn get route => text().nullable()(); // simplified polyline, about 200 points
+  TextColumn get shoeId => text().nullable().references(Shoes, #id)(); // migration 009
   TextColumn get editedFields => text().map(const StringList()).withDefault(const Constant('[]'))(); // fields Daniel edited; merges never replace them
   IntColumn get steps => integer().nullable()(); // migration 007: what the treadmill showed; typed by Daniel, never measured
 }
@@ -148,6 +149,22 @@ class AppSettings extends Table with Synced {
   IntColumn get birthYear => integer().nullable()();
   RealColumn get strideM => real().nullable()(); // unused since the step counter was dropped; the column stays
   IntColumn get strideSamples => integer().nullable()(); // unused, like strideM
+}
+
+/// The single goals row (id `goalsRowId`): weekly and yearly distance goals, null when not set.
+@TableIndex(name: 'goals_dirty', columns: {#dirty})
+@DataClassName('Goal')
+class Goals extends Table with Synced {
+  RealColumn get weeklyKm => real().nullable()();
+  RealColumn get yearlyKm => real().nullable()();
+}
+
+/// A pair of running shoes. Runs point at one through `cardio.shoe_id`; its distance is the sum of those Runs. A retired pair is kept, for the Runs already on it.
+@TableIndex(name: 'shoes_dirty', columns: {#dirty})
+class Shoes extends Table with Synced {
+  TextColumn get name => text()();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))(); // new Runs get this pair
+  DateTimeColumn get retiredAt => dateTime().nullable()();
 }
 
 /// Local only: fastest times per Run and standard distance, rebuilt from tracks. Not synced or backed up.
@@ -195,12 +212,12 @@ class RecordingEvents extends Table {
   TextColumn get event => text()(); // a RecorderEvent as JSON
 }
 
-@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, BestEfforts, SyncCursors, ErrorLogs, RecordingEvents])
+@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, Goals, Shoes, BestEfforts, SyncCursors, ErrorLogs, RecordingEvents])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -209,6 +226,7 @@ class AppDb extends _$AppDb {
             await m.createTable(routineSets);
             await _addRunColumns(m); // alterTable copies the whole current definition, so the columns v7 adds must exist first
             await m.addColumn(cardio, cardio.steps);
+            await m.addColumn(cardio, cardio.shoeId); // likewise (v11)
             await m.alterTable(TableMigration(cardio)); // distance_km becomes nullable
           }
           if (from < 3) {
@@ -222,7 +240,7 @@ class AppDb extends _$AppDb {
           if (from < 4) await m.createTable(errorLogs);
           if (from < 5) {
             // Drop first: a file may already hold them (older test fixtures are built from today's schema).
-            for (final i in allSchemaEntities.whereType<Index>().where((i) => i.entityName != 'cardio_tracks_dirty' && i.entityName != 'settings_dirty')) {
+            for (final i in allSchemaEntities.whereType<Index>().where((i) => i.entityName != 'cardio_tracks_dirty' && i.entityName != 'settings_dirty' && i.entityName != 'goals_dirty' && i.entityName != 'shoes_dirty')) {
               await customStatement('DROP INDEX IF EXISTS ${i.entityName}');
               await m.createIndex(i);
             }
@@ -248,6 +266,17 @@ class AppDb extends _$AppDb {
           }
           if (from < 8) await m.createTable(recordingEvents);
           if (from >= 2 && from < 9) await m.addColumn(cardio, cardio.steps); // a file older than v2 got it above
+          if (from < 10) {
+            await m.createTable(goals);
+            await customStatement('DROP INDEX IF EXISTS goals_dirty');
+            await m.createIndex(allSchemaEntities.whereType<Index>().firstWhere((i) => i.entityName == 'goals_dirty'));
+          }
+          if (from < 11) {
+            await m.createTable(shoes);
+            await customStatement('DROP INDEX IF EXISTS shoes_dirty');
+            await m.createIndex(allSchemaEntities.whereType<Index>().firstWhere((i) => i.entityName == 'shoes_dirty'));
+            if (from >= 2) await m.addColumn(cardio, cardio.shoeId); // from < 2 got it above
+          }
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
@@ -259,7 +288,7 @@ class AppDb extends _$AppDb {
   }
 
   /// Synced tables in dependency order, parents first.
-  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, cardio, cardioTracks, appSettings];
+  List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, shoes, cardio, cardioTracks, appSettings, goals];
 
   /// The Run's track row, null when it has none or it is deleted.
   SimpleSelectStatement<$CardioTracksTable, CardioTrack> liveTrackRow(String cardioId) =>

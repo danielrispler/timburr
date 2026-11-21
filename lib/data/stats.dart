@@ -7,10 +7,17 @@ typedef LoggedSet = ({Workout workout, String exerciseId, WorkoutSet set});
 /// Estimated best weight for [reps] reps from a 1RM: Epley run backwards.
 double repMax(double oneRm, int reps) => reps <= 1 ? oneRm : oneRm / (1 + reps / 30);
 
-DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
-/// Monday 00:00 of [d]'s week, [weeksAgo] weeks back. Built from calendar fields so DST never shifts it.
-DateTime mondayOf(DateTime d, {int weeksAgo = 0}) =>
-    DateTime(d.year, d.month, d.day - (d.weekday - 1) - 7 * weeksAgo);
+/// Midnight of [d]'s local day. A UTC time (Health Connect, GPX and the server hand these over) is read in local time first.
+DateTime dayOf(DateTime d) {
+  final l = d.toLocal();
+  return DateTime(l.year, l.month, l.day);
+}
+
+/// Monday 00:00 of [d]'s local week, [weeksAgo] weeks back. Built from calendar fields so DST never shifts it.
+DateTime mondayOf(DateTime d, {int weeksAgo = 0}) {
+  final l = d.toLocal();
+  return DateTime(l.year, l.month, l.day - (l.weekday - 1) - 7 * weeksAgo);
+}
 
 /// Done-set volume per workout id.
 Map<String, double> volumeByWorkout(Iterable<LoggedSet> rows) {

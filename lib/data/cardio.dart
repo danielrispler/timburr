@@ -5,8 +5,10 @@ import 'package:uuid/uuid.dart';
 
 import 'best_efforts.dart';
 import 'db.dart';
+import 'goals.dart';
 import 'recording.dart';
 import 'settings.dart';
+import 'shoes.dart';
 import 'track.dart';
 
 /// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
@@ -119,6 +121,15 @@ class CardioStore {
   /// The settings row, for the Run page's zones and More. Shares this store's sync hook.
   late final settings = SettingsStore(_db, onSaved: onSaved);
 
+  /// The distance goals row, for Progress. Shares this store's sync hook.
+  late final goals = GoalStore(_db, onSaved: onSaved);
+
+  /// The shoes, for the Run page and mileage. Shares this store's sync hook.
+  late final shoes = ShoeStore(_db, onSaved: onSaved);
+
+  /// The shoe a new session of [type] starts with: the default shoe for a Run, none for other types.
+  Future<String?> _defaultShoeFor(String type) async => cardioTypes.contains(type) ? await shoes.defaultId() : null;
+
   /// Called after each save or delete; main wires it to sync.
   final Future<void> Function()? onSaved;
 
@@ -134,9 +145,11 @@ class CardioStore {
     int? rpe,
     String? notes,
   }) async {
+    final shoe = id == null ? await _defaultShoeFor(type) : null;
     id ??= const Uuid().v4();
     await _db.save(_db.cardio, {
       'id': id,
+      'shoe_id': ?shoe,
       'type': type,
       'started_at': startedAt,
       'distance_km': distanceKm,
@@ -174,8 +187,10 @@ class CardioStore {
       if (match == null) {
         final id = const Uuid().v4();
         if (dryRun) return IngestResult(null, IngestOutcome.created);
+        final shoe = await _defaultShoeFor(r.type);
         await _db.save(_db.cardio, {
           'id': id,
+          'shoe_id': ?shoe,
           'type': r.type,
           'started_at': start,
           'distance_km': r.distanceKm,
@@ -283,6 +298,16 @@ class CardioStore {
   Stream<Track?> watchTrack(String cardioId) => _db.liveTrackRow(cardioId)
       .watchSingleOrNull()
       .map((t) => t == null ? null : Track.decode(t.points));
+
+  /// The tracks of live Runs that have heart rate, by Run id. For Relative Effort over all Runs.
+  Stream<Map<String, Track>> watchHrTracks() => (_db.select(_db.cardioTracks)..where((t) => t.deletedAt.isNull())).watch().map((rows) {
+        final out = <String, Track>{};
+        for (final r in rows) {
+          final t = Track.decode(r.points);
+          if (t.hr != null) out[r.cardioId] = t;
+        }
+        return out;
+      });
 
   /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
   Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));

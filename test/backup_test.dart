@@ -33,10 +33,12 @@ void main() {
     await d.save(d.workoutExercises, {'id': 'we1', 'workout_id': 'w1', 'exercise_id': 'e1', 'position': 0, 'superset_with_next': true});
     await d.save(d.workoutSets, {'id': 's1', 'workout_exercise_id': 'we1', 'set_number': 0, 'weight_kg': 20.5, 'reps': 8, 'done': true});
     await d.save(d.workoutSets, {'id': 's2', 'workout_exercise_id': 'we1', 'set_number': 1, 'deleted_at': DateTime.utc(2026, 10, 2)});
-    await d.save(d.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title'], 'route': 'abc', 'elapsed_sec': 1620});
+    await d.save(d.shoes, {'id': 'shoe1', 'name': 'Pegasus', 'is_default': true});
+    await d.save(d.cardio, {'id': 'c1', 'shoe_id': 'shoe1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title'], 'route': 'abc', 'elapsed_sec': 1620});
     await d.save(d.cardio, {'id': 'c5', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 4.8, 'duration_sec': 1500, 'incline_pct': 1.5, 'steps': 6100, 'calories': 380, 'edited_fields': ['distance_km', 'incline_pct', 'steps', 'calories']});
     await d.save(d.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
     await d.save(d.appSettings, {'id': 'settings1', 'max_hr': 190, 'birth_year': 1990, 'stride_m': 0.92});
+    await d.save(d.goals, {'id': 'goals1', 'weekly_km': 30.0, 'yearly_km': 1500.0});
   }
 
   /// Every row of every synced table (times as instants), minus the local-only columns restore does not carry over.

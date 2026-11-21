@@ -8,12 +8,16 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
+import '../../data/hr_zones.dart';
+import '../../data/load.dart';
 import '../../data/recording.dart' show drawsRoute;
 import '../../data/run_analysis.dart';
 import '../../data/settings.dart';
 import '../../data/track.dart';
 import '../core/chart_axis.dart';
 import '../core/theme.dart';
+import '../running/race_predictor.dart';
+import '../running/shoes_screen.dart' show ShoePicker;
 import 'activity_timer.dart';
 import 'max_hr.dart';
 import 'cardio_form.dart';
@@ -117,6 +121,13 @@ class _RunBodyState extends State<_RunBody> {
           _Stat('Pace', pace == null ? '-' : '${formatPace(pace)} /km'),
           _Stat('Avg HR', c.avgHr?.toString() ?? '-'),
           _Stat('Max HR', c.maxHr?.toString() ?? '-'),
+          StreamBuilder<AppSetting?>(
+            stream: widget.settings.watch(),
+            builder: (context, s) {
+              final load = runLoad(c, t, effectiveMaxHr(s.data?.maxHr, s.data?.birthYear, DateTime.now()));
+              return _Stat('Relative Effort', load.estimated ? '-' : load.effort.round().toString()); // no HR, no score
+            },
+          ),
           _Stat('Elevation gain', c.elevationGainM == null ? '-' : '${c.elevationGainM!.round()} m'),
           if (c.inclinePct != null) _Stat('Incline', '${c.inclinePct! == c.inclinePct!.roundToDouble() ? c.inclinePct!.toInt() : c.inclinePct}%'),
           if (c.steps != null) _Stat('Steps', '${c.steps}'),
@@ -157,7 +168,9 @@ class _RunBodyState extends State<_RunBody> {
             trailing: Text(l.paceSecPerKm == null ? '' : '${formatPace(l.paceSecPerKm!)} /km'),
           ),
       ]),
+      ShoePicker(store: widget.store, run: c),
       RunBestEfforts(store: widget.store, runId: c.id),
+      MatchedRouteTile(store: widget.store, runId: c.id),
     ]);
   }
 }
@@ -183,6 +196,15 @@ class _Stat extends StatelessWidget {
       );
 }
 
+/// The one OpenStreetMap tile layer every map uses.
+/// OSM tile policy: identify the app. The generic name is deliberate; no personal details go in the user agent.
+TileLayer osmTileLayer() => TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'timburr');
+
+/// The OpenStreetMap credit that goes on every map, linking to the copyright page.
+Widget osmAttribution() => SimpleAttributionWidget(
+    source: const Text('OpenStreetMap') /* the widget adds "flutter_map | © " */,
+    onTap: () => unawaited(launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication)));
+
 /// OpenStreetMap tiles (cached on the phone by flutter_map) under the route, with the start and finish marked.
 class RunMap extends StatelessWidget {
   const RunMap(this.points, {super.key});
@@ -204,14 +226,13 @@ class RunMap extends StatelessWidget {
           interactionOptions: const InteractionOptions(flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag | InteractiveFlag.doubleTapZoom),
         ),
         children: [
-          // OSM tile policy: identify the app. The generic name is deliberate; no personal details go in the user agent.
-          TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'timburr'),
+          osmTileLayer(),
           PolylineLayer(polylines: [Polyline(points: points, color: color, strokeWidth: 4, borderColor: Colors.black54, borderStrokeWidth: 1)]),
           MarkerLayer(markers: [
             Marker(point: points.first, width: 24, height: 24, child: pin(Colors.green, Icons.play_arrow)),
             Marker(point: points.last, width: 24, height: 24, child: pin(Colors.red, Icons.flag)),
           ]),
-          SimpleAttributionWidget(source: const Text('OpenStreetMap') /* the widget adds "flutter_map | © " */, onTap: () => unawaited(launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication))),
+          osmAttribution(),
         ],
       ),
     );
