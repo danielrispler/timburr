@@ -287,6 +287,22 @@ class CardioStore {
   /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
   Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));
 
+  /// Removes local Runs the server can never accept: no distance (short test recordings saved before Finish checked it).
+  /// The server requires distance_km above 0 at 3 decimals, so these never synced and would fail every push. Returns how many.
+  Future<int> dropUnsyncableRuns() async {
+    final bad = await (_db.select(_db.cardio)
+          ..where((c) => c.type.isIn(cardioTypes) & (c.distanceKm.isNull() | c.distanceKm.isSmallerThanValue(0.0005))))
+        .get();
+    if (bad.isEmpty) return 0;
+    final ids = [for (final c in bad) c.id];
+    await _db.transaction(() async {
+      await (_db.delete(_db.cardioTracks)..where((t) => t.cardioId.isIn(ids))).go();
+      await (_db.delete(_db.cardio)..where((c) => c.id.isIn(ids))).go();
+      await _db.rebuildBestEfforts(ids);
+    });
+    return ids.length;
+  }
+
   /// Soft-deletes the Run and its track.
   Future<void> delete(String id) async {
     final c = await watch(id).first;

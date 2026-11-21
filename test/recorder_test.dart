@@ -339,6 +339,17 @@ void main() {
       expect(await make().restore(), isFalse);
     });
 
+    test('a recording with no distance cannot be saved, since the server rejects a 0 km Run', () async {
+      final rec = make();
+      await rec.open();
+      await rec.start('run');
+      now = at(20); // standing still: time passes, no fixes
+      expect(rec.canSave, isFalse);
+      await expectLater(rec.finish(), throwsStateError);
+      await run(21, 30);
+      expect(rec.canSave, isTrue);
+    });
+
     test('after a restart the recording comes back paused with its distance, and finishes as one Run', () async {
       final first = make();
       await first.open();

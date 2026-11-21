@@ -182,10 +182,18 @@ class LiveRecorder extends ChangeNotifier {
     refreshNotification();
   }
 
+  /// Below this a recording has no distance worth saving, and the server would reject the Run (distance must be above 0).
+  static const minSavedDistanceM = 10.0;
+
+  /// Whether [finish] can save: the recording has covered at least [minSavedDistanceM].
+  bool get canSave => (snapshot?.distanceM ?? 0) >= minSavedDistanceM;
+
   /// Saves the Run through ingest (so a later Fitbit session merges into it) and returns its id.
+  /// Throws [StateError] when ![canSave]; offer Discard instead.
   Future<String?> finish() async {
     final rec = _rec;
     if (rec == null) return null;
+    if (!canSave) throw StateError('no distance recorded');
     final recording = rec.finish(_now());
     await heartRate?.stop();
     await _stopListening();

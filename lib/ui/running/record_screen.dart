@@ -122,14 +122,16 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   Future<void> _finish() async {
+    final canSave = rec.canSave;
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(treadmill ? 'Finish this treadmill run?' : 'Finish this run?'),
+        content: canSave ? null : const Text('No distance recorded yet, so there is nothing to save.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, 'discard'), child: const Text('Discard')),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep going')),
-          FilledButton(onPressed: () => Navigator.pop(context, 'save'), child: const Text('Save')),
+          if (canSave) FilledButton(onPressed: () => Navigator.pop(context, 'save'), child: const Text('Save')),
         ],
       ),
     );
