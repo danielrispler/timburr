@@ -15,6 +15,7 @@ import '../core/theme.dart';
 import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
+import 'fitness_section.dart';
 import 'running_records.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -53,7 +54,7 @@ class _RunningTabState extends State<RunningTab> {
           Expanded(
             child: TabBarView(children: [
               _RunsPage(stores: widget.stores, runs: _runs, health: widget.health),
-              _ProgressPage(runs: _runs),
+              _ProgressPage(store: widget.stores.cardio, runs: _runs),
               RunningRecords(stores: widget.stores, runs: _runs),
             ]),
           ),
@@ -174,8 +175,9 @@ class RouteThumbnail extends StatelessWidget {
 }
 
 class _ProgressPage extends StatefulWidget {
-  const _ProgressPage({required this.runs});
+  const _ProgressPage({required this.store, required this.runs});
 
+  final CardioStore store;
   final Stream<List<CardioData>> runs;
 
   @override
@@ -209,6 +211,7 @@ class _ProgressPageState extends State<_ProgressPage> {
                 Text('Distance (km)', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 AspectRatio(aspectRatio: 1.6, child: DistanceChart(series, _period)),
+                FitnessSection(store: widget.store, runs: widget.runs),
               ]),
             ),
           );

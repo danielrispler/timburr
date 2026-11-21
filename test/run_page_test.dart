@@ -69,9 +69,12 @@ void main() {
     await show(tester, gps: true); // 150 bpm of the default Max HR 190 is zone 4
     expect(find.text('Heart rate zones'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
+    expect(find.text('35'), findsOneWidget); // Relative Effort: 699 s in zone 3 = 11.65 min x 3
     await close(tester);
     await show(tester, gps: true, hr: false);
     expect(find.text('Heart rate zones'), findsNothing);
+    expect(find.text('Relative Effort'), findsOneWidget);
+    expect(find.text('35'), findsNothing); // no HR, no score
     await close(tester);
   });
 

@@ -278,6 +278,16 @@ class CardioStore {
       .watchSingleOrNull()
       .map((t) => t == null ? null : Track.decode(t.points));
 
+  /// The tracks of live Runs that have heart rate, by Run id. For Relative Effort over all Runs.
+  Stream<Map<String, Track>> watchHrTracks() => (_db.select(_db.cardioTracks)..where((t) => t.deletedAt.isNull())).watch().map((rows) {
+        final out = <String, Track>{};
+        for (final r in rows) {
+          final t = Track.decode(r.points);
+          if (t.hr != null) out[r.cardioId] = t;
+        }
+        return out;
+      });
+
   /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
   Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));
 
