@@ -5,7 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/cardio.dart';
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/running.dart';
+import 'package:timburr/data/track.dart';
 import 'package:timburr/ui/running/fitness_section.dart';
+
+class _CountingStore extends CardioStore {
+  _CountingStore(super.db);
+  int trackWatches = 0;
+
+  @override
+  Stream<Map<String, Track>> watchHrTracks() {
+    trackWatches++;
+    return super.watchHrTracks();
+  }
+}
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -26,6 +38,21 @@ void main() {
     expect(find.text('Fitness & Freshness'), findsOneWidget);
     String today(String label) => tester.widget<Text>(find.byKey(ValueKey('today $label'))).data!;
     expect((today('Fitness'), today('Fatigue'), today('Form')), ('2', '12', '-10'));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a rebuild does not resubscribe to the HR tracks', (tester) async {
+    final db = AppDb(NativeDatabase.memory());
+    addTearDown(db.close);
+    final store = _CountingStore(db);
+    final runs = store.watchAll().map(runsOf);
+    final now = DateTime(2026, 11, 21, 12);
+    Widget app(bool toggle) => MaterialApp(home: Scaffold(body: ListView(children: [Text('$toggle'), FitnessSection(store: store, runs: runs, now: now)])));
+    await tester.pumpWidget(app(false));
+    await tester.pumpWidget(app(true));
+    await tester.pump();
+    expect(store.trackWatches, 1);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });

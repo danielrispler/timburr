@@ -1,7 +1,7 @@
 import 'cardio.dart';
 import 'db.dart';
 import 'recording.dart' show drawsRoute;
-import 'stats.dart' show mondayOf;
+import 'stats.dart' show dayOf, mondayOf;
 
 /// Distance, moving time and Run count over some stretch.
 typedef RunTotals = ({double km, int sec, int count});
@@ -39,11 +39,14 @@ RunSummary runSummary(Iterable<CardioData> runs, DateTime now) {
 enum Period { week, month, year }
 
 /// Start of the [p] period holding [d]: Monday, first of the month, 1 January. Calendar fields, so DST never shifts it.
-DateTime periodStart(Period p, DateTime d) => switch (p) {
-      Period.week => mondayOf(d),
-      Period.month => DateTime(d.year, d.month),
-      Period.year => DateTime(d.year),
-    };
+DateTime periodStart(Period p, DateTime d) {
+  final l = dayOf(d);
+  return switch (p) {
+    Period.week => mondayOf(l),
+    Period.month => DateTime(l.year, l.month),
+    Period.year => DateTime(l.year),
+  };
+}
 
 DateTime _next(Period p, DateTime s) => switch (p) {
       Period.week => DateTime(s.year, s.month, s.day + 7),

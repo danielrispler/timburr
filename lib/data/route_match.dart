@@ -60,10 +60,10 @@ bool _matches(_Shape a, _Shape b) {
   return true;
 }
 
-/// The groups of at least two live outdoor Runs over the same route, computed from their stored `route` (no schema needed).
+/// The groups of at least two outdoor Runs over the same route, computed from their stored `route` (no schema needed).
 /// Each Run joins the first group whose first Run it matches. Biggest group first, then the most recently run.
 List<RouteGroup> groupRuns(Iterable<CardioData> runs) {
-  final sorted = [for (final r in runs) if (r.deletedAt == null && r.type == 'run' && r.route != null) r]..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+  final sorted = [for (final r in runsOf(runs)) if (r.type == 'run' && r.route != null) r]..sort((a, b) => a.startedAt.compareTo(b.startedAt));
   final reps = <_Shape>[];
   final members = <List<CardioData>>[];
   for (final r in sorted) {
