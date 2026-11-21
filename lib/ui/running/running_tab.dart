@@ -16,10 +16,12 @@ import '../health/fitbit_screen.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
 import 'goals_section.dart';
+import 'heatmap_screen.dart';
 import 'fitness_section.dart';
 import 'race_predictor.dart';
 import 'record_screen.dart';
 import 'running_records.dart';
+import 'shoes_screen.dart';
 import 'training_log.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -237,6 +239,8 @@ class _ProgressPageState extends State<_ProgressPage> {
                 RaceSection(store: widget.store, runs: widget.runs),
                 GoalsSection(store: widget.store, runs: widget.runs),
                 FitnessSection(store: widget.store, runs: widget.runs),
+                HeatmapTile(runs: widget.runs),
+                ShoesTile(store: widget.store, runs: widget.runs),
               ]),
             ),
           );

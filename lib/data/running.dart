@@ -1,5 +1,6 @@
 import 'cardio.dart';
 import 'db.dart';
+import 'recording.dart' show drawsRoute;
 import 'stats.dart' show mondayOf;
 
 /// Distance, moving time and Run count over some stretch.
@@ -75,4 +76,15 @@ List<(double, double)> parseRoute(String? route) {
     for (final p in route.split(';'))
       if (p.split(',') case [final a, final b] when double.tryParse(a) != null && double.tryParse(b) != null) (double.parse(a), double.parse(b)),
   ];
+}
+
+/// Every outdoor Run's stored (simplified) route as points, for the heatmap. Runs without a drawable route are skipped.
+List<List<(double, double)>> heatmapRoutes(Iterable<CardioData> runs) {
+  final out = <List<(double, double)>>[];
+  for (final r in runsOf(runs)) {
+    if (!drawsRoute(r.type)) continue;
+    final p = parseRoute(r.route);
+    if (p.length >= 2) out.add(p);
+  }
+  return out;
 }

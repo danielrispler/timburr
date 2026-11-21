@@ -95,12 +95,13 @@ void main() {
   });
 
   test('a Run, its track and the settings push after their parents and pull onto a fresh phone', () async {
-    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title']});
+    await db.save(db.shoes, {'id': 'shoe1', 'name': 'Pegasus'});
+    await db.save(db.cardio, {'id': 'c1', 'shoe_id': 'shoe1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title']});
     await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
     await db.save(db.appSettings, {'id': 'settings1', 'max_hr': 190, 'stride_m': 0.92});
     await db.save(db.goals, {'id': 'goals1', 'weekly_km': 30.0, 'yearly_km': 1500.0});
     await engine.sync();
-    expect(remote.upserts, ['cardio', 'cardio_tracks', 'settings', 'goals']);
+    expect(remote.upserts, ['shoes', 'cardio', 'cardio_tracks', 'settings', 'goals']);
     expect(remote.tables['cardio']!['c1']!['edited_fields'], ['title']);
 
     final other = newDb();
@@ -108,6 +109,7 @@ void main() {
     expect((await other.select(other.cardioTracks).getSingle()).points, 'H4sIAAAA');
     expect((await other.select(other.appSettings).getSingle()).maxHr, 190);
     expect((await other.select(other.goals).getSingle()).yearlyKm, 1500.0);
+    expect((await other.select(other.cardio).getSingle()).shoeId, 'shoe1');
     expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
   });
 
