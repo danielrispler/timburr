@@ -65,7 +65,7 @@ int? parseHeartRate(List<int> d) {
   return bpm == 0 ? null : bpm;
 }
 
-/// Keeps the app connected to the band for as long as it runs: finds it, remembers it, and reconnects when the stream drops.
+/// Keeps the app connected to the chosen band for as long as it runs and reconnects when the stream drops.
 /// A drop never throws; the recorder just sees no readings until the link is back. A failed subscribe asks for pairing rather than retrying.
 class HeartRateLink extends ChangeNotifier {
   HeartRateLink({
@@ -156,18 +156,7 @@ class HeartRateLink extends ChangeNotifier {
       try {
         if (!await sensor.hasPermission()) return _set(HrLink.off);
         var d = _device ??= await memory.load();
-        if (d == null) {
-          _set(HrLink.searching);
-          final found = await sensor.scan(scanTimeout);
-          if (g != _gen) return;
-          if (found.isEmpty) {
-            _set(HrLink.notFound);
-            await _delay(retry);
-            continue;
-          }
-          d = found.first;
-          await choose(d);
-        }
+        if (d == null) return _set(HrLink.notFound); // the band is chosen on the setup screen, never silently during a recording
         if (g != _gen) return;
         _set(_connectedOnce ? HrLink.reconnecting : HrLink.searching);
         await _stream(d, g);

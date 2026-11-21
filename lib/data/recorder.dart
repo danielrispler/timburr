@@ -41,8 +41,13 @@ String kmCueText(KmCue c) {
   return 'Kilometer ${c.km}. Time ${mins > 0 ? '$mins minute${mins == 1 ? '' : 's'} ' : ''}$secs second${secs == 1 ? '' : 's'}. Pace ${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer.';
 }
 
+/// The kinds of [RecorderEvent]. The strings are what the autosave stores, so they must not change.
+class EventKind {
+  static const start = 'start', position = 'position', steps = 'steps', pause = 'pause', resume = 'resume', lap = 'lap', hr = 'hr';
+}
+
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds: `start` (type, id, stride), `position`, `steps` (the phone's step counter reading), `pause`, `resume`, `lap`, `hr` (bpm).
+/// Kinds ([EventKind]): `start` (type, id, stride), `position`, `steps` (the phone's step counter reading), `pause`, `resume`, `lap`, `hr` (bpm).
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
 
@@ -95,7 +100,7 @@ class Recorder {
   /// A treadmill recording measures distance as steps times [strideM] (the default stride when null) and ignores GPS.
   factory Recorder.start(String type, DateTime at, String sessionId, {double? strideM}) {
     final r = Recorder._(type, at, sessionId, strideM);
-    r._log(RecorderEvent('start', at, {'type': type, 'id': sessionId, 'stride': strideM}));
+    r._log(RecorderEvent(EventKind.start, at, {'type': type, 'id': sessionId, 'stride': strideM}));
     return r;
   }
 
@@ -126,6 +131,7 @@ class Recorder {
   double _pausedSec = 0, _autoSec = 0;
   DateTime? _slowSince; // when the current slow stretch began
   int _steps = 0;
+  DateTime? _lastStepAt; // when the step counter was last read in this stretch
   int? _lastRaw; // the step counter's last reading in this stretch; null after a pause, so steps taken while paused are not counted
 
   final _laps = <int>[];
@@ -146,7 +152,7 @@ class Recorder {
 
   /// Marks a lap. Ignored while paused.
   void lap(DateTime at) {
-    if (!paused) _log(RecorderEvent('lap', at));
+    if (!paused) _log(RecorderEvent(EventKind.lap, at));
   }
 
   /// The last event's time, or [start].
@@ -155,27 +161,27 @@ class Recorder {
   void position(PositionSample s) {
     _lastSeen = s;
     if (isTreadmill || paused) return; // not recorded, not saved
-    _log(RecorderEvent('position', s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
+    _log(RecorderEvent(EventKind.position, s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
   }
 
   /// A beats-per-minute reading from the band, [at] when it came. Not recorded while paused.
   void heartRate(int bpm, DateTime at) {
     if (paused) return;
-    _log(RecorderEvent('hr', at, {'bpm': bpm}));
+    _log(RecorderEvent(EventKind.hr, at, {'bpm': bpm}));
   }
 
   /// The phone's step counter read [count] at [at]. The counter is cumulative since boot, so only the change between readings counts.
   void stepCount(DateTime at, int count) {
     if (!isTreadmill || paused) return;
-    _log(RecorderEvent('steps', at, {'n': count}));
+    _log(RecorderEvent(EventKind.steps, at, {'n': count}));
   }
 
   void pause(DateTime at) {
-    if (!paused) _log(RecorderEvent('pause', at));
+    if (!paused) _log(RecorderEvent(EventKind.pause, at));
   }
 
   void resume(DateTime at) {
-    if (paused) _log(RecorderEvent('resume', at));
+    if (paused) _log(RecorderEvent(EventKind.resume, at));
   }
 
   void _log(RecorderEvent e) {
@@ -185,7 +191,7 @@ class Recorder {
 
   void _apply(RecorderEvent e) {
     switch (e.kind) {
-      case 'position':
+      case EventKind.position:
         _onPosition(PositionSample(
           time: e.at,
           lat: (e.data['lat'] as num).toDouble(),
@@ -193,22 +199,27 @@ class Recorder {
           altitude: (e.data['alt'] as num?)?.toDouble(),
           accuracy: (e.data['acc'] as num?)?.toDouble(),
         ));
-      case 'hr':
+      case EventKind.hr:
         _bpm = (e.data['bpm'] as num).round();
         _bpmAt = e.at;
         if (isTreadmill) _treadmillPoint(e.at); // a treadmill has no fixes, so each reading is its own track point
-      case 'lap':
+      case EventKind.lap:
         _laps.add(max(0, e.at.difference(start).inMilliseconds / 1000).round());
-      case 'steps':
+      case EventKind.steps:
         final n = (e.data['n'] as num).toInt(), prev = _lastRaw;
+        final beforeM = stepDistanceKm(_steps, strideM) * 1000;
         if (prev != null) _steps += n >= prev ? n - prev : n; // a smaller reading means the counter restarted
         _lastRaw = n;
-      case 'pause':
+        final from = _lastStepAt;
+        _lastStepAt = e.at;
+        if (from != null) _kmCrossings(beforeM, stepDistanceKm(_steps, strideM) * 1000, from, e.at.difference(from).inMilliseconds / 1000);
+      case EventKind.pause:
         _closeSlow();
         _pausedAt = e.at;
         _last = null;
         _lastRaw = null;
-      case 'resume':
+        _lastStepAt = null;
+      case EventKind.resume:
         _pausedSec += e.at.difference(_pausedAt!).inMilliseconds / 1000;
         _pausedAt = null;
         _last = null; // the next fix starts a new stretch: whatever happened during the pause is not distance
@@ -228,7 +239,7 @@ class Recorder {
         final before = _dist;
         _dist += step;
         _closeSlow();
-        _kmCrossings(before, step, last.time, dt);
+        _kmCrossings(before, _dist, last.time, dt);
       } else {
         _slowSince ??= last.time;
       }
@@ -248,9 +259,10 @@ class Recorder {
     _hrCol.add(_bpm);
   }
 
-  /// Records a cue for each km boundary the step from [before] (of length [step], starting at [from] and lasting [dt] s) crossed.
-  void _kmCrossings(double before, double step, DateTime from, double dt) {
-    while (_dist >= (_kmCues.length + 1) * 1000) {
+  /// Records a cue for each km boundary crossed by the move from distance [before] to [after] (meters), starting at [from] and lasting [dt] s.
+  void _kmCrossings(double before, double after, DateTime from, double dt) {
+    final step = after - before;
+    while (after >= (_kmCues.length + 1) * 1000) {
       final mark = (_kmCues.length + 1) * 1000.0;
       final at = from.difference(start).inMilliseconds / 1000 + dt * (mark - before) / step;
       final moving = at - _pausedSec - _autoSec;
@@ -312,6 +324,7 @@ class Recorder {
   /// The finished recording, ending at [end]. It goes to `CardioStore.ingest`.
   Recording finish(DateTime end) {
     final s = snapshot(end);
+    final hrs = _hrCol.nonNulls.toList();
     return Recording(
       source: 'recorded',
       type: type,
@@ -320,11 +333,20 @@ class Recorder {
       movingSec: s.movingSec,
       externalId: sessionId,
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
-      track: _t.isEmpty
-          ? null
-          : isTreadmill
-              ? Track(time: List.of(_t), hr: List.of(_hrCol))
-          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null, laps: _laps.isEmpty ? null : List.of(_laps)),
+      avgHr: hrs.isEmpty ? null : (hrs.reduce((a, b) => a + b) / hrs.length).round(),
+      maxHr: hrs.isEmpty ? null : hrs.reduce(max),
+      track: isTreadmill ? _treadmillTrack(s.elapsedSec) : _t.isEmpty ? null : _gpsTrack(),
     );
+  }
+
+  Track _gpsTrack() => Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null, laps: _laps.isEmpty ? null : List.of(_laps));
+
+  /// Time (and heart rate when there was any), with the start and the end as points so laps can be measured. Null when there is nothing to keep.
+  Track? _treadmillTrack(int elapsedSec) {
+    final hasHr = _hrCol.any((h) => h != null);
+    if (!hasHr && _laps.isEmpty) return null;
+    final laps = _laps.isEmpty ? null : List.of(_laps);
+    if (laps == null) return Track(time: List.of(_t), hr: List.of(_hrCol));
+    return Track(time: [0, ..._t, elapsedSec], hr: hasHr ? [null, ..._hrCol, null] : null, laps: laps); // start and end points, so laps can be measured
   }
 }
