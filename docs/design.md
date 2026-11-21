@@ -27,7 +27,7 @@ Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `dele
 | `workouts` | `routine_id` (nullable), `started_at`, `finished_at` (null = in progress), `notes` |
 | `workout_exercises` | `workout_id`, `exercise_id`, `alternative_ids[]`, `position`, `notes`, `superset_with_next`, `skipped` |
 | `sets` | `workout_exercise_id`, `set_number`, `weight_kg`, `reps`, `duration_sec`, `done` |
-| `cardio` | `type` (run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball), `started_at`, `distance_km` (null for sports), `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
+| `cardio` | `type` (run, treadmill; old rows may hold walk, bike, swim or sports types), `started_at`, `distance_km` (null only on old sports rows), `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
 
 Changes from the brief:
 
@@ -57,7 +57,7 @@ Changes from the brief:
 Header on every screen: title, History icon, More icon and sync status. Bottom tabs: Home, Workouts, Running. Workouts has top tabs Saved, Stats, Exercises and Records. Running is a placeholder until the Runs view lands. Each tab keeps its own navigation stack. Saved routines are called "workouts" in the UI.
 
 1. **Login.** Shown once on a fresh install. Email and password.
-2. **Home.** Resume-workout banner, the backup reminder (dismissible, shown when the last export is older than 14 days), and "Start workout". That opens a list of saved workouts, Empty workout and the activities. Each asks **Start now** (live workout, or a timer for activities) or **I did it** (logged at a picked time, all sets done).
+2. **Home.** Resume-workout banner, the backup reminder (dismissible, shown when the last export is older than 14 days), and "Start workout". That opens a list of saved workouts, Empty workout, Run and Treadmill run. Each asks **Start now** (live workout, or a timer for runs) or **I did it** (logged at a picked time, all sets done).
 3. **Workout (active or past).** Editable date and time and a workout note. For each exercise card:
    - sticky note, "Last time" set list, and the one-off session note;
    - set rows with −/+ steppers (2.5 kg / 1 rep / 5 s) and tap-to-type;

@@ -26,9 +26,7 @@ class _CardioFormState extends State<CardioForm> {
   late final c = widget.existing;
   late String? _type = c?.type ?? widget.type ?? 'run';
   late DateTime _at = c?.startedAt ?? widget.startedAt ?? DateTime.now();
-  // Swim distance is typed in meters; everything is stored in km.
-  late final _km = TextEditingController(
-      text: c?.distanceKm == null ? '' : _num(c!.type == 'swim' ? c!.distanceKm! * 1000 : c!.distanceKm!));
+  late final _km = TextEditingController(text: c?.distanceKm == null ? '' : _num(c!.distanceKm!));
   late final _dur = TextEditingController(text: switch (c?.durationSec ?? widget.durationSec) { final s? => _hms(s), null => '' });
   late final _hr = TextEditingController(text: c?.avgHr?.toString() ?? '');
   late final _incline = TextEditingController(text: c?.inclinePct == null ? '' : _num(c!.inclinePct!));
@@ -68,7 +66,7 @@ class _CardioFormState extends State<CardioForm> {
       id: c?.id,
       type: _type!,
       startedAt: _at,
-      distanceKm: !hasDistance(_type) ? null : _kmValue,
+      distanceKm: parseNum(_km.text),
       durationSec: parseDuration(_dur.text)!,
       avgHr: opt(_hr) == null ? null : int.parse(opt(_hr)!),
       inclinePct: _type != 'treadmill' || opt(_incline) == null ? null : parseNum(_incline.text),
@@ -94,8 +92,6 @@ class _CardioFormState extends State<CardioForm> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  double? get _kmValue => switch (parseNum(_km.text)) { final v? => _type == 'swim' ? v / 1000 : v, null => null };
-
   Widget _field(String key, TextEditingController t, String label,
           {TextInputType keyboard = const TextInputType.numberWithOptions(decimal: true), String? hint}) =>
       Padding(
@@ -114,7 +110,7 @@ class _CardioFormState extends State<CardioForm> {
   Widget build(BuildContext context) {
     final loc = MaterialLocalizations.of(context);
     final sec = parseDuration(_dur.text);
-    final pace = sec == null ? null : paceSecPerKm(_kmValue, sec);
+    final pace = sec == null ? null : paceSecPerKm(parseNum(_km.text), sec);
     return Scaffold(
       appBar: AppBar(
         title: Text(c == null ? 'Log ${activityLabel(_type ?? 'run')}' : 'Edit ${activityLabel(c!.type)}'),
@@ -135,10 +131,7 @@ class _CardioFormState extends State<CardioForm> {
                     avatar: Icon(activityIcon(t)),
                     label: Text(activityLabel(t)),
                     selected: _type == t,
-                    onSelected: (_) => setState(() {
-                      if ((t == 'swim') != (_type == 'swim')) _km.clear(); // meters vs km
-                      _type = t;
-                    }),
+                    onSelected: (_) => setState(() => _type = t),
                   ),
               ]),
               if (_errors['type'] case final e?) Text(e, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -153,14 +146,12 @@ class _CardioFormState extends State<CardioForm> {
                       onTap: _pickDate,
                     )),
               ),
-              if (hasDistance(_type)) _field('distance', _km, _type == 'swim' ? 'Distance (m)' : 'Distance (km)'),
+              _field('distance', _km, 'Distance (km)'),
               _field('duration', _dur, 'Duration', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
-              if (hasDistance(_type))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(pace == null ? 'Pace: -' : 'Pace: ${formatPace(pace)} min/km',
-                      style: Theme.of(context).textTheme.titleMedium),
-                ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(pace == null ? 'Pace: -' : 'Pace: ${formatPace(pace)} min/km', style: Theme.of(context).textTheme.titleMedium),
+              ),
               _field('avgHr', _hr, 'Average HR (optional)', keyboard: TextInputType.number),
               if (_type == 'treadmill') _field('incline', _incline, 'Incline % (optional)'),
               _field('rpe', _rpe, 'RPE 1-10 (optional)', keyboard: TextInputType.number),

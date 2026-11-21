@@ -7,12 +7,8 @@ import 'db.dart';
 import 'records.dart' show Series;
 import 'stats.dart' show mondayOf;
 
-const distanceTypes = ['run', 'walk', 'treadmill', 'bike', 'swim'];
-const sportTypes = ['padel', 'tennis', 'soccer', 'basketball'];
-const cardioTypes = [...distanceTypes, ...sportTypes];
-
-/// Sports log time only; the rest log a distance too.
-bool hasDistance(Object? type) => !sportTypes.contains(type);
+/// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
+const cardioTypes = ['run', 'treadmill'];
 
 /// Seconds per km, or null when there is no distance.
 double? paceSecPerKm(double? distanceKm, int durationSec) =>
@@ -58,7 +54,7 @@ Map<String, String> validateCardio({
   final e = <String, String>{};
   if (!cardioTypes.contains(type)) e['type'] = 'Pick a type';
   final km = parseNum(distance);
-  if (hasDistance(type) && (km == null || roundTo(km, 3) <= 0 || roundTo(km, 3) >= distanceBelow)) {
+  if ((km == null || roundTo(km, 3) <= 0 || roundTo(km, 3) >= distanceBelow)) {
     e['distance'] = 'Enter a distance above 0 and below $distanceBelow';
   }
   final sec = parseDuration(duration);

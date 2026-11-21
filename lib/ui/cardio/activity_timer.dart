@@ -5,18 +5,13 @@ import 'package:flutter/material.dart';
 import '../../data/cardio.dart';
 import 'cardio_form.dart';
 
-/// Icon for a cardio type or sport.
-IconData activityIcon(String type) => switch (type) {
-      'walk' => Icons.directions_walk,
-      'bike' => Icons.directions_bike,
-      'swim' => Icons.pool,
-      'padel' || 'tennis' => Icons.sports_tennis,
-      'soccer' => Icons.sports_soccer,
-      'basketball' => Icons.sports_basketball,
-      _ => Icons.directions_run,
-    };
+/// Icon for a cardio type. Old rows of other types show as runs.
+IconData activityIcon(String type) => Icons.directions_run;
 
-String activityLabel(String type) => type[0].toUpperCase() + type.substring(1);
+String activityLabel(String type) => switch (type) {
+      'treadmill' => 'Treadmill run',
+      _ => type[0].toUpperCase() + type.substring(1),
+    };
 
 /// Running clock for a live activity. Stop opens the cardio form with the time filled in.
 // shortcut: the clock lives in memory, so killing the app loses it; persist the start time if that bites.

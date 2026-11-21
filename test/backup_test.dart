@@ -54,6 +54,16 @@ void main() {
     expect(dirty.read<int>('n'), 2);
   });
 
+  test('a backup with walk and padel rows still restores', () async {
+    final a = newDb();
+    await seed(a);
+    await a.save(a.cardio, {'id': 'c3', 'type': 'walk', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 3.0, 'duration_sec': 2000});
+    await a.save(a.cardio, {'id': 'c4', 'type': 'padel', 'started_at': DateTime.utc(2026, 10, 5), 'duration_sec': 3600});
+    final b = newDb();
+    await Backup(b).restore(await Backup(a).export(), replace: false);
+    expect(await dump(b), await dump(a));
+  });
+
   test('export carries every column, soft-deleted rows included', () async {
     final a = newDb();
     await seed(a);

@@ -154,21 +154,22 @@ void main() {
     });
   });
 
-  group('sports', () {
-    test('need no distance; distance types still do', () {
-      expect(validateCardio(type: 'padel', distance: '', duration: '60'), isEmpty);
-      expect(validateCardio(type: 'swim', distance: '', duration: '30').keys, ['distance']);
-      expect(hasDistance('soccer'), isFalse);
-      expect(hasDistance('swim'), isTrue);
+  group('types', () {
+    test('only run and treadmill validate; old types are rejected, distance is always required', () {
+      expect(cardioTypes, ['run', 'treadmill']);
+      expect(validateCardio(type: 'treadmill', distance: '3', duration: '20'), isEmpty);
+      for (final t in ['walk', 'bike', 'swim', 'padel']) {
+        expect(validateCardio(type: t, distance: '3', duration: '20').keys, ['type']);
+      }
+      expect(validateCardio(type: 'run', distance: '', duration: '30').keys, ['distance']);
     });
-    test('save without distance; no pace or bucket', () async {
+    test('an old walk or padel row still loads', () async {
       final db = AppDb(NativeDatabase.memory());
       final store = CardioStore(db);
-      final id = await store.save(type: 'tennis', startedAt: DateTime(2026, 1, 1), distanceKm: null, durationSec: 3600);
+      final id = await store.save(type: 'padel', startedAt: DateTime(2026, 1, 1), distanceKm: null, durationSec: 3600);
       final c = await store.watch(id).first;
-      expect((c.type, c.distanceKm), ('tennis', null));
+      expect((c.type, c.distanceKm), ('padel', null));
       expect(paceSecPerKm(c.distanceKm, c.durationSec), isNull);
-      expect(distanceBucket(c.distanceKm), isNull);
       await db.close();
     });
     test('weekly totals: minutes and sessions per Monday-started week', () {

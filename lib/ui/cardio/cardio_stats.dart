@@ -45,16 +45,6 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                         ChoiceChip(label: Text(t), selected: _type == t, onSelected: (_) => setState(() => _type = t)),
                     ]),
                   ),
-                  if (!hasDistance(_type))
-                    TileGroup(title: 'Per week', children: [
-                      if (ofType.isEmpty) const ListTile(title: Text('No sessions')),
-                      for (final (monday, sec, n) in weeklyTotals(ofType).reversed)
-                        ListTile(
-                          title: Text('Week of ${monday.day}/${monday.month}/${monday.year}'),
-                          trailing: Text('${_time(sec)} · $n ${n == 1 ? 'session' : 'sessions'}'),
-                        ),
-                    ])
-                  else ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Wrap(spacing: 8, children: [
@@ -87,7 +77,6 @@ class _CardioStatsScreenState extends State<CardioStatsScreen> {
                       }),
                     ),
                   ]),
-                  ],
                 ]),
               ),
             );

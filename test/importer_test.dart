@@ -69,7 +69,7 @@ void main() {
       'workouts[0].exercises[0].sets[0].reps: must be a whole number >= 0',
       'workouts[0].exercises[0].sets[1]: give reps or durationSec, not both',
       'workouts[0].exercises[1].sets: must be a non-empty list',
-      'cardio[0].type: must be one of run, walk, treadmill, bike, swim, padel, tennis, soccer, basketball',
+      'cardio[0].type: must be one of run, treadmill',
       'cardio[0].distanceKm: must be a number > 0',
       'cardio[0].rpe: must be a whole number 1-10',
     ]);
@@ -89,12 +89,12 @@ void main() {
     expect(validateImport(d), isEmpty);
   });
 
-  test('sports need no distanceKm', () {
+  test('other cardio types fail with a clear error', () {
     final d = _doc();
-    d['cardio'][0]
-      ..['type'] = 'padel'
-      ..remove('distanceKm');
-    expect(validateImport(d), isEmpty);
+    d['cardio'][0]['type'] = 'padel';
+    expect(validateImport(d), ['cardio[0].type: must be one of run, treadmill']);
+    d['cardio'][0]['type'] = 'walk';
+    expect(validateImport(d), ['cardio[0].type: must be one of run, treadmill']);
   });
 
   test('a name can match a library alias', () async {
@@ -251,7 +251,7 @@ void main() {
             {'name': 'Pushups', 'sets': [{'reps': 10}]},
           ],
         };
-    Map c(String date) => {'type': 'walk', 'date': date, 'distanceKm': 2, 'durationSec': 1200};
+    Map c(String date) => {'type': 'run', 'date': date, 'distanceKm': 2, 'durationSec': 1200};
     await importer.save({
       'version': 1,
       'workouts': [w('2026-11-16T07:00'), w('2026-11-17T23:59'), w('2026-11-18T00:00')],
