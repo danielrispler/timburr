@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import 'best_efforts.dart';
 import 'db.dart';
 import 'recording.dart';
 import 'settings.dart';
@@ -124,6 +125,7 @@ class CardioStore {
       'rpe': rpe,
       'notes': notes,
     });
+    await _db.rebuildBestEfforts([id]); // the type may have changed
     unawaited(onSaved?.call()); // sync in the background; the local write is done
     return id;
   }
@@ -206,7 +208,10 @@ class CardioStore {
       }
       return IngestResult(match.id, IngestOutcome.merged);
     });
-    if (!dryRun && result.outcome != IngestOutcome.unchanged) unawaited(onSaved?.call()); // sync in the background; the local write is done
+    if (!dryRun && result.outcome != IngestOutcome.unchanged) {
+      await _db.rebuildBestEfforts([result.id!]);
+      unawaited(onSaved?.call()); // sync in the background; the local write is done
+    }
     return result;
   }
 
@@ -219,8 +224,12 @@ class CardioStore {
   Future<void> edit(String id, Map<String, Object?> fields) async {
     final c = await watch(id).first;
     await _db.save(_db.cardio, {..._columns(c), ...fields, 'edited_fields': {...c.editedFields, ...fields.keys}.toList()});
+    await _db.rebuildBestEfforts([id]);
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
+
+  /// Cached Best efforts of live outdoor Runs, every distance.
+  Stream<List<Effort>> watchBestEfforts() => _db.watchBestEfforts();
 
   /// The Run's points, null when it has none.
   Stream<Track?> watchTrack(String cardioId) => (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull()))
@@ -238,6 +247,7 @@ class CardioStore {
       await _db.save(_db.cardio, {..._columns(c), 'deleted_at': now});
       final track = await (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
       if (track != null) await _db.save(_db.cardioTracks, {'id': track.id, 'cardio_id': id, 'points': track.points, 'deleted_at': now});
+      await _db.rebuildBestEfforts([id]);
     });
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }

@@ -15,6 +15,7 @@ import '../core/theme.dart';
 import 'activity_timer.dart';
 import 'max_hr.dart';
 import 'cardio_form.dart';
+import 'run_efforts.dart';
 
 /// Opens the Run page for [id]. The one way to open a Run: History and the Runs view both call it.
 void openRun(BuildContext context, CardioStore store, String id) =>
@@ -72,7 +73,7 @@ class RunPage extends StatelessWidget {
             ),
             body: StreamBuilder(
               stream: store.watchTrack(id),
-              builder: (context, ts) => _RunBody(c, ts.data, store.settings),
+              builder: (context, ts) => _RunBody(c, ts.data, store, store.settings),
             ),
           );
         },
@@ -80,10 +81,11 @@ class RunPage extends StatelessWidget {
 }
 
 class _RunBody extends StatefulWidget {
-  const _RunBody(this.run, this.track, this.settings);
+  const _RunBody(this.run, this.track, this.store, this.settings);
 
   final CardioData run;
   final Track? track;
+  final CardioStore store;
   final SettingsStore settings;
 
   @override
@@ -147,6 +149,7 @@ class _RunBodyState extends State<_RunBody> {
             trailing: Text(s.avgHr == null ? '' : '${s.avgHr} bpm'),
           ),
       ]),
+      RunBestEfforts(store: widget.store, runId: c.id),
     ]);
   }
 }

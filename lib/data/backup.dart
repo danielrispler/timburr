@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'best_efforts.dart';
 import 'db.dart';
 import 'sync.dart';
 
@@ -68,6 +69,7 @@ class Backup {
               variables: [Variable(now), Variable(now), Variable(id)], updates: {t});
         }
       }
+      await _db.rebuildBestEfforts();
     });
   }
 

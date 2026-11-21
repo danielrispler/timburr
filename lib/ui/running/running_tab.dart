@@ -11,6 +11,7 @@ import '../cardio/run_page.dart';
 import '../core/theme.dart';
 import '../import/strava_import_screen.dart';
 import '../routines/start.dart';
+import 'running_records.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -48,7 +49,7 @@ class _RunningTabState extends State<RunningTab> {
             child: TabBarView(children: [
               _RunsPage(stores: widget.stores, runs: _runs),
               _ProgressPage(runs: _runs),
-              const Center(child: Text('Records are coming soon')), // #61
+              RunningRecords(stores: widget.stores, runs: _runs),
             ]),
           ),
         ]),

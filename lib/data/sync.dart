@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import 'best_efforts.dart';
 import 'db.dart';
 import 'error_log.dart';
 
@@ -111,12 +112,15 @@ class SyncEngine {
     final since = cursorRow?.cursor?.subtract(overlap);
     DateTime? newest = cursorRow?.cursor, key = since;
     String? afterId;
+    final touched = <String>{}; // Runs whose Best efforts may have changed
     while (true) {
       // Keyset, not OFFSET: a row bumped mid-pull moves behind the key and is still reached.
       final page = await _remote.changedSince(name, key, afterId, pageSize);
       await _db.transaction(() async {
         for (final r in page) {
           await _apply(table, r);
+          if (name == 'cardio') touched.add(r['id'] as String);
+          if (name == 'cardio_tracks') touched.add(r['cardio_id'] as String);
           final s = DateTime.parse(r['server_updated_at'] as String);
           if (newest == null || s.isAfter(newest!)) newest = s;
         }
@@ -125,6 +129,7 @@ class SyncEngine {
       key = DateTime.parse(page.last['server_updated_at'] as String);
       afterId = page.last['id'] as String;
     }
+    await _db.rebuildBestEfforts(touched);
     if (newest != null) {
       await _db.into(_db.syncCursors).insertOnConflictUpdate(SyncCursorsCompanion.insert(syncedTable: name, cursor: Value(newest)));
     }

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/catalog.dart' show libraryRowId;
 import 'package:timburr/data/db.dart';
 import 'package:timburr/data/sync.dart';
+import 'package:timburr/data/track.dart';
 
 /// In-memory Supabase: last write wins by updated_at and bumps server_updated_at, like touch_row.
 class FakeRemote implements Remote {
@@ -106,6 +107,19 @@ void main() {
     expect((await other.select(other.cardioTracks).getSingle()).points, 'H4sIAAAA');
     expect((await other.select(other.appSettings).getSingle()).maxHr, 190);
     expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
+  });
+
+  test('a pulled Run and track rebuild the Best efforts, a pulled Treadmill run adds none', () async {
+    final track = Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode();
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 1.2, 'duration_sec': 300});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': track});
+    await db.save(db.cardio, {'id': 'c2', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 1.2, 'duration_sec': 300});
+    await db.save(db.cardioTracks, {'id': 't2', 'cardio_id': 'c2', 'points': track});
+    await engine.sync();
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    expect({for (final b in await other.select(other.bestEfforts).get()) b.cardioId}, {'c1'});
   });
 
   test('an edit made during the push stays dirty', () async {

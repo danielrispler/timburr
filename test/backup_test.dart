@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/backup.dart';
 import 'package:timburr/data/catalog.dart' show libraryRowId;
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/track.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -54,6 +55,15 @@ void main() {
     expect(await dump(b), await dump(a));
     final dirty = await b.customSelect('select count(*) as n from sets where dirty = 1').getSingle();
     expect(dirty.read<int>('n'), 2);
+  });
+
+  test('restoring a backup rebuilds the Best efforts', () async {
+    final a = newDb();
+    await seed(a);
+    await a.save(a.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode()});
+    final b = newDb();
+    await Backup(b).restore(await Backup(a).export(), replace: false);
+    expect({for (final e in await b.select(b.bestEfforts).get()) e.distanceM}, {400, 1000});
   });
 
   test('a backup with walk and padel rows still restores', () async {

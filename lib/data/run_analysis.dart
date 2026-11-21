@@ -15,7 +15,7 @@ class KmSplit {
 const minLastSplitM = 100.0;
 
 /// Indices of [t] that have both time and distance, with distances that never go backwards.
-List<int> _timed(Track t) {
+List<int> timedIndices(Track t) {
   final time = t.time, dist = t.distance;
   if (time == null || dist == null) return const [];
   final idx = <int>[];
@@ -29,7 +29,7 @@ List<int> _timed(Track t) {
 
 /// Splits of [t] per km. Needs time and distance; no splits without them. Km marks are interpolated between the two points around them.
 List<KmSplit> splitsPerKm(Track t) {
-  final idx = _timed(t);
+  final idx = timedIndices(t);
   if (idx.length < 2) return const [];
   final time = t.time!, dist = t.distance!;
   final splits = <KmSplit>[];
@@ -93,7 +93,7 @@ const autoPauseSec = 5;
 /// Moving time in seconds: the track's duration minus every stretch slower than [autoPauseSpeed] that lasted [autoPauseSec] or more.
 /// Null when the track has no time and distance to judge by.
 int? autoPauseMovingSec(Track t) {
-  final idx = _timed(t);
+  final idx = timedIndices(t);
   if (idx.length < 2) return null;
   final time = t.time!, dist = t.distance!;
   var paused = 0, slow = 0;
@@ -120,7 +120,7 @@ List<(double, double)> chartSeries(Track t, RunMetric metric, {int maxPoints = 3
   final out = <(double, double)>[];
   switch (metric) {
     case RunMetric.pace:
-      final idx = _timed(t);
+      final idx = timedIndices(t);
       final time = t.time;
       var j = 0;
       for (var k = 0; k < idx.length; k++) {

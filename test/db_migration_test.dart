@@ -43,7 +43,7 @@ void main() {
     await db.customStatement('drop table routine_sets');
     await db.customStatement('drop table cardio');
     await db.customStatement(ddl.replaceFirst('"distance_km" REAL NULL', '"distance_km" REAL NOT NULL'));
-    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await db.customStatement("insert into cardio (id, type, started_at, distance_km, duration_sec, created_at, updated_at, dirty) values ('c1', 'run', '2026-01-01T00:00:00.000Z', 5, 1500, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', 1)");
     await db.customStatement('pragma user_version = 1');
     await db.close();
 
