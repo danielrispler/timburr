@@ -75,7 +75,7 @@ Header on every screen: title, History icon, More icon and sync status. Bottom t
 7. **Cardio form.** New or edit: type, date, distance, duration, average HR, incline, RPE, notes. Pace is computed.
 8. **Exercises** (Workouts top tab). Media: the exercises-dataset thumbnail and looping GIF (© Gym visual, credited under the GIF), downloaded on first view into the cache dir (not synced or backed up); plus a YouTube search link. Library and custom exercises with search and filters. The detail page shows instructions, load type, sticky note, last session, PRs and charts. Custom exercises can be created, edited and deleted.
 9. **More.** Import, Backup / Restore, Sync now, Sign out.
-10. **Stats** (Workouts top tab). One scroll: totals, streaks, heatmap, weekly charts, most trained and per-saved-workout stats. **Records** (Workouts top tab) holds PRs and all-time bests, plus the Cardio stats link until it is removed.
+10. **Stats** (Workouts top tab). One scroll: totals, streaks, heatmap, weekly charts, most trained and per-saved-workout stats. **Records** (Workouts top tab) holds PRs and all-time bests.
 
 ## Defaults decided during planning
 
@@ -93,3 +93,5 @@ Header on every screen: title, History icon, More icon and sync status. Bottom t
   - "replace" soft-deletes every row that isn't in the backup, so it can be undone;
   - "merge" upserts by id, last write wins.
 - Releases build only on a `v*` tag. `versionCode` is the CI run number.
+
+**Running tab** (`lib/ui/running/running_tab.dart`): top tabs Runs, Progress, Records (placeholder until #61). Runs: this week against the average of the 12 weeks before it, month / year / all-time totals (distance, time, count; treadmill included, other types and Workouts not), an "Import runs" entry to the Strava import, and the 20 latest Runs with a route thumbnail (the stored `route` as a plain polyline). Progress: weekly (26), monthly (24) and yearly distance bars, one bar per real period with empty ones as zero. Maths in `lib/data/running.dart`.

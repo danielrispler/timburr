@@ -9,6 +9,7 @@ import '../../data/workouts.dart';
 import '../history/history_screen.dart';
 import '../routines/routines_home.dart';
 import '../routines/start.dart';
+import '../running/running_tab.dart';
 import '../sync/sync_ui.dart';
 
 typedef _Tab = ({String label, IconData icon});
@@ -109,6 +110,6 @@ class _AppShellState extends State<AppShell> {
   Widget _tabRoot(int i) => switch (_tabs[i].label) {
         'Home' => HomeScreen(stores: _stores),
         'Workouts' => WorkoutsTab(stores: _stores),
-        _ => const Center(child: Text('Running is coming soon')),
+        _ => RunningTab(stores: _stores),
       };
 }

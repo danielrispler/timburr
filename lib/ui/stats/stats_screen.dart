@@ -7,7 +7,6 @@ import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
 import '../../data/stats.dart';
-import '../cardio/cardio_stats.dart';
 import '../core/series_chart.dart';
 import '../core/theme.dart';
 import '../exercises/exercise_detail.dart';
@@ -516,17 +515,6 @@ class _Records extends StatelessWidget {
                 ),
             ],
           ),
-      TileGroup(
-        children: [
-          ListTile(
-            leading: const IconTile(Icons.directions_run),
-            title: const Text('Cardio stats'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () =>
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => CardioStatsScreen(cardio: stores.cardio))),
-          ),
-        ],
-      ),
     ]);
   }
 }
