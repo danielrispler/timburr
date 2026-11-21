@@ -35,6 +35,7 @@ void main() {
     final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
     var db = AppDb(NativeDatabase(file));
     await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await _dropV10Schema(db);
     await db.customStatement('drop table recording_events');
     await db.customStatement('drop table goals');
     await db.customStatement('pragma user_version = 7');
@@ -51,6 +52,7 @@ void main() {
     final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
     var db = AppDb(NativeDatabase(file));
     await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await _dropV10Schema(db);
     await db.customStatement('drop table goals');
     await db.customStatement('pragma user_version = 8');
     await db.close();
@@ -59,6 +61,25 @@ void main() {
     expect((await CardioStore(db).watchAll().first).single.distanceKm, 5.0);
     await db.save(db.goals, {'id': 'g1', 'weekly_km': 30.0});
     expect((await db.select(db.goals).getSingle()).weeklyKm, 30.0);
+    await db.close();
+  });
+
+  test('v9 to v10 adds shoes and cardio.shoe_id, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await _dropV10Schema(db);
+    await db.customStatement('pragma user_version = 9');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    final run = (await CardioStore(db).watchAll().first).single;
+    expect((run.distanceKm, run.shoeId), (5.0, null));
+    await db.save(db.shoes, {'id': 's1', 'name': 'Pegasus', 'is_default': true});
+    await CardioStore(db).edit(run.id, {'shoe_id': 's1'});
+    expect((await CardioStore(db).watchAll().first).single.shoeId, 's1');
+    final idx = await db.customSelect("select name from sqlite_master where type = 'index' and name = 'shoes_dirty'").get();
+    expect(idx, hasLength(1));
     await db.close();
   });
 
@@ -157,8 +178,23 @@ Future<void> _dropV3Columns(AppDb db) async {
   }
 }
 
-/// Back to the v6 schema: drops what v7, v8 and v9 added.
+/// Back to the v9 schema: drops what v10 added. A column with a foreign key cannot be dropped, so cardio is rebuilt without it.
+Future<void> _dropV10Schema(AppDb db) async {
+  await db.customStatement('pragma foreign_keys = OFF');
+  final cols = [for (final r in await db.customSelect("select name from pragma_table_info('cardio')").get()) r.read<String>('name')]..remove('shoe_id');
+  await db.customStatement('alter table cardio rename to cardio_old');
+  await db.customStatement('drop index if exists cardio_dirty');
+  final create = (await db.customSelect("select sql from sqlite_master where name = 'cardio_old'").getSingle()).read<String>('sql');
+  await db.customStatement(create.replaceFirst('"cardio_old"', 'cardio').replaceFirst('cardio_old', 'cardio').replaceAll(RegExp(r',\s*"?shoe_id"?[^,]*?REFERENCES[^,)]*\([^)]*\)', caseSensitive: false), ''));
+  await db.customStatement('insert into cardio (${cols.join(',')}) select ${cols.join(',')} from cardio_old');
+  await db.customStatement('drop table cardio_old');
+  await db.customStatement('drop table shoes');
+  await db.customStatement('pragma foreign_keys = ON');
+}
+
+/// Back to the v6 schema: drops what v7, v8, v9 and v10 added.
 Future<void> _dropV7Schema(AppDb db) async {
+  await _dropV10Schema(db);
   await db.customStatement('drop table goals');
   await db.customStatement('drop table recording_events');
   for (final t in ['cardio_tracks', 'settings', 'best_efforts']) {

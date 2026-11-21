@@ -8,6 +8,7 @@ import 'db.dart';
 import 'goals.dart';
 import 'recording.dart';
 import 'settings.dart';
+import 'shoes.dart';
 import 'stride.dart';
 import 'track.dart';
 
@@ -118,6 +119,9 @@ class CardioStore {
   /// The distance goals row, for Progress. Shares this store's sync hook.
   late final goals = GoalStore(_db, onSaved: onSaved);
 
+  /// The shoes, for the Run page and mileage. Shares this store's sync hook.
+  late final shoes = ShoeStore(_db, onSaved: onSaved);
+
   /// Called after each save or delete; main wires it to sync.
   final Future<void> Function()? onSaved;
 
@@ -133,9 +137,11 @@ class CardioStore {
     int? rpe,
     String? notes,
   }) async {
+    final shoe = id == null && cardioTypes.contains(type) ? await shoes.defaultId() : null; // a new Run gets the default shoe
     id ??= const Uuid().v4();
     await _db.save(_db.cardio, {
       'id': id,
+      'shoe_id': ?shoe,
       'type': type,
       'started_at': startedAt,
       'distance_km': distanceKm,
@@ -173,8 +179,10 @@ class CardioStore {
       if (match == null) {
         final id = const Uuid().v4();
         if (dryRun) return IngestResult(null, IngestOutcome.created);
+        final shoe = cardioTypes.contains(r.type) ? await shoes.defaultId() : null;
         await _db.save(_db.cardio, {
           'id': id,
+          'shoe_id': ?shoe,
           'type': r.type,
           'started_at': start,
           'distance_km': r.distanceKm,

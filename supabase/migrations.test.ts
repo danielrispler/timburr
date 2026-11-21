@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_goals.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_goals.sql', '008_shoes.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -249,6 +249,34 @@ describe('007_goals.sql', () => {
     await expect(put(25, '2026-11-20T12:00:00Z', other)).rejects.toThrow() // same id, someone else's row
     await db.exec('set role anon')
     await expect(rows('select * from goals')).rejects.toThrow(/permission denied/)
+    await db.exec('reset role')
+  })
+})
+
+describe('008_shoes.sql', () => {
+  const shoe = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+  const run = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+  const put = (name: string, at: string, uid = me) =>
+    as(uid, () =>
+      rows(
+        `insert into shoes (id, user_id, name, updated_at) values ($1, $2, $3, $4)
+         on conflict (id) do update set name = excluded.name, updated_at = excluded.updated_at`,
+        [shoe, uid, name, at],
+      ),
+    )
+
+  it('keeps shoes per user under RLS and last-write-wins, and a Run can name one', async () => {
+    await put('Pegasus', '2026-11-20T10:00:00Z')
+    await put('Old name', '2026-11-20T09:00:00Z')
+    expect(await as(me, () => rows('select name, is_default, retired_at from shoes'))).toEqual([{ name: 'Pegasus', is_default: false, retired_at: null }])
+    expect(await as(other, () => rows('select * from shoes'))).toHaveLength(0)
+    await expect(put('Hijack', '2026-11-20T11:00:00Z', other)).rejects.toThrow() // same id, someone else's row
+    await expect(put('  ', '2026-11-20T12:00:00Z')).rejects.toThrow(/name/)
+    await as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec, shoe_id) values ($1, 'run', now(), 5, 1500, $2)`, [run, shoe]))
+    expect(await as(me, () => rows('select shoe_id from cardio where id = $1', [run]))).toEqual([{ shoe_id: shoe }])
+    await expect(as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec, shoe_id) values (gen_random_uuid(), 'run', now(), 1, 60, gen_random_uuid())`))).rejects.toThrow(/foreign key/)
+    await db.exec('set role anon')
+    await expect(rows('select * from shoes')).rejects.toThrow(/permission denied/)
     await db.exec('reset role')
   })
 })
