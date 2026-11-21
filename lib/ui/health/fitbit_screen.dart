@@ -10,11 +10,15 @@ Future<void> checkFitbitNow(BuildContext context, HealthConnect health) async {
   String text;
   try {
     final r = await health.check();
+    final parts = [
+      if (r != null && r.runs > 0) '${r.runs} ${r.runs == 1 ? 'Run' : 'Runs'}',
+      if (r != null && r.workouts > 0) '${r.workouts} ${r.workouts == 1 ? 'Workout' : 'Workouts'}',
+    ];
     text = r == null
         ? 'Fitbit is not connected'
-        : r.runs == 0
+        : parts.isEmpty
             ? 'Nothing new from the Fitbit'
-            : 'Filled in ${r.runs} ${r.runs == 1 ? 'Run' : 'Runs'} from the Fitbit';
+            : 'Filled in ${parts.join(' and ')} from the Fitbit';
   } catch (e, st) {
     reportError('health_connect', e, st, {'call': 'sessions'});
     text = 'Could not read Health Connect: $e';
@@ -84,8 +88,8 @@ class _FitbitScreenState extends State<FitbitScreen> {
             children: [
               Text(
                 'Timburr can read your Fitbit\'s exercise sessions from Health Connect: their times, heart rate, distance and calories.\n\n'
-                'They only fill in what is missing on Runs you recorded or imported, matched by time. A Fitbit session that matches no Run is ignored, '
-                'so Runs are only ever created by you. Values you typed are never replaced.\n\n'
+                'They only fill in what is missing on Runs you recorded or imported, and the Health stats of your Workouts, matched by time. '
+                'A Fitbit session that matches no Run is ignored, so Runs are only ever created by you. Values you typed are never replaced.\n\n'
                 'Timburr never writes to Health Connect. It checks when the app opens or comes back, and when you tap Check Fitbit now.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),

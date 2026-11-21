@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 
 import 'cardio.dart';
 import 'error_log.dart';
+import 'health.dart';
 import 'recording.dart';
 import 'track.dart';
+import 'workouts.dart';
 
 /// Health Connect exercise types (androidx ExerciseSessionRecord.EXERCISE_TYPE_*) that are Runs.
 const hcRunning = 56, hcTreadmill = 57;
@@ -94,17 +96,25 @@ Recording? runRecording(HcSession s) {
   );
 }
 
-/// How many Runs a check filled in.
-typedef HcCheck = ({int runs});
+/// A Workout's Health stats from [s]: average HR, calories and active time (start to end). Health Connect has no effort or cardio load.
+HealthStats workoutStats(HcSession s) => (avgHr: s.avgHr, calories: s.calories, activeSec: s.elapsedSec, effort: null, cardioLoad: null);
 
-/// Hands every run session to [CardioStore.ingest], which merges it into the Run it overlaps and ignores it when there is none.
-Future<HcCheck> applySessions(CardioStore cardio, List<HcSession> sessions) async {
+/// How many Runs and Workouts a check filled in.
+typedef HcCheck = ({int runs, int workouts});
+
+/// Hands every run session to [CardioStore.ingest], which merges it into the Run it overlaps and ignores it when there is none. Every other
+/// session may fill the empty Health stats of the Workout it overlaps ([WorkoutStore.fillHealth]).
+Future<HcCheck> applySessions(CardioStore cardio, WorkoutStore workouts, List<HcSession> sessions) async {
   var runs = 0;
   for (final s in sessions) {
     final r = runRecording(s);
     if (r != null && (await cardio.ingest(r)).outcome == IngestOutcome.merged) runs++;
   }
-  return (runs: runs);
+  final filled = await workouts.fillHealth([
+    for (final s in sessions)
+      if (!s.isRun && s.elapsedSec > 0) (start: s.start, end: s.end, stats: workoutStats(s)),
+  ]);
+  return (runs: runs, workouts: filled);
 }
 
 enum HcStatus { unknown, unavailable, updateNeeded, disconnected, connected }
@@ -112,9 +122,10 @@ enum HcStatus { unknown, unavailable, updateNeeded, disconnected, connected }
 /// The Fitbit's data through Health Connect. The platform side is MainActivity.kt (channel `timburr/health`); everything it reads goes through
 /// [applySessions]. Connected means Daniel granted the exercise permission; disconnecting revokes it.
 class HealthConnect {
-  HealthConnect(this.cardio);
+  HealthConnect(this.cardio, this.workouts);
 
   final CardioStore cardio;
+  final WorkoutStore workouts;
   static const _channel = MethodChannel('timburr/health');
 
   final status = ValueNotifier(HcStatus.unknown);
@@ -166,7 +177,7 @@ class HealthConnect {
   Future<HcCheck> _check() async {
     final now = DateTime.now();
     final raw = await _channel.invokeMethod<List>('sessions', {'from': now.subtract(hcLookback).millisecondsSinceEpoch, 'to': now.millisecondsSinceEpoch});
-    return applySessions(cardio, [for (final m in raw ?? const []) HcSession.fromMap(m as Map)]);
+    return applySessions(cardio, workouts, [for (final m in raw ?? const []) HcSession.fromMap(m as Map)]);
   }
 
   /// [check] for app start and resume: errors go to the error log, nothing is shown.

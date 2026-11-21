@@ -48,7 +48,7 @@ Future<void> main() async {
   // Finishing a workout triggers sync (no-op without a Supabase project).
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
-  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio), sync: sync));
+  runApp(TimburrApp(catalog: Catalog(db), routines: RoutineStore(db), workouts: workouts, cardio: cardio, health: HealthConnect(cardio, workouts), sync: sync));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();

@@ -18,7 +18,7 @@ _Avoid_: backup exercise
 
 **Skipped exercise**: an exercise in a workout that Daniel didn't do that day. None of its sets count, and skipping it never changes the routine.
 
-**Health stats**: the numbers Google Health records for a strength workout: average heart rate, calories, duration, effort (1-10) and cardio load. They are optional.
+**Health stats**: the numbers Google Health records for a strength workout: average heart rate, calories, duration, effort (1-10) and cardio load. They are optional. Heart rate, calories and duration fill in from an overlapping Fitbit session; what Daniel typed is never replaced.
 
 ## Running
 
