@@ -55,12 +55,16 @@ Future<void> main() async {
   final cardio = CardioStore(db, onSaved: sync?.sync);
   // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
   // The Max HR in force sets the zone of the live heart rate; kept current from the settings row.
+  final recordingService = ForegroundRecordingService();
   final settings = cardio.settings;
   var maxHr = defaultMaxHr;
   settings.watch().listen((s) => maxHr = effectiveMaxHr(s?.maxHr, s?.birthYear, DateTime.now()));
   liveRecorder = LiveRecorder(
     source: GeolocatorSource(),
-    service: ForegroundRecordingService(),
+    service: recordingService,
+    notification: recordingService,
+    speech: TtsSpeech(),
+    stepSource: PedometerSource(),
     journal: DbJournal(db),
     cardio: cardio,
     heartRate: HeartRateLink(sensor: BleHeartRateSensor(), memory: FileDeviceMemory()),

@@ -97,6 +97,7 @@ class _RunBodyState extends State<_RunBody> {
     final loc = MaterialLocalizations.of(context);
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     final splits = t == null ? const <KmSplit>[] : splitsPerKm(t);
+    final laps = t == null ? const <Lap>[] : lapsOf(t);
     final metrics = [if (t != null) for (final m in RunMetric.values) if (chartSeries(t, m).length >= 2) m];
     final metric = metrics.contains(_metric) ? _metric : metrics.firstOrNull;
     final at = c.startedAt.toLocal();
@@ -143,6 +144,15 @@ class _RunBodyState extends State<_RunBody> {
             leading: SizedBox(width: 56, child: Text(s.distanceM < 1000 ? '${(s.distanceM / 1000).toStringAsFixed(2)} km' : 'km ${s.index}')),
             title: Text('${formatPace(s.paceSecPerKm)} /km'),
             trailing: Text(s.avgHr == null ? '' : '${s.avgHr} bpm'),
+          ),
+      ]),
+      if (laps.isNotEmpty) TileGroup(title: 'Laps', children: [
+        for (final l in laps)
+          ListTile(
+            dense: true,
+            leading: SizedBox(width: 56, child: Text('Lap ${l.index}')),
+            title: Text('${formatDuration(l.durationSec)} · ${(l.distanceM / 1000).toStringAsFixed(2)} km'),
+            trailing: Text(l.paceSecPerKm == null ? '' : '${formatPace(l.paceSecPerKm!)} /km'),
           ),
       ]),
       RunBestEfforts(store: widget.store, runId: c.id),

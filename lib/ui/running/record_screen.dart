@@ -10,10 +10,11 @@ import '../core/theme.dart';
 import '../routines/start.dart';
 
 /// Opens the recording screen: setup before Start, the live numbers during a recording. Does nothing without a recorder (tests).
-void openRecorder(BuildContext context, Stores stores) {
+/// [type] is 'run' (GPS) or 'treadmill' (steps); a recording already in progress keeps its own.
+void openRecorder(BuildContext context, Stores stores, {String type = 'run'}) {
   final recorder = liveRecorder;
   if (recorder == null) return;
-  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => RecordScreen(recorder: recorder, cardio: stores.cardio)));
+  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => RecordScreen(recorder: recorder, cardio: stores.cardio, type: recorder.type ?? type)));
 }
 
 /// A tile that resumes the recording in progress; empty when there is none.
@@ -33,21 +34,23 @@ class RecordingBanner extends StatelessWidget {
           : TileGroup(title: 'Today', children: [
               ListTile(
                 leading: const IconTile(Icons.directions_run),
-                title: const Text('Run in progress'),
+                title: Text(recorder.type == 'treadmill' ? 'Treadmill run in progress' : 'Run in progress'),
                 subtitle: const Text('Tap to resume'),
-                onTap: () => openRecorder(context, stores),
+                onTap: () => openRecorder(context, stores), // keeps the type of the recording in progress
               ),
             ]),
     );
   }
 }
 
-/// Outdoor recording: big Moving time, distance, current and average pace, a GPS indicator, Pause/Resume and Finish.
+/// Recording: big Moving time, distance, current and average pace, a GPS indicator, Pause/Resume and Finish.
+/// A treadmill recording has no GPS: distance is the phone's steps times the calibrated stride, and Finish ends with Check distance.
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key, required this.recorder, required this.cardio});
+  const RecordScreen({super.key, required this.recorder, required this.cardio, this.type = 'run'});
 
   final LiveRecorder recorder;
   final CardioStore cardio;
+  final String type;
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -60,6 +63,7 @@ class _RecordScreenState extends State<RecordScreen> {
   String? _problem;
 
   LiveRecorder get rec => widget.recorder;
+  bool get treadmill => widget.type == 'treadmill';
 
   @override
   void initState() {
@@ -77,8 +81,8 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// Without asking: if location is already allowed, start listening so the GPS indicator works before Start.
   Future<void> _prepare() async {
-    final ok = rec.active || await rec.hasPermission();
-    if (ok && !rec.active) await rec.open();
+    final ok = rec.active || await (treadmill ? rec.hasStepPermission() : rec.hasPermission());
+    if (ok && !rec.active && !treadmill) await rec.open();
     if (mounted) {
       setState(() {
         _allowed = ok;
@@ -88,6 +92,15 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   Future<void> _allow() async {
+    if (treadmill) {
+      final ok = await rec.requestStepPermission();
+      if (!mounted) return;
+      setState(() {
+        _allowed = ok;
+        _problem = ok ? null : 'Timburr needs physical activity access to count your steps. Allow it in the phone\'s Settings, under Apps, Timburr, Permissions.';
+      });
+      return;
+    }
     final p = await rec.requestPermission();
     if (p == PositionPermission.granted) await rec.open();
     if (!mounted) return;
@@ -106,7 +119,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final choice = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Finish this run?'),
+        title: Text(treadmill ? 'Finish this treadmill run?' : 'Finish this run?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, 'discard'), child: const Text('Discard')),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep going')),
@@ -125,7 +138,48 @@ class _RecordScreenState extends State<RecordScreen> {
     final id = await rec.finish();
     if (!mounted) return;
     if (id == null) return nav.pop();
+    if (treadmill) {
+      final km = await _checkDistance(id);
+      if (km != null) await widget.cardio.checkDistance(id, km: km, steps: rec.finishedSteps);
+      if (!mounted) return;
+    }
     nav.pushReplacement(MaterialPageRoute(builder: (_) => RunPage(store: widget.cardio, id: id)));
+  }
+
+  /// The Check distance step: the best estimate (the Fitbit's figure if it has arrived, else the phone's) to correct with the treadmill's number. Null to keep the estimate.
+  Future<double?> _checkDistance(String id) async {
+    final run = await widget.cardio.watch(id).first;
+    if (!mounted) return null;
+    final field = TextEditingController(text: run.distanceKm?.toStringAsFixed(2) ?? '');
+    final km = await showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Check distance'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Type the distance the treadmill shows. Timburr learns your stride from it.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: field,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Distance (km)', border: OutlineInputBorder()),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Keep estimate')),
+          FilledButton(
+            onPressed: () {
+              final v = double.tryParse(field.text.trim().replaceAll(',', '.'));
+              if (v != null && v > 0) Navigator.pop(context, v);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    field.dispose();
+    return km;
   }
 
   @override
@@ -134,7 +188,7 @@ class _RecordScreenState extends State<RecordScreen> {
         builder: (context, _) {
           final s = rec.snapshot;
           return Scaffold(
-          appBar: AppBar(title: const Text('Record run')),
+          appBar: AppBar(title: Text(treadmill ? 'Record treadmill run' : 'Record run')),
           body: SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -156,7 +210,11 @@ class _RecordScreenState extends State<RecordScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Timburr uses your location to measure distance and draw the route, even with the screen off. '
+              treadmill
+                  ? 'Timburr counts your steps with the phone to estimate the distance, with the screen off too. '
+                      'While recording, Android shows a notification so the phone keeps the recording alive. '
+                      'No location is used. When you finish, you type the treadmill\'s distance and Timburr learns your stride.'
+                  : 'Timburr uses your location to measure distance and draw the route, even with the screen off. '
               'While recording, Android shows a notification so the phone keeps the recording alive. '
               'Your route stays on this phone and in your own Supabase project.',
               style: Theme.of(context).textTheme.bodyLarge,
@@ -167,19 +225,18 @@ class _RecordScreenState extends State<RecordScreen> {
         const SizedBox(height: 16),
         HeartRateSetup(recorder: rec),
         if (_allowed) ...[
-          Center(child: _GpsChip(rec.gps)),
-          const SizedBox(height: 16),
+          if (!treadmill) ...[Center(child: _GpsChip(rec.gps)), const SizedBox(height: 16)],
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(72)),
             icon: const Icon(Icons.play_arrow),
             label: const Text('Start'),
-            onPressed: () => rec.start('run'),
+            onPressed: () async => rec.start(widget.type, strideM: treadmill ? (await widget.cardio.settings.watch().first)?.strideM : null),
           ),
         ] else
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(72)),
             icon: const Icon(Icons.location_on),
-            label: const Text('Allow location and notifications'),
+            label: Text(treadmill ? 'Allow step counting and notifications' : 'Allow location and notifications'),
             onPressed: _allow,
           ),
       ]);
@@ -194,8 +251,7 @@ class _RecordScreenState extends State<RecordScreen> {
         );
     String pace(double? p) => p == null ? '--:--' : formatPace(p);
     return ListView(padding: const EdgeInsets.all(16), children: [
-      Center(child: _GpsChip(s.gps)),
-      const SizedBox(height: 16),
+      if (!treadmill) ...[Center(child: _GpsChip(s.gps)), const SizedBox(height: 16)],
       Center(child: Text(formatDuration(s.movingSec), style: theme.textTheme.displayLarge?.copyWith(fontSize: 88, fontFeatures: const [FontFeature.tabularFigures()]))),
       Center(
         child: Text(
@@ -205,12 +261,22 @@ class _RecordScreenState extends State<RecordScreen> {
       ),
       const SizedBox(height: 32),
       Center(child: Text((s.distanceM / 1000).toStringAsFixed(2), style: theme.textTheme.displayLarge?.copyWith(fontSize: 72))),
-      const Center(child: Text('km')),
+      Center(child: Text(treadmill ? 'km (estimated from steps)' : 'km')),
       const SizedBox(height: 24),
-      Row(children: [stat('Pace /km', pace(s.currentPaceSecPerKm)), stat('Avg pace /km', pace(s.avgPaceSecPerKm))]),
+      Row(children: [
+        if (treadmill) stat('Steps', '${s.steps}') else stat('Pace /km', pace(s.currentPaceSecPerKm)),
+        stat('Avg pace /km', pace(s.avgPaceSecPerKm)),
+      ]),
       const SizedBox(height: 16),
       LiveHeartRate(recorder: rec, snapshot: s),
       const SizedBox(height: 32),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        icon: const Icon(Icons.flag),
+        label: Text('Lap (${rec.lapCount})'),
+        onPressed: _busy || s.paused ? null : rec.lap,
+      ),
+      const SizedBox(height: 12),
       Row(children: [
         Expanded(
           child: FilledButton.tonalIcon(
