@@ -187,12 +187,19 @@ class ErrorLogs extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, BestEfforts, SyncCursors, ErrorLogs])
+/// Local only: the log of the live recording in progress, saved as it happens so a killed app or a restarted phone can resume it. See live_recorder.dart.
+@DataClassName('RecordingEventRow')
+class RecordingEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get event => text()(); // a RecorderEvent as JSON
+}
+
+@DriftDatabase(tables: [Exercises, Routines, RoutineExercises, RoutineSets, Workouts, WorkoutExercises, WorkoutSets, Cardio, CardioTracks, AppSettings, BestEfforts, SyncCursors, ErrorLogs, RecordingEvents])
 class AppDb extends _$AppDb {
   AppDb([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'timburr'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -237,6 +244,7 @@ class AppDb extends _$AppDb {
               await m.createIndex(i);
             }
           }
+          if (from < 8) await m.createTable(recordingEvents);
         },
         beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
       );
