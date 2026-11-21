@@ -250,6 +250,10 @@ class AppDb extends _$AppDb {
   /// Synced tables in dependency order, parents first.
   List<TableInfo> get syncedTables => [exercises, routines, routineExercises, routineSets, workouts, workoutExercises, workoutSets, cardio, cardioTracks, appSettings];
 
+  /// The Run's track row, null when it has none or it is deleted.
+  SimpleSelectStatement<$CardioTracksTable, CardioTrack> liveTrackRow(String cardioId) =>
+      select(cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull());
+
   /// The one local write path: upserts [row] (SQL column name to value), stamping `updated_at` and `dirty = 1`.
   /// On conflict only the columns in [row] are updated; omitted columns keep their stored values.
   Future<void> save<D>(TableInfo<Table, D> table, Map<String, Object?> row) {

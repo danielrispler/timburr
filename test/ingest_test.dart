@@ -156,18 +156,18 @@ void main() {
       expect((await store.watchTrack(run.id).first)!.lat!.first, 32.0);
     });
 
-    test('treadmill: time and the confirmed distance come from the phone, heart rate from the Fitbit', () async {
+    test('treadmill: time from the phone, distance and heart rate from the Fitbit', () async {
       await store.ingest(rec(source: 'recorded', id: 'r', type: 'treadmill', km: 1.9, moving: 1500, elapsed: 1500));
       await store.ingest(rec(source: 'health_connect', id: 'h', type: 'run', km: 2.4, moving: 1400, elapsed: 1400, avgHr: 141));
       final run = await only();
-      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 1.9, 1500, 141));
+      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
     });
 
-    test('treadmill: a Fitbit session already there is overridden by the phone recording', () async {
+    test('treadmill: a Fitbit session already there keeps its distance, the phone recording sets type and time', () async {
       await store.ingest(rec(source: 'health_connect', id: 'h', type: 'run', km: 2.4, moving: 1400, avgHr: 141));
       await store.ingest(rec(source: 'recorded', id: 'r', type: 'treadmill', km: 1.9, moving: 1500));
       final run = await only();
-      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 1.9, 1500, 141));
+      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
     });
 
     test('two imports: the first one in stays and the second only fills', () async {

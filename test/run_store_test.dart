@@ -65,4 +65,70 @@ void main() {
     expect((await (db.select(db.cardioTracks)..where((t) => t.cardioId.equals(id))).getSingle()).deletedAt, isNotNull);
     expect((await store.ingest(rec())).outcome, IngestOutcome.unchanged); // and a re-import does not bring it back
   });
+
+  Recording run({required String source, String? id, String type = 'run', double? km, int? moving, int? hr, Track? track, int startSec = 0}) => Recording(
+      source: source, type: type, start: DateTime.utc(2026, 11, 10, 10, 0, startSec), elapsedSec: 99, movingSec: moving, externalId: id, distanceKm: km, avgHr: hr, track: track);
+
+  group('per-field preference', () {
+    test('outdoor: distance and time follow the phone, heart rate follows the Fitbit, whichever arrives first', () async {
+      await store.ingest(run(source: 'health_connect', id: 'h', km: 5.0, moving: 1500, hr: 150));
+      await store.ingest(run(source: 'recorded', id: 'r', km: 5.2, moving: 1490, hr: 99));
+      var c = await only();
+      expect((c.distanceKm, c.durationSec, c.avgHr, c.source, c.externalId), (5.2, 1490, 150, 'recorded', 'r'));
+
+      await db.delete(db.cardio).go();
+      await store.ingest(run(source: 'recorded', id: 'r2', km: 5.2, moving: 1490));
+      await store.ingest(run(source: 'health_connect', id: 'h2', km: 5.0, moving: 1500, hr: 150));
+      c = await only();
+      expect((c.distanceKm, c.durationSec, c.avgHr, c.source), (5.2, 1490, 150, 'recorded')); // the Fitbit only filled the heart rate
+    });
+
+    test('treadmill: time from the phone, distance and heart rate from the Fitbit until Daniel corrects it', () async {
+      await store.ingest(run(source: 'recorded', id: 'r', type: 'treadmill', km: 3.0, moving: 1000));
+      await store.ingest(run(source: 'health_connect', id: 'h', type: 'treadmill', km: 3.3, moving: 1010, hr: 150));
+      var c = await only();
+      expect((c.distanceKm, c.durationSec, c.avgHr), (3.3, 1000, 150));
+
+      await store.edit(c.id, {'distance_km': 3.1});
+      await store.ingest(run(source: 'health_connect', id: 'h2', type: 'treadmill', km: 3.4, startSec: 5));
+      c = await only();
+      expect(c.distanceKm, 3.1);
+    });
+
+    test('an import never overwrites what is on a Run, only fills', () async {
+      await store.ingest(run(source: 'health_connect', id: 'h', km: 5.0, moving: 1500));
+      await store.ingest(run(source: 'file', id: 'f', km: 5.5, moving: 1400, hr: 140));
+      final c = await only();
+      expect((c.distanceKm, c.durationSec, c.avgHr), (5.0, 1500, 140));
+    });
+
+    test('a recording without an external id never blanks the Run\'s', () async {
+      await store.ingest(run(source: 'health_connect', id: 'h', km: 5.0, moving: 1500));
+      await store.ingest(run(source: 'recorded', km: 5.2, moving: 1490));
+      final c = await only();
+      expect((c.source, c.externalId), ('health_connect', 'h'));
+    });
+  });
+
+  group('track merge', () {
+    Track fitbit() => Track(time: [for (var i = 0; i < 100; i += 5) i], hr: [for (var i = 0; i < 100; i += 5) 140 + i ~/ 5]);
+
+    test('a winning track keeps the heart rate column the stored one had', () async {
+      final id = (await store.ingest(run(source: 'health_connect', id: 'h', km: 0.3, track: fitbit()))).id!;
+      await store.ingest(run(source: 'recorded', id: 'r', km: 0.3, track: climb(), startSec: 2));
+      final t = (await store.watchTrack(id).first)!;
+      expect(t.lat!.where((v) => v != null).length, 100); // the phone's positions are the base
+      expect(t.hr, isNotNull);
+      expect(t.hr![50], closeTo(150, 1)); // second 52 of the Run: the nearest Fitbit sample is at 50 s
+      expect((await only()).route, isNotNull);
+    });
+
+    test('a late Fitbit track adds heart rate to the phone\'s positions without touching them', () async {
+      final id = (await store.ingest(run(source: 'recorded', id: 'r', km: 0.3, track: climb()))).id!;
+      await store.ingest(run(source: 'health_connect', id: 'h', track: fitbit()));
+      final t = (await store.watchTrack(id).first)!;
+      expect(t.lat, climb().lat);
+      expect(t.hr![50], 150);
+    });
+  });
 }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../data/best_efforts.dart';
 import '../../data/cardio.dart';
 import '../core/theme.dart';
-import 'run_page.dart';
 
 /// The small "PR" mark on a fastest-ever effort.
 class PrBadge extends StatelessWidget {

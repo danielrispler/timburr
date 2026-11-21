@@ -17,15 +17,9 @@ import 'max_hr.dart';
 import 'cardio_form.dart';
 import 'run_efforts.dart';
 
-/// Opens the Run page for [id]. The one way to open a Run: History and the Runs view both call it.
+/// Opens the Run page for [id] on the nearest navigator, so a tab keeps its bottom bar and its own stack. The one way to open a Run: History and the Runs view both call it.
 void openRun(BuildContext context, CardioStore store, String id) =>
-    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(builder: (_) => RunPage(store: store, id: id)));
-
-/// "m:ss" under an hour, else "h:mm:ss".
-String formatDuration(int s) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  return s >= 3600 ? '${s ~/ 3600}:${two(s % 3600 ~/ 60)}:${two(s % 60)}' : '${s ~/ 60}:${two(s % 60)}';
-}
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => RunPage(store: store, id: id)));
 
 /// One Run: map, numbers, km splits and a chart. Without a route the same page shows no map.
 class RunPage extends StatelessWidget {

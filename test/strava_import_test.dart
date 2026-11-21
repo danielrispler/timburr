@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/cardio.dart';
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/run_file.dart';
 import 'package:timburr/data/strava_import.dart';
 import 'package:timburr/data/strava_tcx.dart';
 
@@ -40,6 +41,18 @@ void main() {
     expect((again.newRuns, again.alreadyImported), (0, 3));
     expect(await importStrava(store, files()), (created: 0, merged: 0));
     expect(await store.watchAll().first, hasLength(3));
+  });
+
+  test('the preview of two overlapping files in one pick matches what Save does', () async {
+    List<ParsedFile> pick() => [
+          parseStravaTcx('2026-11-01T20_00_00+02_00_PT1M_ריצה.tcx', tcx([points(60, day: 1)], id: 'a')),
+          parseStravaTcx('2026-11-01T20_00_30+02_00_PT1M_ריצה.tcx', tcx([points(60, day: 1, t0: 30)], id: 'b')),
+          parseStravaTcx('2026-11-01T20_00_00+02_00_PT1M_ריצה.tcx', tcx([points(60, day: 1)], id: 'a')),
+        ];
+    final p = await previewStrava(store, pick());
+    expect((p.newRuns, p.merged, p.alreadyImported), (1, 1, 1));
+    expect(await importStrava(store, pick()), (created: 1, merged: 1));
+    expect(await store.watchAll().first, hasLength(1));
   });
 
   test('a file that overlaps a Run already there is a merge, not a new Run', () async {

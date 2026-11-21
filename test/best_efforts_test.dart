@@ -37,9 +37,9 @@ void main() {
     });
 
     test('a window that starts at a point and ends between two is found', () {
-      // 100 m slow, 200 m very fast, 400 m medium: the best 400 m starts at 100 m and ends mid-way in the last segment
-      final e = findBestEfforts(track([(0, 0), (30, 100), (46, 290), (70, 530), (100, 740)]));
-      expect(e[400], closeTo(37, 1e-6));
+      // 100 m slow, 150 m fast, then medium: the best 400 m starts at 100 m and ends mid-way in the last segment
+      final e = findBestEfforts(track([(0, 0), (30, 100), (46, 250), (70, 480), (100, 740)]));
+      expect(e[400], closeTo(70 + 30 * 20 / 260 - 30, 1e-6));
     });
 
     test('a window spanning a GPS gap over 30 s does not count', () {
@@ -61,6 +61,32 @@ void main() {
       // the first point is 0, the next carries 7.5 km
       final pts = [(0, 0.0), (2, 7500.0), for (var s = 3; s < 400; s++) (s, 7500.0 + (s - 2) * 3)];
       expect(findBestEfforts(track(pts))[400], closeTo(400 / 3, 1e-6));
+    });
+
+    test('with positions the distance comes from them, not from a stale or jumping distance column', () {
+      // 3 m/s due north for 500 s; the file's distance is stale in 30 s steps and carries a 280 m jump at 200 s
+      const mPerDeg = 111195.0;
+      final t = Track(
+        time: [for (var s = 0; s <= 500; s++) s],
+        distance: [for (var s = 0; s <= 500; s++) (s ~/ 30) * 90.0 + (s >= 200 ? 280 : 0)],
+        lat: [for (var s = 0; s <= 500; s++) 32 + s * 3 / mPerDeg],
+        lon: [for (var s = 0; s <= 500; s++) 34.8],
+      );
+      final e = findBestEfforts(t);
+      expect(e[400], closeTo(400 / 3, 0.5));
+      expect(e[1000], closeTo(1000 / 3, 0.5));
+    });
+
+    test('a position that teleports and comes back voids the windows around it', () {
+      const mPerDeg = 111195.0;
+      final t = Track(
+        time: [for (var s = 0; s <= 500; s++) s],
+        lat: [for (var s = 0; s <= 500; s++) 32 + (s == 250 ? s * 3 + 300 : s * 3) / mPerDeg],
+        lon: [for (var s = 0; s <= 500; s++) 34.8],
+      );
+      final e = findBestEfforts(t);
+      expect(e[400], closeTo(400 / 3, 0.5)); // an honest stretch away from the glitch
+      expect(e[1000], isNull); // every 1 km window crosses it
     });
 
     test('a gap of 30 s or less is fine', () {

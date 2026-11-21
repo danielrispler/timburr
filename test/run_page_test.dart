@@ -74,4 +74,27 @@ void main() {
     expect(find.text('Heart rate zones'), findsNothing);
     await close(tester);
   });
+
+  testWidgets('openRun from a tab keeps the bottom bar', (tester) async {
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDb(NativeDatabase.memory());
+    addTearDown(db.close);
+    final store = CardioStore(db);
+    final id = await tester.runAsync(() async => (await store.ingest(Recording(source: 'file', type: 'run', start: DateTime(2026, 11, 10, 7), elapsedSec: 699, externalId: 'a', distanceKm: 2.1, track: track(gps: false)))).id!);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        bottomNavigationBar: const Text('bottom bar'),
+        body: Navigator(onGenerateRoute: (_) => MaterialPageRoute(builder: (context) => TextButton(onPressed: () => openRun(context, store, id!), child: const Text('open')))),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 200)));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Moving time'), findsOneWidget);
+    expect(find.text('bottom bar'), findsOneWidget);
+    await close(tester);
+  });
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:uuid/uuid.dart';
 
@@ -36,3 +37,58 @@ class Track {
     return Track(time: i('t'), distance: d('d'), lat: d('lat'), lon: d('lon'), altitude: d('alt'), hr: i('hr'), cadence: d('cad'));
   }
 }
+
+/// Great-circle distance in meters between two positions.
+double haversineM(double lat1, double lon1, double lat2, double lon2) {
+  double rad(double d) => d * pi / 180;
+  final a = pow(sin(rad(lat2 - lat1) / 2), 2) + cos(rad(lat1)) * cos(rad(lat2)) * pow(sin(rad(lon2 - lon1) / 2), 2);
+  return 2 * 6371000 * asin(sqrt(a.toDouble()));
+}
+
+/// [base] with every column it lacks filled from [other], matched by nearest absolute time within [toleranceSec]. A column [base] has is never touched.
+/// Times are seconds from each track's own start; [baseOffset] and [otherOffset] are how many seconds after the merged track's start each one starts.
+/// The result's times run from the merged start. Returns null when [base] needs nothing filled, so a caller can tell nothing changed.
+Track? fillMissingColumns(Track base, int baseOffset, Track other, int otherOffset, {int toleranceSec = 10}) {
+  final bt = base.time, ot = other.time;
+  if (bt == null || ot == null) return null;
+  final wantPos = base.lat == null && other.lat != null && other.lon != null;
+  final wantDist = base.distance == null && other.distance != null;
+  final wantAlt = base.altitude == null && other.altitude != null;
+  final wantHr = base.hr == null && other.hr != null;
+  final wantCad = base.cadence == null && other.cadence != null;
+  if (!(wantPos || wantDist || wantAlt || wantHr || wantCad)) return null;
+  final oIdx = [for (var i = 0; i < ot.length; i++) if (ot[i] != null) i]; // by time, as stored
+  List<int?> nearest = [
+    for (final t in bt)
+      if (t == null || oIdx.isEmpty) null else () {
+        final abs = t + baseOffset - otherOffset;
+        var lo = 0, hi = oIdx.length - 1;
+        while (lo < hi) {
+          final mid = (lo + hi) ~/ 2;
+          if (ot[oIdx[mid]]! < abs) { lo = mid + 1; } else { hi = mid; }
+        }
+        var best = oIdx[lo];
+        if (lo > 0 && (ot[oIdx[lo - 1]]! - abs).abs() <= (ot[best]! - abs).abs()) best = oIdx[lo - 1];
+        return (ot[best]! - abs).abs() <= toleranceSec ? best : null;
+      }(),
+  ];
+  List<T?>? take<T>(List<T?>? col) {
+    final out = [for (final i in nearest) col == null || i == null || i >= col.length ? null : col[i]];
+    return out.any((v) => v != null) ? out : null;
+  }
+
+  return Track(
+    time: [for (final t in bt) t == null ? null : t + baseOffset],
+    distance: wantDist ? take(other.distance) : base.distance,
+    lat: wantPos ? take(other.lat) : base.lat,
+    lon: wantPos ? take(other.lon) : base.lon,
+    altitude: wantAlt ? take(other.altitude) : base.altitude,
+    hr: wantHr ? take(other.hr) : base.hr,
+    cadence: wantCad ? take(other.cadence) : base.cadence,
+  );
+}
+
+/// [t] with its times moved [seconds] later.
+Track shiftedBy(Track t, int seconds) => seconds == 0
+    ? t
+    : Track(time: t.time?.map((v) => v == null ? null : v + seconds).toList(), distance: t.distance, lat: t.lat, lon: t.lon, altitude: t.altitude, hr: t.hr, cadence: t.cadence);

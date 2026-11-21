@@ -4,6 +4,12 @@ import 'track.dart';
 /// Fewer positioned points than this and a recording has no route (old Strava files have a handful).
 const minRoutePoints = 50;
 
+/// How many points have both a latitude and a longitude. The one rule for "enough to draw a route" is [minRoutePoints] of these.
+int positionedCount(List<double?>? lat, List<double?>? lon) => _positioned(lat, lon).length;
+
+List<int> _positioned(List<double?>? lat, List<double?>? lon) =>
+    lat == null || lon == null ? const [] : [for (var i = 0; i < lat.length && i < lon.length; i++) if (lat[i] != null && lon[i] != null) i];
+
 /// Everything one source knows about a stretch of running. Every source (file, Health Connect, live recording) hands one to `CardioStore.ingest`.
 class Recording {
   Recording({
@@ -47,15 +53,13 @@ class Recording {
   DateTime get end => start.add(Duration(seconds: elapsedSec));
 
   /// True when the track has enough positioned points to draw a map.
-  bool get hasRoute => track?.lat != null && track!.lat!.where((v) => v != null).length >= minRoutePoints;
+  bool get hasRoute => track != null && positionedCount(track!.lat, track!.lon) >= minRoutePoints;
 }
 
 /// About [points] evenly spaced positions of [t] as `lat,lon;lat,lon;...` (5 decimals, about 1 m), first and last included. Null when [t] has no route.
 String? simplifyRoute(Track t, {int points = 200}) {
-  final lat = t.lat, lon = t.lon;
-  if (lat == null || lon == null) return null;
-  final idx = [for (var i = 0; i < lat.length && i < lon.length; i++) if (lat[i] != null && lon[i] != null) i];
+  final lat = t.lat, lon = t.lon, idx = _positioned(lat, lon);
   if (idx.length < minRoutePoints) return null;
   final picked = idx.length <= points ? idx : [for (var k = 0; k < points; k++) idx[(k * (idx.length - 1) / (points - 1)).round()]];
-  return picked.map((i) => '${lat[i]!.toStringAsFixed(5)},${lon[i]!.toStringAsFixed(5)}').join(';');
+  return picked.map((i) => '${lat![i]!.toStringAsFixed(5)},${lon![i]!.toStringAsFixed(5)}').join(';');
 }

@@ -22,6 +22,12 @@ String formatPace(double secPerKm) {
   return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 }
 
+/// "m:ss" under an hour, else "h:mm:ss".
+String formatDuration(int s) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return s >= 3600 ? '${s ~/ 3600}:${two(s % 3600 ~/ 60)}:${two(s % 60)}' : '${s ~/ 60}:${two(s % 60)}';
+}
+
 /// "m:ss", "h:mm:ss" or bare minutes to seconds; null when unreadable.
 int? parseDuration(String text) {
   final parts = text.trim().split(':');
@@ -83,9 +89,16 @@ class IngestResult {
   final IngestOutcome outcome;
 }
 
-/// Who wins a field when two recordings disagree: Daniel's own entries, then the phone's live recording, then imports (file, Health Connect).
-/// Imports have the same rank, so they never replace each other; they only fill what is empty.
-int _rank(String? source) => switch (source) { null || 'manual' => 3, 'recorded' => 2, _ => 1 };
+/// Which source wins a field when two recordings disagree, by the Run's type. Nothing else is ever replaced: an import only fills what is empty.
+/// Outdoor Run: route, distance and pace from the phone's GPS (`recorded`), heart rate from the Fitbit (`health_connect`).
+/// Treadmill run: time from the phone, heart rate and distance from the Fitbit (until Daniel corrects it, which is an edit and always wins).
+String? _preferredSource(String type, String column) => switch (column) {
+      'type' || 'duration_sec' => 'recorded',
+      'distance_km' => type == 'treadmill' ? 'health_connect' : 'recorded',
+      'elevation_gain_m' => type == 'treadmill' ? null : 'recorded',
+      'avg_hr' || 'max_hr' || 'calories' || 'avg_cadence' => 'health_connect',
+      _ => null,
+    };
 
 DateTime _wholeSeconds(DateTime d) => DateTime.fromMillisecondsSinceEpoch(d.millisecondsSinceEpoch ~/ 1000 * 1000, isUtc: d.isUtc); // the column stores seconds
 DateTime _endOf(CardioData c) => c.startedAt.add(Duration(seconds: c.elapsedSec ?? c.durationSec));
@@ -133,8 +146,9 @@ class CardioStore {
   /// The one way a recording reaches the store, whatever its source. The same source and external id again changes nothing; a recording whose
   /// times overlap a Run merges into it; anything else becomes a new Run. A dry run reports the outcome without writing.
   ///
-  /// Merging, per field: [_rank] decides, an equal or lower rank only fills an empty field, and fields in `edited_fields` are never touched.
-  /// The span runs from the earliest start to the latest end. A track replaces the Run's only when the recording outranks the Run's source, else it fills a missing one.
+  /// Merging, per field: a field in `edited_fields` is never touched, nor is any value on a hand-typed Run. Otherwise the field's preferred source
+  /// ([_preferredSource]) replaces a value another source put there; everything else only fills an empty field. The span runs from the earliest
+  /// start to the latest end. The track is merged column by column ([fillMissingColumns]): the live recording's track is the base and a column it lacks is filled from the other.
   Future<IngestResult> ingest(Recording r, {bool dryRun = false}) async {
     final result = await _db.transaction(() async {
       final start = _wholeSeconds(r.start), end = start.add(Duration(seconds: r.elapsedSec));
@@ -172,14 +186,17 @@ class CardioStore {
       }
 
       final edited = match.editedFields.toSet();
-      final wins = _rank(r.source) > _rank(match.source);
+      final handTyped = match.source == null || match.source == 'manual';
       final changes = <String, Object?>{};
-      void put(String column, Object? incoming, Object? current, {bool overwrite = true}) {
+      var type = match.type; // the Run's type once this recording is merged: it decides who is preferred for the other fields
+      void put(String column, Object? incoming, Object? current) {
         if (incoming == null || incoming == current || edited.contains(column)) return;
-        if (current == null || (overwrite && wins)) changes[column] = incoming;
+        final replaces = !handTyped && r.source != match.source && _preferredSource(type, column) == r.source;
+        if (current == null || replaces) changes[column] = incoming;
       }
 
       put('type', r.type, match.type);
+      type = (changes['type'] as String?) ?? type;
       put('distance_km', r.distanceKm, match.distanceKm);
       put('duration_sec', r.moving, match.durationSec);
       put('avg_hr', r.avgHr, match.avgHr);
@@ -187,10 +204,9 @@ class CardioStore {
       put('calories', r.calories, match.calories);
       put('avg_cadence', r.avgCadence, match.avgCadence);
       put('elevation_gain_m', r.elevation, match.elevationGainM);
-      put('notes', r.notes, match.notes, overwrite: false); // Daniel's words, an import only fills them in
-      final writeTrack = r.track != null && (wins || await _hasTrack(match.id) == false);
-      if (writeTrack) put('route', r.route, match.route);
-      if (wins) {
+      put('notes', r.notes, match.notes); // Daniel's words: nobody prefers an import's
+      final takesOver = r.source == 'recorded' && !handTyped && match.source != 'recorded' && r.externalId != null;
+      if (takesOver) { // the live recording becomes the Run's identity
         changes['source'] = r.source;
         changes['external_id'] = r.externalId;
       }
@@ -201,10 +217,29 @@ class CardioStore {
       if (!newStart.isAtSameMomentAs(match.startedAt)) changes['started_at'] = newStart;
       if (elapsed != match.elapsedSec) changes['elapsed_sec'] = elapsed;
 
-      if (changes.isEmpty && !writeTrack) return IngestResult(match.id, IngestOutcome.unchanged);
+      final stored = await _storedTrack(match.id);
+      final storedOffset = match.startedAt.difference(newStart).inSeconds;
+      Track? track; // the merged track, null when there is none to write
+      if (r.track != null) {
+        final incomingOffset = start.difference(newStart).inSeconds;
+        track = stored == null
+            ? shiftedBy(r.track!, incomingOffset)
+            : takesOver
+                ? fillMissingColumns(r.track!, incomingOffset, stored, storedOffset) ?? shiftedBy(r.track!, incomingOffset)
+                : fillMissingColumns(stored, storedOffset, r.track!, incomingOffset) ?? shiftedBy(stored, storedOffset);
+      } else if (stored != null) {
+        track = shiftedBy(stored, storedOffset);
+      }
+      if (track != null && stored != null && track.encode() == stored.encode()) track = null;
+      if (track != null && !edited.contains('route')) {
+        final route = simplifyRoute(track);
+        if (route != match.route) changes['route'] = route;
+      }
+
+      if (changes.isEmpty && track == null) return IngestResult(match.id, IngestOutcome.unchanged);
       if (!dryRun) {
         if (changes.isNotEmpty) await _db.save(_db.cardio, {..._columns(match), ...changes});
-        if (writeTrack) await _saveTrack(match.id, r.track!);
+        if (track != null) await _saveTrack(match.id, track);
       }
       return IngestResult(match.id, IngestOutcome.merged);
     });
@@ -215,7 +250,10 @@ class CardioStore {
     return result;
   }
 
-  Future<bool> _hasTrack(String cardioId) async => (await (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull())).get()).isNotEmpty;
+  Future<Track?> _storedTrack(String cardioId) async {
+    final row = await _db.liveTrackRow(cardioId).getSingleOrNull();
+    return row == null ? null : Track.decode(row.points);
+  }
 
   Future<void> _saveTrack(String cardioId, Track t) =>
       _db.save(_db.cardioTracks, {'id': trackRowId(cardioId), 'cardio_id': cardioId, 'points': t.encode(), 'deleted_at': null});
@@ -232,7 +270,7 @@ class CardioStore {
   Stream<List<Effort>> watchBestEfforts() => _db.watchBestEfforts();
 
   /// The Run's points, null when it has none.
-  Stream<Track?> watchTrack(String cardioId) => (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(cardioId) & t.deletedAt.isNull()))
+  Stream<Track?> watchTrack(String cardioId) => _db.liveTrackRow(cardioId)
       .watchSingleOrNull()
       .map((t) => t == null ? null : Track.decode(t.points));
 
@@ -245,7 +283,7 @@ class CardioStore {
     final now = DateTime.now();
     await _db.transaction(() async {
       await _db.save(_db.cardio, {..._columns(c), 'deleted_at': now});
-      final track = await (_db.select(_db.cardioTracks)..where((t) => t.cardioId.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
+      final track = await _db.liveTrackRow(id).getSingleOrNull();
       if (track != null) await _db.save(_db.cardioTracks, {'id': track.id, 'cardio_id': id, 'points': track.points, 'deleted_at': now});
       await _db.rebuildBestEfforts([id]);
     });

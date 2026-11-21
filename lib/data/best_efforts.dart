@@ -13,20 +13,40 @@ const effortLabels = {400: '400 m', 1000: '1 km', 1609: '1 mile', 5000: '5 km', 
 /// A window spanning a gap between two points longer than this is a GPS gap and doesn't count.
 const maxGapSec = 30;
 
-/// A window spanning two points that imply a faster speed than this (m/s) doesn't count either: the distance jumped, as some exports do between
-/// a first point at 0 and the next carrying the Run's total or the first block of distance.
-const maxSpeed = 12.0;
+/// A window spanning two points that imply a faster speed than this (m/s, 36 km/h: quicker than any runner but an elite sprinter at full tilt) doesn't count
+/// either: the position or distance jumped, as some exports do between a first point at 0 and the next carrying the Run's total.
+const maxSpeed = 10.0;
+
+/// The track's points as (time, distance) pairs in seconds and meters. With at least two positioned points the distance is the cumulative great-circle
+/// length over the positions (a file's own DistanceMeters is stale between updates and jumps when it catches up); otherwise the track's distance column.
+({List<double> time, List<double> dist}) _series(Track t) {
+  final time = t.time, lat = t.lat, lon = t.lon;
+  if (time != null && lat != null && lon != null) {
+    final tm = <double>[], d = <double>[];
+    int? last;
+    for (var i = 0; i < time.length && i < lat.length && i < lon.length; i++) {
+      if (time[i] == null || lat[i] == null || lon[i] == null) continue;
+      d.add(last == null ? 0 : d.last + haversineM(lat[last]!, lon[last]!, lat[i]!, lon[i]!));
+      tm.add(time[i]!.toDouble());
+      last = i;
+    }
+    if (tm.length >= 2) return (time: tm, dist: d);
+  }
+  final idx = timedIndices(t);
+  return (time: [for (final i in idx) t.time![i]!.toDouble()], dist: [for (final i in idx) t.distance![i]!]);
+}
 
 /// The fastest time in seconds for each standard distance the track covers, by a sliding window with the edge interpolated between points.
-/// Needs time and distance. A window that spans a gap over [maxGapSec] between two points doesn't count.
+/// Needs time and distance or positions. A window that spans a gap over [maxGapSec] between two points doesn't count.
 Map<int, double> findBestEfforts(Track t) {
   // Only points where the distance moved: some exports repeat a stale distance on every point between updates (Strava from a watch, one every ~30 s).
   // A gap is judged on the raw points, so those stale points still show the track was recorded.
+  final raw = _series(t);
   final time = <double>[], dist = <double>[];
   final gaps = <int>[0]; // gaps[k] = unusable segments among the first k (segment k joins kept points k and k+1)
   var rawGap = 0.0, prevTime = 0.0;
-  for (final i in timedIndices(t)) {
-    final tm = t.time![i]!.toDouble(), d = t.distance![i]!;
+  for (var i = 0; i < raw.time.length; i++) {
+    final tm = raw.time[i], d = raw.dist[i];
     if (time.isNotEmpty) rawGap = rawGap > tm - prevTime ? rawGap : tm - prevTime;
     prevTime = tm;
     if (dist.isNotEmpty && d <= dist.last) continue;
@@ -107,7 +127,7 @@ extension BestEffortCache on AppDb {
         final runs = select(cardio)..where((c) => c.deletedAt.isNull() & c.type.equals('run'));
         if (wanted != null) runs.where((c) => c.id.isIn(wanted));
         for (final run in await runs.get()) {
-          final row = await (select(cardioTracks)..where((x) => x.cardioId.equals(run.id) & x.deletedAt.isNull())).getSingleOrNull();
+          final row = await liveTrackRow(run.id).getSingleOrNull();
           if (row == null) continue;
           final Track decoded;
           try {

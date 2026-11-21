@@ -28,24 +28,20 @@ class _CardioFormState extends State<CardioForm> {
   late String? _type = c?.type ?? widget.type ?? 'run';
   late DateTime _at = c?.startedAt ?? widget.startedAt ?? DateTime.now();
   late final _km = TextEditingController(text: c?.distanceKm == null ? '' : _num(c!.distanceKm!));
-  late final _dur = TextEditingController(text: switch (c?.durationSec ?? widget.durationSec) { final s? => _hms(s), null => '' });
+  late final _dur = TextEditingController(text: switch (c?.durationSec ?? widget.durationSec) { final s? => formatDuration(s), null => '' });
   late final _hr = TextEditingController(text: c?.avgHr?.toString() ?? '');
   late final _incline = TextEditingController(text: c?.inclinePct == null ? '' : _num(c!.inclinePct!));
   late final _rpe = TextEditingController(text: c?.rpe?.toString() ?? '');
   late final _notes = TextEditingController(text: c?.notes ?? '');
   late final _title = TextEditingController(text: c?.title ?? '');
-  late final _elapsed = TextEditingController(text: c?.elapsedSec == null ? '' : _hms(c!.elapsedSec!));
+  late DateTime _end = _at.add(Duration(seconds: c?.elapsedSec ?? c?.durationSec ?? 0)); // edit mode only: Elapsed time is end minus start
   Map<String, String> _errors = {};
 
   static String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
-  static String _hms(int s) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return s >= 3600 ? '${s ~/ 3600}:${two(s % 3600 ~/ 60)}:${two(s % 60)}' : '${s ~/ 60}:${two(s % 60)}';
-  }
 
   @override
   void dispose() {
-    for (final t in [_km, _dur, _hr, _incline, _rpe, _notes, _title, _elapsed]) {
+    for (final t in [_km, _dur, _hr, _incline, _rpe, _notes, _title]) {
       t.dispose();
     }
     super.dispose();
@@ -56,14 +52,26 @@ class _CardioFormState extends State<CardioForm> {
         context: context, initialDate: _at, firstDate: DateTime(2000), lastDate: DateTime.now().add(const Duration(days: 1)));
     if (d == null || !mounted) return;
     final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_at));
-    setState(() => _at = DateTime(d.year, d.month, d.day, t?.hour ?? _at.hour, t?.minute ?? _at.minute));
+    final at = DateTime(d.year, d.month, d.day, t?.hour ?? _at.hour, t?.minute ?? _at.minute);
+    setState(() {
+      _end = _end.add(at.difference(_at)); // moving the start keeps the Elapsed time
+      _at = at;
+    });
+  }
+
+  Future<void> _pickEnd() async {
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_end));
+    if (t == null) return;
+    var end = DateTime(_at.year, _at.month, _at.day, t.hour, t.minute);
+    if (!end.isAfter(_at)) end = end.add(const Duration(days: 1)); // a run past midnight
+    setState(() => _end = end);
   }
 
   Future<void> _save() async {
     final errors = validateCardio(
         type: _type, distance: _km.text, duration: _dur.text, avgHr: _hr.text, incline: _type == 'treadmill' ? _incline.text : '', rpe: _rpe.text);
-    final elapsed = parseDuration(_elapsed.text);
-    if (c != null && _elapsed.text.trim().isNotEmpty && (elapsed == null || elapsed <= 0)) errors['elapsed'] = 'Enter a time like 31:10';
+    final elapsed = _end.difference(_at).inSeconds;
+    if (c != null && elapsed <= 0) errors['elapsed'] = 'End must be after the start';
     setState(() => _errors = errors);
     if (errors.isNotEmpty) return;
     String? opt(TextEditingController t) => t.text.trim().isEmpty ? null : t.text.trim();
@@ -78,7 +86,7 @@ class _CardioFormState extends State<CardioForm> {
       if (!_at.isAtSameMomentAs(old.startedAt)) fields['started_at'] = _at;
       diff('distance_km', parseNum(_km.text), old.distanceKm);
       diff('duration_sec', parseDuration(_dur.text), old.durationSec);
-      if (elapsed != null) diff('elapsed_sec', elapsed, old.elapsedSec);
+      diff('elapsed_sec', elapsed, old.elapsedSec ?? old.durationSec);
       diff('avg_hr', opt(_hr) == null ? null : int.parse(opt(_hr)!), old.avgHr);
       diff('incline_pct', _type != 'treadmill' || opt(_incline) == null ? null : parseNum(_incline.text), old.inclinePct);
       diff('rpe', opt(_rpe) == null ? null : int.parse(opt(_rpe)!), old.rpe);
@@ -172,10 +180,22 @@ class _CardioFormState extends State<CardioForm> {
                       onTap: _pickDate,
                     )),
               ),
+              if (c != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: groupedTile(
+                      0,
+                      1,
+                      ListTile(
+                        leading: const IconTile(Icons.flag),
+                        title: Text('Ends ${TimeOfDay.fromDateTime(_end).format(context)}'),
+                        subtitle: Text(_errors['elapsed'] ?? 'Elapsed ${formatDuration(_end.difference(_at).inSeconds.clamp(0, int4Max))}'),
+                        onTap: _pickEnd,
+                      )),
+                ),
               if (c != null) _field('title', _title, 'Title', keyboard: TextInputType.text, hint: runTitle(_at, treadmill: _type == 'treadmill')),
               _field('distance', _km, 'Distance (km)'),
               _field('duration', _dur, c == null ? 'Duration' : 'Moving time', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
-              if (c != null) _field('elapsed', _elapsed, 'Elapsed time (optional)', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(pace == null ? 'Pace: -' : 'Pace: ${formatPace(pace)} min/km', style: Theme.of(context).textTheme.titleMedium),
