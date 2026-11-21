@@ -9,7 +9,6 @@ import 'goals.dart';
 import 'recording.dart';
 import 'settings.dart';
 import 'shoes.dart';
-import 'stride.dart';
 import 'track.dart';
 
 /// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
@@ -45,10 +44,10 @@ int? parseDuration(String text) {
 /// Parses a number, accepting a decimal comma.
 double? parseNum(String text) => double.tryParse(text.trim().replaceAll(',', '.'));
 
-/// Server column caps (supabase/migrations): Postgres int, numeric(7, 3) distance, numeric(4, 1) incline.
+/// Server column caps (supabase/migrations): Postgres int, numeric(7, 3) distance, incline 0 to 40 %.
 const int4Max = 2147483647;
 const distanceBelow = 10000;
-const inclineBelow = 1000;
+const maxIncline = 40;
 
 /// [v] rounded to [places] decimals, as a numeric(p, places) column stores it.
 double roundTo(num v, int places) => double.parse(v.toStringAsFixed(places));
@@ -61,6 +60,8 @@ Map<String, String> validateCardio({
   String avgHr = '',
   String incline = '',
   String rpe = '',
+  String steps = '',
+  String calories = '',
 }) {
   final e = <String, String>{};
   if (!cardioTypes.contains(type)) e['type'] = 'Pick a type';
@@ -73,8 +74,12 @@ Map<String, String> validateCardio({
   final hr = int.tryParse(avgHr.trim());
   if (avgHr.trim().isNotEmpty && (hr == null || hr <= 0 || hr > int4Max)) e['avgHr'] = 'Enter a whole number above 0';
   final inc = parseNum(incline);
-  if (incline.trim().isNotEmpty && (inc == null || inc < 0 || roundTo(inc, 1) >= inclineBelow)) {
-    e['incline'] = 'Enter 0 to 999.9';
+  if (incline.trim().isNotEmpty && (inc == null || inc < 0 || roundTo(inc, 1) > maxIncline)) {
+    e['incline'] = 'Enter 0 to $maxIncline';
+  }
+  for (final (key, text) in [('steps', steps), ('calories', calories)]) {
+    final n = int.tryParse(text.trim());
+    if (text.trim().isNotEmpty && (n == null || n < 0 || n > int4Max)) e[key] = 'Enter a whole number, 0 or more';
   }
   if (rpe.trim().isNotEmpty) {
     final r = int.tryParse(rpe.trim());
@@ -286,15 +291,6 @@ class CardioStore {
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
 
-  /// The Check distance step of a treadmill Run: saves the treadmill's [km] as Daniel's own edit and calibrates the stride from it ([steps] counted).
-  Future<void> checkDistance(String id, {required double km, required int steps}) async {
-    await edit(id, {'distance_km': km});
-    final current = await settings.watch().first;
-    final before = current?.strideSamples ?? 0;
-    final next = calibrateStride(current?.strideM, before, steps, km);
-    if (next.samples != before) await settings.setStride(next.strideM, next.samples);
-  }
-
   /// Cached Best efforts of live outdoor Runs, every distance.
   Stream<List<Effort>> watchBestEfforts() => _db.watchBestEfforts();
 
@@ -315,6 +311,22 @@ class CardioStore {
 
   /// Every column of [c] by SQL name; [AppDb.save] needs the required ones even to update.
   Map<String, Object?> _columns(CardioData c) => c.toColumns(false).map((k, v) => MapEntry(k, (v as Variable).value));
+
+  /// Removes local Runs the server can never accept: no distance (short test recordings saved before Finish checked it).
+  /// The server requires distance_km above 0 at 3 decimals, so these never synced and would fail every push. Returns how many.
+  Future<int> dropUnsyncableRuns() async {
+    final bad = await (_db.select(_db.cardio)
+          ..where((c) => c.type.isIn(cardioTypes) & (c.distanceKm.isNull() | c.distanceKm.isSmallerThanValue(0.0005))))
+        .get();
+    if (bad.isEmpty) return 0;
+    final ids = [for (final c in bad) c.id];
+    await _db.transaction(() async {
+      await (_db.delete(_db.cardioTracks)..where((t) => t.cardioId.isIn(ids))).go();
+      await (_db.delete(_db.cardio)..where((c) => c.id.isIn(ids))).go();
+      await _db.rebuildBestEfforts(ids);
+    });
+    return ids.length;
+  }
 
   /// Soft-deletes the Run and its track.
   Future<void> delete(String id) async {

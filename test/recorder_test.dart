@@ -9,7 +9,8 @@ import 'package:timburr/data/live_recorder.dart';
 import 'package:timburr/data/recorder.dart';
 import 'package:timburr/data/recording.dart';
 import 'package:timburr/data/run_analysis.dart';
-import 'package:timburr/ui/running/record_screen.dart' show prefillDistanceKm;
+import 'package:timburr/data/treadmill.dart';
+import 'package:timburr/ui/running/record_screen.dart' show prefillTreadmillRun;
 import 'package:timburr/data/track.dart';
 
 final t0 = DateTime.utc(2026, 11, 10, 7);
@@ -37,20 +38,6 @@ class FakeSource implements PositionSource {
   @override
   Future<PositionPermission> ensurePermission() async => PositionPermission.granted;
   void emit(PositionSample s) => _c.add(s);
-}
-
-class FakeSteps implements StepSource {
-  final _c = StreamController<int>.broadcast();
-  @override
-  Stream<int> steps() => _c.stream;
-
-  @override
-  Future<bool> hasPermission() async => true;
-
-  @override
-  Future<bool> ensurePermission() async => true;
-  void emit(int n) => _c.add(n);
-  bool get listening => _c.hasListener;
 }
 
 class FakeService implements RecordingService {
@@ -169,11 +156,8 @@ void main() {
 
   group('Recorder review fixes', () {
     test('a treadmill Run keeps its laps, as durations without a distance, even with no heart rate', () {
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
-      r.stepCount(at(0), 0);
-      r.stepCount(at(300), 600);
+      final r = Recorder.start('treadmill', at(0), 's1');
       r.lap(at(300));
-      r.stepCount(at(600), 1200);
       final rec = r.finish(at(600));
       expect(rec.track!.laps, [300]);
       final laps = lapsOf(rec.track!);
@@ -181,15 +165,20 @@ void main() {
       expect(laps.map((l) => l.distanceM), [null, null]);
     });
 
-    test('a treadmill speaks a km cue when its steps cross a kilometer', () {
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
-      r.stepCount(at(0), 0);
-      r.stepCount(at(240), 800);
+    test('a treadmill speaks a km cue each time its Moving time at the usual pace completes a kilometer', () {
+      final r = Recorder.start('treadmill', at(0), 's1', paceSecPerKm: 300);
+      r.tick(at(299));
       expect(r.kmCues, isEmpty);
-      r.stepCount(at(480), 2400); // 1 km at 270 s, 2 km at 420 s
+      r.tick(at(301));
+      expect(r.kmCues.map((c) => c.km), [1]);
+      r.pause(at(400));
+      r.resume(at(1000)); // 600 s paused: 400 s moving so far
+      r.tick(at(1100)); // 500 s moving
+      expect(r.kmCues, hasLength(1));
+      r.tick(at(1205)); // 605 s moving
       expect(r.kmCues.map((c) => c.km), [1, 2]);
-      expect(r.kmCues.first.splitSec, closeTo(270, 1e-6));
-      expect(r.kmCues.last.splitSec, closeTo(150, 1e-6));
+      expect(r.kmCues.last.splitSec, 300);
+      expect(kmCueText(r.kmCues.last), contains('Pace 5 00 per kilometer'));
     });
 
     test('the live heart rate gives the Run its average and max', () {
@@ -216,19 +205,18 @@ void main() {
       expect(((await cardio.watch(idB).first).avgHr, (await cardio.watch(idB).first).maxHr), (160, 180));
     });
 
-    test('the Check distance prefill uses the Fitbit figure when it arrives in time, else the phone estimate', () async {
+    test('the Treadmill data prefill uses the Fitbit figure when it arrives in time, else the pace estimate', () async {
       final db = AppDb(NativeDatabase.memory());
       addTearDown(db.close);
       final cardio = CardioStore(db);
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
-      r.stepCount(at(0), 0);
-      r.stepCount(at(1500), 5000);
+      final r = Recorder.start('treadmill', at(0), 's1', paceSecPerKm: 300);
       final id = (await cardio.ingest(r.finish(at(1500)))).id!;
-      expect(await prefillDistanceKm(cardio, id, check: () async => null), 5.0); // phone estimate
-      expect(await prefillDistanceKm(cardio, id, check: () => Completer<Object?>().future, timeout: const Duration(milliseconds: 20)), 5.0); // too slow
-      expect(await prefillDistanceKm(cardio, id, check: () => throw StateError('hc')), 5.0);
+      Future<double?> km(Future<Object?> Function() check, {Duration timeout = const Duration(seconds: 4)}) async => (await prefillTreadmillRun(cardio, id, check: check, timeout: timeout)).distanceKm;
+      expect(await km(() async => null), 5.0); // estimate: 1500 s at 5:00 per km
+      expect(await km(() => Completer<Object?>().future, timeout: const Duration(milliseconds: 20)), 5.0); // too slow
+      expect(await km(() => throw StateError('hc')), 5.0);
       expect(
-        await prefillDistanceKm(cardio, id, check: () async {
+        await km(() async {
           await cardio.ingest(Recording(source: 'health_connect', type: 'treadmill', start: at(0), elapsedSec: 1500, externalId: 'hc', distanceKm: 4.9));
           return null;
         }),
@@ -238,51 +226,60 @@ void main() {
   });
 
   group('Recorder on a treadmill', () {
-    test('distance is steps times the stride, with no GPS and no auto-pause', () {
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 0.8);
+    test('distance is Moving time over the pace, with no GPS and no auto-pause', () {
+      final r = Recorder.start('treadmill', at(0), 's1', paceSecPerKm: 300);
       r.position(fix(0, 0)); // GPS on a treadmill is noise
-      r.stepCount(at(0), 10000); // the counter is cumulative since boot
-      r.stepCount(at(60), 10150);
-      r.stepCount(at(120), 10300);
       final s = r.snapshot(at(120));
-      expect(s.steps, 300);
-      expect(s.distanceM, closeTo(240, 1e-6));
+      expect(s.distanceM, closeTo(400, 1e-6));
       expect(s.movingSec, 120);
+      expect(s.avgPaceSecPerKm, closeTo(300, 1e-6));
       expect(s.gps, GpsSignal.none);
       expect(r.events.where((e) => e.kind == 'position'), isEmpty);
     });
 
-    test('the default stride is used until one is calibrated', () {
+    test('the default pace is 6:00 per km when none is given', () {
       final r = Recorder.start('treadmill', at(0), 's1');
-      r.stepCount(at(0), 0);
-      r.stepCount(at(60), 100);
-      expect(r.snapshot(at(60)).distanceM, closeTo(100, 1e-6)); // 1.0 m
+      expect(r.snapshot(at(360)).distanceM, closeTo(1000, 1e-6));
     });
 
-    test('steps taken while paused do not count, and a counter restart does not lose steps', () {
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 1);
-      r.stepCount(at(0), 500);
-      r.stepCount(at(10), 600);
-      r.pause(at(10));
-      r.stepCount(at(20), 700); // ignored
-      r.resume(at(30));
-      r.stepCount(at(30), 800); // new baseline
-      r.stepCount(at(40), 850);
-      r.stepCount(at(50), 20); // the counter restarted
-      expect(r.steps, 100 + 50 + 20);
+    test('time paused does not add distance', () {
+      final r = Recorder.start('treadmill', at(0), 's1', paceSecPerKm: 300);
+      r.pause(at(100));
+      r.resume(at(400));
+      expect(r.snapshot(at(500)).distanceM, closeTo(1000 * 200 / 300, 1e-6)); // 200 s moving
     });
 
-    test('finish gives a treadmill Recording with the phone estimate and no track; replay rebuilds it', () {
-      final r = Recorder.start('treadmill', at(0), 's1', strideM: 0.8);
-      r.stepCount(at(0), 0);
-      r.stepCount(at(600), 1500);
+    test('finish gives a treadmill Recording with the estimate and no track; replay rebuilds it', () {
+      final r = Recorder.start('treadmill', at(0), 's1', paceSecPerKm: 300);
       final rec = r.finish(at(600));
-      expect((rec.type, rec.source, rec.distanceKm), ('treadmill', 'recorded', 1.2));
+      expect((rec.type, rec.source, rec.distanceKm), ('treadmill', 'recorded', 2.0));
       expect(rec.track, isNull);
       final again = Recorder.replay(r.events);
-      expect(again.steps, 1500);
-      expect(again.strideM, 0.8);
-      expect(again.finish(at(600)).distanceKm, 1.2);
+      expect(again.paceSecPerKm, 300);
+      expect(again.finish(at(600)).distanceKm, 2.0);
+    });
+
+    test('an autosave from the step-counting build replays: steps events are ignored and the stride gives the default pace', () {
+      final old = [
+        RecorderEvent(EventKind.start, at(0), {'type': 'treadmill', 'id': 's1', 'stride': 0.8}),
+        RecorderEvent('steps', at(60), {'n': 1000}),
+        RecorderEvent('steps', at(120), {'n': 1200}),
+        RecorderEvent(EventKind.pause, at(130)),
+      ];
+      final r = Recorder.replay(old);
+      expect(r.paceSecPerKm, defaultTreadmillPaceSecPerKm);
+      expect(r.snapshot(at(130)).movingSec, 130);
+    });
+
+    test('ticks are saved at most every 10 s so a killed recording keeps its time', () {
+      final r = Recorder.start('treadmill', at(0), 's1');
+      for (var s = 1; s <= 25; s++) {
+        r.tick(at(s));
+      }
+      expect(r.events.where((e) => e.kind == EventKind.tick).map((e) => e.at), [at(10), at(20)]);
+      final again = Recorder.replay(r.events);
+      again.pause(again.lastEventAt);
+      expect(again.snapshot(at(60)).movingSec, 20);
     });
   });
 
@@ -291,16 +288,14 @@ void main() {
     late CardioStore cardio;
     late FakeSource source;
     late FakeService service;
-    late FakeSteps steps;
     var now = t0;
-    LiveRecorder make() => LiveRecorder(source: source, service: service, journal: DbJournal(db), cardio: cardio, stepSource: steps, now: () => now);
+    LiveRecorder make() => LiveRecorder(source: source, service: service, journal: DbJournal(db), cardio: cardio, now: () => now);
 
     setUp(() {
       db = AppDb(NativeDatabase.memory());
       cardio = CardioStore(db);
       source = FakeSource();
       service = FakeService();
-      steps = FakeSteps();
       now = t0;
     });
     tearDown(() => db.close());
@@ -344,6 +339,17 @@ void main() {
       expect(await make().restore(), isFalse);
     });
 
+    test('a recording with no distance cannot be saved, since the server rejects a 0 km Run', () async {
+      final rec = make();
+      await rec.open();
+      await rec.start('run');
+      now = at(20); // standing still: time passes, no fixes
+      expect(rec.canSave, isFalse);
+      await expectLater(rec.finish(), throwsStateError);
+      await run(21, 30);
+      expect(rec.canSave, isTrue);
+    });
+
     test('after a restart the recording comes back paused with its distance, and finishes as one Run', () async {
       final first = make();
       await first.open();
@@ -370,20 +376,14 @@ void main() {
       expect(await DbJournal(db).load(), isEmpty);
     });
 
-    test('a treadmill recording counts steps, uses no GPS, and saves a treadmill Run that never sets a best effort', () async {
+    test('a treadmill recording estimates distance from Moving time and the usual pace, uses no GPS, and saves a treadmill Run that never sets a best effort', () async {
       final rec = make();
-      await rec.start('treadmill', strideM: 1.0);
+      await rec.start('treadmill', paceSecPerKm: 300);
       expect(service.gpsUsed, isFalse);
-      expect(steps.listening, isTrue);
       expect(source._c.hasListener, isFalse);
-      steps.emit(1000);
-      await pumpEventQueue();
       now = at(1500);
-      steps.emit(6000); // 5 km at 1.0 m
-      await pumpEventQueue();
       expect(rec.snapshot!.distanceM, closeTo(5000, 1e-6));
       final id = await rec.finish();
-      expect(rec.finishedSteps, 5000);
       final c = (await cardio.watchAll().first).single;
       expect((c.id, c.type, c.source), (id, 'treadmill', 'recorded'));
       expect(c.distanceKm, 5.0);
@@ -401,45 +401,51 @@ void main() {
       expect(efforts.where((e) => e.cardioId == treadmillId), isEmpty);
     });
 
-    test('Check distance saves the typed distance as an edit and calibrates the stride for the next run', () async {
+    test('Treadmill data saves what was typed as edited fields that a later Fitbit session does not replace', () async {
       final rec = make();
-      await rec.start('treadmill');
-      steps.emit(0);
+      await rec.start('treadmill', paceSecPerKm: 300);
       now = at(1500);
-      steps.emit(6250); // default stride: 6.25 km
-      await pumpEventQueue();
       final id = (await rec.finish())!;
-      await cardio.checkDistance(id, km: 5.0, steps: rec.finishedSteps); // the treadmill said 5 km: 0.8 m a step
-      final c = (await cardio.watch(id).first);
-      expect(c.distanceKm, 5.0);
-      expect(c.editedFields, contains('distance_km'));
-      final settings = (await cardio.settings.watch().first)!;
-      expect(settings.strideM, closeTo(0.8, 1e-9));
-      expect(settings.strideSamples, 1);
-      // a Fitbit figure arriving later does not replace what Daniel typed
-      await cardio.ingest(Recording(source: 'health_connect', type: 'treadmill', start: c.startedAt, elapsedSec: 1500, externalId: 'hc', distanceKm: 4.9));
-      expect((await cardio.watch(id).first).distanceKm, 5.0);
+      final before = await cardio.watch(id).first;
+      expect(before.distanceKm, 5.0); // the estimate
+      // Daniel types distance, incline, steps and calories; the Moving time is left as it was
+      final initial = {'distance_km': '5.00', 'duration_sec': '25:00', 'incline_pct': '', 'steps': '', 'calories': ''};
+      final edits = treadmillEdits(initial, {...initial, 'distance_km': '4.8', 'incline_pct': '1.5', 'steps': '6100', 'calories': '380'});
+      expect(edits, {'distance_km': 4.8, 'incline_pct': 1.5, 'steps': 6100, 'calories': 380});
+      await cardio.edit(id, edits);
+      final c = await cardio.watch(id).first;
+      expect((c.distanceKm, c.inclinePct, c.steps, c.calories, c.durationSec), (4.8, 1.5, 6100, 380, 1500));
+      expect(c.editedFields, containsAll(['distance_km', 'incline_pct', 'steps', 'calories']));
+      expect(c.editedFields, isNot(contains('duration_sec')));
+      await cardio.ingest(Recording(source: 'health_connect', type: 'treadmill', start: c.startedAt, elapsedSec: 1500, externalId: 'hc', distanceKm: 4.9, calories: 420, avgHr: 150));
+      final merged = await cardio.watch(id).first;
+      expect((merged.distanceKm, merged.calories, merged.avgHr), (4.8, 380, 150)); // his figures stay, the Fitbit fills the rest
     });
 
-    test('a restored treadmill recording listens to steps again on Resume', () async {
+    test('Keep estimate (no edits) leaves the Fitbit free to improve the distance', () async {
       final rec = make();
-      await rec.start('treadmill', strideM: 1.0);
-      steps.emit(0);
-      now = at(60);
-      steps.emit(100);
-      await pumpEventQueue();
+      await rec.start('treadmill', paceSecPerKm: 300);
+      now = at(1500);
+      final id = (await rec.finish())!;
+      await cardio.ingest(Recording(source: 'health_connect', type: 'treadmill', start: t0, elapsedSec: 1500, externalId: 'hc', distanceKm: 4.9));
+      expect((await cardio.watch(id).first).distanceKm, 4.9);
+    });
+
+    test('a restored treadmill recording keeps the time it had saved and carries on from Resume', () async {
+      final rec = make();
+      await rec.start('treadmill', paceSecPerKm: 300);
+      now = at(65);
+      rec.pause(); // any input saves; a tick or two is saved on the way in the app
       await rec.flush();
       final second = make();
       expect(await second.restore(), isTrue);
-      expect(second.snapshot!.paused, isTrue);
-      expect(second.snapshot!.steps, 100);
+      final s = second.snapshot!;
+      expect((s.paused, s.movingSec), (true, 65));
       now = at(120);
       await second.resume();
-      steps.emit(5000);
-      now = at(130);
-      steps.emit(5040);
-      await pumpEventQueue();
-      expect(second.snapshot!.steps, 140);
+      now = at(185);
+      expect(second.snapshot!.movingSec, 65 + 65);
+      expect(second.snapshot!.distanceM, closeTo(1000 * 130 / 300, 1e-6));
     });
 
     test('fixes before Start only drive the GPS indicator', () async {

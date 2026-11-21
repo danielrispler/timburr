@@ -6306,6 +6306,15 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   ).withConverter<List<String>>($CardioTable.$convertereditedFields);
+  static const VerificationMeta _stepsMeta = const VerificationMeta('steps');
+  @override
+  late final GeneratedColumn<int> steps = GeneratedColumn<int>(
+    'steps',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6334,6 +6343,7 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     route,
     shoeId,
     editedFields,
+    steps,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6511,6 +6521,12 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         shoeId.isAcceptableOrUnknown(data['shoe_id']!, _shoeIdMeta),
       );
     }
+    if (data.containsKey('steps')) {
+      context.handle(
+        _stepsMeta,
+        steps.isAcceptableOrUnknown(data['steps']!, _stepsMeta),
+      );
+    }
     return context;
   }
 
@@ -6626,6 +6642,10 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
           data['${effectivePrefix}edited_fields'],
         )!,
       ),
+      steps: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}steps'],
+      ),
     );
   }
 
@@ -6665,6 +6685,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
   final String? route;
   final String? shoeId;
   final List<String> editedFields;
+  final int? steps;
   const CardioData({
     required this.id,
     this.userId,
@@ -6692,6 +6713,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     this.route,
     this.shoeId,
     required this.editedFields,
+    this.steps,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6762,6 +6784,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
         $CardioTable.$convertereditedFields.toSql(editedFields),
       );
     }
+    if (!nullToAbsent || steps != null) {
+      map['steps'] = Variable<int>(steps);
+    }
     return map;
   }
 
@@ -6827,6 +6852,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ? const Value.absent()
           : Value(shoeId),
       editedFields: Value(editedFields),
+      steps: steps == null && nullToAbsent
+          ? const Value.absent()
+          : Value(steps),
     );
   }
 
@@ -6862,6 +6890,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       route: serializer.fromJson<String?>(json['route']),
       shoeId: serializer.fromJson<String?>(json['shoeId']),
       editedFields: serializer.fromJson<List<String>>(json['editedFields']),
+      steps: serializer.fromJson<int?>(json['steps']),
     );
   }
   @override
@@ -6894,6 +6923,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       'route': serializer.toJson<String?>(route),
       'shoeId': serializer.toJson<String?>(shoeId),
       'editedFields': serializer.toJson<List<String>>(editedFields),
+      'steps': serializer.toJson<int?>(steps),
     };
   }
 
@@ -6924,6 +6954,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     Value<String?> route = const Value.absent(),
     Value<String?> shoeId = const Value.absent(),
     List<String>? editedFields,
+    Value<int?> steps = const Value.absent(),
   }) => CardioData(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -6955,6 +6986,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     route: route.present ? route.value : this.route,
     shoeId: shoeId.present ? shoeId.value : this.shoeId,
     editedFields: editedFields ?? this.editedFields,
+    steps: steps.present ? steps.value : this.steps,
   );
   CardioData copyWithCompanion(CardioCompanion data) {
     return CardioData(
@@ -7002,6 +7034,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       editedFields: data.editedFields.present
           ? data.editedFields.value
           : this.editedFields,
+      steps: data.steps.present ? data.steps.value : this.steps,
     );
   }
 
@@ -7033,7 +7066,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ..write('calories: $calories, ')
           ..write('route: $route, ')
           ..write('shoeId: $shoeId, ')
-          ..write('editedFields: $editedFields')
+          ..write('editedFields: $editedFields, ')
+          ..write('steps: $steps')
           ..write(')'))
         .toString();
   }
@@ -7066,6 +7100,7 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     route,
     shoeId,
     editedFields,
+    steps,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -7096,7 +7131,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           other.calories == this.calories &&
           other.route == this.route &&
           other.shoeId == this.shoeId &&
-          other.editedFields == this.editedFields);
+          other.editedFields == this.editedFields &&
+          other.steps == this.steps);
 }
 
 class CardioCompanion extends UpdateCompanion<CardioData> {
@@ -7126,6 +7162,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
   final Value<String?> route;
   final Value<String?> shoeId;
   final Value<List<String>> editedFields;
+  final Value<int?> steps;
   final Value<int> rowid;
   const CardioCompanion({
     this.id = const Value.absent(),
@@ -7154,6 +7191,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.route = const Value.absent(),
     this.shoeId = const Value.absent(),
     this.editedFields = const Value.absent(),
+    this.steps = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CardioCompanion.insert({
@@ -7183,6 +7221,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.route = const Value.absent(),
     this.shoeId = const Value.absent(),
     this.editedFields = const Value.absent(),
+    this.steps = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -7215,6 +7254,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Expression<String>? route,
     Expression<String>? shoeId,
     Expression<String>? editedFields,
+    Expression<int>? steps,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7244,6 +7284,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       if (route != null) 'route': route,
       if (shoeId != null) 'shoe_id': shoeId,
       if (editedFields != null) 'edited_fields': editedFields,
+      if (steps != null) 'steps': steps,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7275,6 +7316,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Value<String?>? route,
     Value<String?>? shoeId,
     Value<List<String>>? editedFields,
+    Value<int?>? steps,
     Value<int>? rowid,
   }) {
     return CardioCompanion(
@@ -7304,6 +7346,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       route: route ?? this.route,
       shoeId: shoeId ?? this.shoeId,
       editedFields: editedFields ?? this.editedFields,
+      steps: steps ?? this.steps,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7391,6 +7434,9 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
         $CardioTable.$convertereditedFields.toSql(editedFields.value),
       );
     }
+    if (steps.present) {
+      map['steps'] = Variable<int>(steps.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7426,6 +7472,7 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
           ..write('route: $route, ')
           ..write('shoeId: $shoeId, ')
           ..write('editedFields: $editedFields, ')
+          ..write('steps: $steps, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -15067,6 +15114,7 @@ typedef $$CardioTableCreateCompanionBuilder =
       Value<String?> route,
       Value<String?> shoeId,
       Value<List<String>> editedFields,
+      Value<int?> steps,
       Value<int> rowid,
     });
 typedef $$CardioTableUpdateCompanionBuilder =
@@ -15097,6 +15145,7 @@ typedef $$CardioTableUpdateCompanionBuilder =
       Value<String?> route,
       Value<String?> shoeId,
       Value<List<String>> editedFields,
+      Value<int?> steps,
       Value<int> rowid,
     });
 
@@ -15272,6 +15321,11 @@ class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
   get editedFields => $composableBuilder(
     column: $table.editedFields,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get steps => $composableBuilder(
+    column: $table.steps,
+    builder: (column) => ColumnFilters(column),
   );
 
   $$ShoesTableFilterComposer get shoeId {
@@ -15456,6 +15510,11 @@ class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get steps => $composableBuilder(
+    column: $table.steps,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ShoesTableOrderingComposer get shoeId {
     final $$ShoesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -15582,6 +15641,9 @@ class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
         builder: (column) => column,
       );
 
+  GeneratedColumn<int> get steps =>
+      $composableBuilder(column: $table.steps, builder: (column) => column);
+
   $$ShoesTableAnnotationComposer get shoeId {
     final $$ShoesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -15685,6 +15747,7 @@ class $$CardioTableTableManager
                 Value<String?> route = const Value.absent(),
                 Value<String?> shoeId = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
+                Value<int?> steps = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion(
                 id: id,
@@ -15713,6 +15776,7 @@ class $$CardioTableTableManager
                 route: route,
                 shoeId: shoeId,
                 editedFields: editedFields,
+                steps: steps,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -15743,6 +15807,7 @@ class $$CardioTableTableManager
                 Value<String?> route = const Value.absent(),
                 Value<String?> shoeId = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
+                Value<int?> steps = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion.insert(
                 id: id,
@@ -15771,6 +15836,7 @@ class $$CardioTableTableManager
                 route: route,
                 shoeId: shoeId,
                 editedFields: editedFields,
+                steps: steps,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

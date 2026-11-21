@@ -45,12 +45,14 @@ _Avoid_: personal best, record
 
 **HR zone**: one of five equal bands of Max HR, from 50% to 100%. Zone 1 is the easiest.
 
-**Recording**: what Daniel captures live with the phone: GPS for an outdoor Run, steps for a treadmill Run, plus the heart rate band when connected. It is saved as it goes, and finishing it makes a Run. The same word covers what any source (file, Health Connect, live) hands to the Run store.
+**Recording**: what Daniel captures live with the phone: GPS for an outdoor Run, time for a treadmill Run (its distance is an estimate), plus the heart rate band when connected. It is saved as it goes, and finishing it makes a Run. The same word covers what any source (file, Health Connect, live) hands to the Run store.
 
 **Lap**: a stretch of a Run between two presses of the Lap button (the first starts at the start, the last ends with the Run). An outdoor lap shows time and distance; a treadmill lap shows time only.
 
-**Stride**: the length of one step, used to turn a treadmill Run's steps into distance. It starts at a default and is learned from each Check distance, where Daniel types the distance the treadmill showed.
-_Avoid_: step length
+**Treadmill pace**: Daniel's usual pace on the treadmill, the median pace of his latest treadmill Runs whose distance he corrected (6:00 per km until there are any). A live treadmill Recording turns Moving time into an estimated distance with it, since neither the phone (on the console) nor the band reports distance.
+_Avoid_: stride, step length
+
+**Treadmill data**: the form that ends a treadmill Recording (and the Run's edit form): distance, Moving time, incline, steps and calories as the treadmill showed them. Whatever Daniel types is an edited field.
 
 **HR band**: the Bluetooth heart rate band (the Fitbit Air) that streams live heart rate during a Recording. Daniel chooses it once on the recording setup screen and it is remembered; a Recording never picks one on its own.
 

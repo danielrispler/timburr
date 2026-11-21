@@ -104,7 +104,7 @@ class _RunsPage extends StatelessWidget {
                   ListTile(
                     leading: const IconTile(Icons.directions_run),
                     title: const Text('Record treadmill run'),
-                    subtitle: const Text('Steps, then check the distance'),
+                    subtitle: const Text('Timed, with an estimated distance you can correct'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => openRecorder(context, stores, type: 'treadmill'),
                   ),

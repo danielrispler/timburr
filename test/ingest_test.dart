@@ -282,4 +282,16 @@ void main() {
       expect(hr.contains(null), isFalse);
     });
   });
+
+  test('0 km Runs left by old test recordings are removed at start; real Runs stay', () async {
+    await store.ingest(rec(id: 'real', start: at(8)));
+    await store.ingest(rec(id: 'zero', start: at(10), km: 0.0, track: gps(20)));
+    await store.ingest(rec(id: 'tiny', start: at(12), km: 0.0004));
+    expect(await runs(), hasLength(3));
+    expect(await store.dropUnsyncableRuns(), 2);
+    final left = await only();
+    expect(left.externalId, 'real');
+    expect(await db.select(db.cardioTracks).get(), isEmpty);
+    expect(await store.dropUnsyncableRuns(), 0);
+  });
 }

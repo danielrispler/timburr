@@ -14,7 +14,6 @@ import 'recorder.dart';
 
 export 'heart_rate.dart' show HrLink;
 export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot, kmCueText;
-export 'stride.dart' show Stride;
 
 /// The app's one recorder, set in main (like `errorLog`). Null in tests that do not record.
 LiveRecorder? liveRecorder;
@@ -31,18 +30,6 @@ abstract class PositionSource {
 
   /// Fixes, about one a second. With [background] false it is only for the GPS indicator before Start.
   Stream<PositionSample> positions({required bool background});
-}
-
-/// The phone's step counter, for treadmill recordings. The platform seam for steps; see `platform_recording.dart`.
-abstract class StepSource {
-  /// Whether activity recognition is already allowed, without asking.
-  Future<bool> hasPermission();
-
-  /// Asks for the permission (the system dialog). True when granted.
-  Future<bool> ensurePermission();
-
-  /// The step counter's readings: cumulative steps since the phone booted.
-  Stream<int> steps();
 }
 
 /// The foreground service that keeps the app alive with the screen off, with its ongoing notification.
@@ -97,7 +84,7 @@ class DbJournal implements RecordingJournal {
 /// The recording in progress: wires a [Recorder] to the location source, the foreground service, the autosave and the Run store.
 /// One per app. Listen for changes; the screen reads [snapshot] on its own 1 s timer, since time passes between fixes.
 class LiveRecorder extends ChangeNotifier {
-  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, this.stepSource, this.heartRate, this.maxHr, DateTime Function()? now}) : _now = now ?? DateTime.now {
+  LiveRecorder({required this.source, required this.service, required this.journal, required this.cardio, this.speech, this.notification, this.heartRate, this.maxHr, DateTime Function()? now}) : _now = now ?? DateTime.now {
     notification?.onAction = (a) => a == 'resume' ? resume() : pause();
     heartRate?.onReading = _onHeartRate;
     heartRate?.addListener(notifyListeners);
@@ -115,13 +102,11 @@ class LiveRecorder extends ChangeNotifier {
   final int Function()? maxHr;
   final SpeechService? speech;
   final RecordingNotification? notification;
-  final StepSource? stepSource; // null where there is no step counter (tests)
   final DateTime Function() _now;
 
   Recorder? _rec;
   Timer? _noteTimer;
   StreamSubscription<Object?>? _sub;
-  int _finishedSteps = 0;
   PositionSample? _lastSeen;
   Future<void> _queue = Future.value();
 
@@ -139,12 +124,6 @@ class LiveRecorder extends ChangeNotifier {
   /// Signal of the latest fix, also before Start.
   GpsSignal get gps => gpsSignalOf(_lastSeen, _now());
 
-  /// Steps of the treadmill recording that [finish] last saved.
-  int get finishedSteps => _finishedSteps;
-
-  Future<bool> hasStepPermission() async => await stepSource?.hasPermission() ?? false;
-  Future<bool> requestStepPermission() async => await stepSource?.ensurePermission() ?? false;
-
   Future<PositionPermission> requestPermission() => source.ensurePermission();
   Future<bool> hasPermission() => source.hasPermission();
 
@@ -156,10 +135,10 @@ class LiveRecorder extends ChangeNotifier {
     if (_rec == null) await _stopListening();
   }
 
-  /// [strideM] is the calibrated stride a treadmill recording measures distance with.
-  Future<void> start(String type, {double? strideM}) async {
+  /// [paceSecPerKm] is Daniel's usual treadmill pace, which a treadmill recording estimates distance with.
+  Future<void> start(String type, {double? paceSecPerKm}) async {
     if (_rec != null) return;
-    final rec = Recorder.start(type, _now(), const Uuid().v4(), strideM: strideM);
+    final rec = Recorder.start(type, _now(), const Uuid().v4(), paceSecPerKm: paceSecPerKm);
     _rec = rec;
     _save(rec.events.last);
     await service.start(gps: !rec.isTreadmill);
@@ -183,6 +162,12 @@ class LiveRecorder extends ChangeNotifier {
     if (s != null) notification?.update(s);
   }
 
+  /// A treadmill recording moves with the clock, not with inputs: this completes its km cues and autosaves its time.
+  void _everySecond() {
+    if (_rec?.isTreadmill ?? false) _input((r, at) => r.tick(at));
+    refreshNotification();
+  }
+
   Future<void> resume() async {
     if (_rec == null) return;
     await service.start(gps: !_rec!.isTreadmill); // after a restart the service is not running yet
@@ -193,17 +178,24 @@ class LiveRecorder extends ChangeNotifier {
   }
 
   void _startNotifying() {
-    _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => refreshNotification());
+    _noteTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => _everySecond());
     refreshNotification();
   }
 
+  /// Below this a recording has no distance worth saving, and the server would reject the Run (distance must be above 0).
+  static const minSavedDistanceM = 10.0;
+
+  /// Whether [finish] can save: the recording has covered at least [minSavedDistanceM].
+  bool get canSave => (snapshot?.distanceM ?? 0) >= minSavedDistanceM;
+
   /// Saves the Run through ingest (so a later Fitbit session merges into it) and returns its id.
+  /// Throws [StateError] when ![canSave]; offer Discard instead.
   Future<String?> finish() async {
     final rec = _rec;
     if (rec == null) return null;
+    if (!canSave) throw StateError('no distance recorded');
     final recording = rec.finish(_now());
     await heartRate?.stop();
-    _finishedSteps = rec.steps;
     await _stopListening();
     _stopNotification();
     await service.stop();
@@ -244,7 +236,7 @@ class LiveRecorder extends ChangeNotifier {
       _save(rec.events.last);
     }
     _rec = rec;
-    if (!rec.isTreadmill) await _listen(background: false); // a treadmill recording listens again on Resume
+    if (!rec.isTreadmill) await _listen(background: false);
     notifyListeners();
     return true;
   }
@@ -257,10 +249,7 @@ class LiveRecorder extends ChangeNotifier {
   Future<void> _listen({required bool background}) async {
     await _stopListening();
     _background = background;
-    if (_rec?.isTreadmill ?? false) {
-      _sub = stepSource?.steps().listen(_onSteps, onError: (Object e, StackTrace st) => reportError('steps', e, st));
-      return;
-    }
+    if (_rec?.isTreadmill ?? false) return; // no GPS
     _sub = source.positions(background: background).listen(_onSample, onError: (Object e, StackTrace st) => reportError('location', e, st));
   }
 
@@ -276,8 +265,6 @@ class LiveRecorder extends ChangeNotifier {
   }
 
   void _onHeartRate(int bpm) => _input((r, at) => r.heartRate(bpm, at));
-
-  void _onSteps(int count) => _input((r, at) => r.stepCount(at, count));
 
   void _act(void Function(Recorder, DateTime) f) => _input(f);
 
