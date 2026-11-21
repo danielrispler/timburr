@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'hr_zones.dart';
 import 'recording.dart';
 import 'run_analysis.dart';
 import 'stride.dart';
@@ -41,8 +42,7 @@ String kmCueText(KmCue c) {
 }
 
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds: `start` (type, id, stride), `position`, `steps` (the phone's step counter reading), `pause`, `resume`, `lap`.
-/// shortcut for later tickets: heart rate (#68) is a new kind with its own `data`; add a case in [Recorder] `_apply`.
+/// Kinds: `start` (type, id, stride), `position`, `steps` (the phone's step counter reading), `pause`, `resume`, `lap`, `hr` (bpm).
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
 
@@ -68,6 +68,8 @@ class RunSnapshot {
     this.steps = 0,
     this.currentPaceSecPerKm,
     this.avgPaceSecPerKm,
+    this.hr,
+    this.hrZone,
   });
 
   final int elapsedSec; // clock time since the start, pauses included
@@ -78,7 +80,11 @@ class RunSnapshot {
   final GpsSignal gps;
   final int steps; // treadmill: steps counted so far
   final double? currentPaceSecPerKm, avgPaceSecPerKm;
+  final int? hr, hrZone; // live beats per minute and its zone (1-5); null when the band is silent
 }
+
+/// A heart-rate reading stands for this long; after it the point or the display has a gap.
+const hrStaleSec = 10;
 
 /// The live recording as a pure state machine: fixes and button presses in, a [Recording] out. It never reads a clock; every input carries its time,
 /// so tests drive it with fake streams. The platform (GPS, foreground service, autosave) lives in `LiveRecorder`.
@@ -110,7 +116,9 @@ class Recorder {
   final List<RecorderEvent> events = [];
 
   // Track columns of the accepted fixes.
-  final _t = <int?>[], _d = <double?>[], _lat = <double?>[], _lon = <double?>[], _alt = <double?>[];
+  final _t = <int?>[], _d = <double?>[], _lat = <double?>[], _lon = <double?>[], _alt = <double?>[], _hrCol = <int?>[];
+  int? _bpm; // latest heart-rate reading and when it came
+  DateTime? _bpmAt;
   PositionSample? _last; // last accepted fix of the current stretch
   PositionSample? _lastSeen; // any fix, for the GPS indicator
   double _dist = 0;
@@ -150,6 +158,12 @@ class Recorder {
     _log(RecorderEvent('position', s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
   }
 
+  /// A beats-per-minute reading from the band, [at] when it came. Not recorded while paused.
+  void heartRate(int bpm, DateTime at) {
+    if (paused) return;
+    _log(RecorderEvent('hr', at, {'bpm': bpm}));
+  }
+
   /// The phone's step counter read [count] at [at]. The counter is cumulative since boot, so only the change between readings counts.
   void stepCount(DateTime at, int count) {
     if (!isTreadmill || paused) return;
@@ -179,6 +193,10 @@ class Recorder {
           altitude: (e.data['alt'] as num?)?.toDouble(),
           accuracy: (e.data['acc'] as num?)?.toDouble(),
         ));
+      case 'hr':
+        _bpm = (e.data['bpm'] as num).round();
+        _bpmAt = e.at;
+        if (isTreadmill) _treadmillPoint(e.at); // a treadmill has no fixes, so each reading is its own track point
       case 'lap':
         _laps.add(max(0, e.at.difference(start).inMilliseconds / 1000).round());
       case 'steps':
@@ -221,6 +239,13 @@ class Recorder {
     _lat.add(s.lat);
     _lon.add(s.lon);
     _alt.add(s.altitude);
+    _hrCol.add(_bpmAt != null && s.time.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null);
+  }
+
+  /// A treadmill track point: time and heart rate only.
+  void _treadmillPoint(DateTime at) {
+    _t.add(max(0, at.difference(start).inMilliseconds / 1000).round());
+    _hrCol.add(_bpm);
   }
 
   /// Records a cue for each km boundary the step from [before] (of length [step], starting at [from] and lasting [dt] s) crossed.
@@ -248,12 +273,14 @@ class Recorder {
     return len >= autoPauseSec ? len : 0;
   }
 
-  RunSnapshot snapshot(DateTime now) {
+  /// The numbers at [now]. [maxHr] picks the zone of the live heart rate.
+  RunSnapshot snapshot(DateTime now, {int maxHr = defaultMaxHr}) {
     final elapsed = max(0.0, now.difference(start).inMilliseconds / 1000);
     final pausedNow = _pausedAt == null ? 0.0 : now.difference(_pausedAt!).inMilliseconds / 1000;
     final auto = isTreadmill ? 0.0 : _openAutoSec();
     final moving = max(0.0, elapsed - _pausedSec - pausedNow - _autoSec - auto);
     final standing = !paused && auto > 0;
+    final bpm = _bpmAt != null && now.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null;
     final dist = isTreadmill ? stepDistanceKm(_steps, strideM) * 1000 : _dist;
     return RunSnapshot(
       elapsedSec: elapsed.round(),
@@ -265,6 +292,8 @@ class Recorder {
       steps: _steps,
       currentPaceSecPerKm: paused || standing || isTreadmill ? null : _currentPace(),
       avgPaceSecPerKm: dist >= 10 && moving > 0 ? moving / (dist / 1000) : null,
+      hr: bpm,
+      hrZone: bpm == null ? null : zoneOf(bpm, maxHr),
     );
   }
 
@@ -291,9 +320,11 @@ class Recorder {
       movingSec: s.movingSec,
       externalId: sessionId,
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
-      track: _t.isEmpty || isTreadmill
+      track: _t.isEmpty
           ? null
-          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, laps: _laps.isEmpty ? null : List.of(_laps)),
+          : isTreadmill
+              ? Track(time: List.of(_t), hr: List.of(_hrCol))
+          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null, laps: _laps.isEmpty ? null : List.of(_laps)),
     );
   }
 }
