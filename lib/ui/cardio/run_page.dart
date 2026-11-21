@@ -9,9 +9,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../data/cardio.dart';
 import '../../data/db.dart';
 import '../../data/run_analysis.dart';
+import '../../data/settings.dart';
 import '../../data/track.dart';
 import '../core/theme.dart';
 import 'activity_timer.dart';
+import 'max_hr.dart';
 import 'cardio_form.dart';
 
 /// Opens the Run page for [id]. The one way to open a Run: History and the Runs view both call it.
@@ -70,7 +72,7 @@ class RunPage extends StatelessWidget {
             ),
             body: StreamBuilder(
               stream: store.watchTrack(id),
-              builder: (context, ts) => _RunBody(c, ts.data),
+              builder: (context, ts) => _RunBody(c, ts.data, store.settings),
             ),
           );
         },
@@ -78,10 +80,11 @@ class RunPage extends StatelessWidget {
 }
 
 class _RunBody extends StatefulWidget {
-  const _RunBody(this.run, this.track);
+  const _RunBody(this.run, this.track, this.settings);
 
   final CardioData run;
   final Track? track;
+  final SettingsStore settings;
 
   @override
   State<_RunBody> createState() => _RunBodyState();
@@ -134,6 +137,7 @@ class _RunBodyState extends State<_RunBody> {
         ),
         _MetricChart(chartSeries(t!, metric), metric),
       ],
+      ZoneBar(track: t, settings: widget.settings),
       if (splits.isNotEmpty) TileGroup(title: 'Splits', children: [
         for (final s in splits)
           ListTile(

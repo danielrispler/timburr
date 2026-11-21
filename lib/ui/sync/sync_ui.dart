@@ -9,6 +9,7 @@ import '../core/theme.dart';
 import '../backup/backup_screen.dart';
 import '../import/import_screen.dart';
 import '../import/strava_import_screen.dart';
+import '../cardio/max_hr.dart';
 
 /// Header status: `synced`, `N pending`, `offline` or `error` (tap for the message).
 class SyncBadge extends StatefulWidget {
@@ -103,6 +104,7 @@ class MoreScreen extends StatelessWidget {
                 .push(MaterialPageRoute(builder: (_) => BackupScreen(catalog: catalog, engine: engine))),
           ),
           ]),
+          TileGroup(title: 'Running', children: [MaxHrTile(settings: cardio.settings)]),
           if (engine case final engine?)
             TileGroup(title: 'Account', children: [
               ListTile(leading: const IconTile(Icons.sync), title: const Text('Sync now'), onTap: engine.sync),

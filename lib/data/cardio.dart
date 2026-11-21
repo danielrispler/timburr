@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'db.dart';
 import 'recording.dart';
+import 'settings.dart';
 import 'track.dart';
 
 /// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
@@ -92,6 +93,9 @@ DateTime _endOf(CardioData c) => c.startedAt.add(Duration(seconds: c.elapsedSec 
 class CardioStore {
   CardioStore(this._db, {this.onSaved});
   final AppDb _db;
+
+  /// The settings row, for the Run page's zones and More. Shares this store's sync hook.
+  late final settings = SettingsStore(_db, onSaved: onSaved);
 
   /// Called after each save or delete; main wires it to sync.
   final Future<void> Function()? onSaved;
