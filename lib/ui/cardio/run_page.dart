@@ -118,6 +118,8 @@ class _RunBodyState extends State<_RunBody> {
           _Stat('Avg HR', c.avgHr?.toString() ?? '-'),
           _Stat('Max HR', c.maxHr?.toString() ?? '-'),
           _Stat('Elevation gain', c.elevationGainM == null ? '-' : '${c.elevationGainM!.round()} m'),
+          if (c.inclinePct != null) _Stat('Incline', '${c.inclinePct! == c.inclinePct!.roundToDouble() ? c.inclinePct!.toInt() : c.inclinePct}%'),
+          if (c.steps != null) _Stat('Steps', '${c.steps}'),
         ]),
       ),
       if (c.notes?.isNotEmpty == true) Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: Text(c.notes!)),

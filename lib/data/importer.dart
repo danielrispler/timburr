@@ -142,8 +142,8 @@ List<String> validateImport(Object? data) {
     number(c, p, 'distanceKm', positive: true, below: distanceBelow, required: true);
     whole(c, p, 'durationSec', min: 1, required: true);
     whole(c, p, 'avgHr', min: 1);
-    if (c['inclinePct'] != null && (c['inclinePct'] is! num || roundTo((c['inclinePct'] as num).abs(), 1) >= inclineBelow)) {
-      err('$p.inclinePct', 'must be a number between -$inclineBelow and $inclineBelow');
+    if (c['inclinePct'] != null && (c['inclinePct'] is! num || (c['inclinePct'] as num) < 0 || roundTo(c['inclinePct'] as num, 1) > maxIncline)) {
+      err('$p.inclinePct', 'must be a number between 0 and $maxIncline');
     }
     whole(c, p, 'rpe', min: 1, max: 10);
     str(c, p, 'notes');

@@ -36,6 +36,7 @@ void main() {
     var db = AppDb(NativeDatabase(file));
     await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
     await db.customStatement('drop table recording_events');
+    await db.customStatement('alter table cardio drop column steps');
     await db.customStatement('pragma user_version = 7');
     await db.close();
 
@@ -43,6 +44,25 @@ void main() {
     expect((await CardioStore(db).watchAll().first).single.distanceKm, 5.0);
     await db.into(db.recordingEvents).insert(RecordingEventsCompanion.insert(event: '{}'));
     expect(await db.select(db.recordingEvents).get(), hasLength(1));
+    await db.close();
+  });
+
+  test('v8 to v9 adds steps to cardio, keeping rows and their incline and calories', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    final id = await CardioStore(db).save(type: 'treadmill', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500, inclinePct: 1.5);
+    await db.customStatement('alter table cardio drop column steps');
+    await db.customStatement('pragma user_version = 8');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    final store = CardioStore(db);
+    final run = await store.watch(id).first;
+    expect((run.distanceKm, run.inclinePct, run.steps), (5.0, 1.5, null));
+    await store.edit(id, {'steps': 6100, 'calories': 380});
+    final edited = await store.watch(id).first;
+    expect((edited.steps, edited.calories), (6100, 380));
+    expect(edited.editedFields, ['steps', 'calories']);
     await db.close();
   });
 
@@ -141,13 +161,13 @@ Future<void> _dropV3Columns(AppDb db) async {
   }
 }
 
-/// Back to the v6 schema: drops what v7 and v8 added.
+/// Back to the v6 schema: drops what v7, v8 and v9 added.
 Future<void> _dropV7Schema(AppDb db) async {
   await db.customStatement('drop table recording_events');
   for (final t in ['cardio_tracks', 'settings', 'best_efforts']) {
     await db.customStatement('drop table $t');
   }
-  for (final c in ['elapsed_sec', 'title', 'source', 'external_id', 'elevation_gain_m', 'max_hr', 'avg_cadence', 'calories', 'route', 'edited_fields']) {
+  for (final c in ['elapsed_sec', 'title', 'source', 'external_id', 'elevation_gain_m', 'max_hr', 'avg_cadence', 'calories', 'route', 'edited_fields', 'steps']) {
     await db.customStatement('alter table cardio drop column $c');
   }
 }
