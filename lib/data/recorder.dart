@@ -25,8 +25,22 @@ GpsSignal gpsSignalOf(PositionSample? last, DateTime now) {
   return last.accuracy != null && last.accuracy! <= 20 ? GpsSignal.good : GpsSignal.weak;
 }
 
+/// A km the runner has just completed: its number, how long it took (Moving time) and its pace.
+class KmCue {
+  const KmCue(this.km, this.splitSec, this.paceSecPerKm);
+  final int km;
+  final double splitSec, paceSecPerKm;
+}
+
+/// What the voice says at a km boundary.
+String kmCueText(KmCue c) {
+  final t = c.splitSec.round(), p = c.paceSecPerKm.round();
+  final mins = t ~/ 60, secs = t % 60;
+  return 'Kilometer ${c.km}. Time ${mins > 0 ? '$mins minute${mins == 1 ? '' : 's'} ' : ''}$secs second${secs == 1 ? '' : 's'}. Pace ${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer.';
+}
+
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds: `start` (type, id), `position`, `pause`, `resume`.
+/// Kinds: `start` (type, id), `position`, `pause`, `resume`, `lap`.
 /// shortcut for later tickets: heart rate (#68), laps (#69) and treadmill steps (#70) are new kinds with their own `data`; add a case in [Recorder] `_apply`.
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
@@ -99,7 +113,22 @@ class Recorder {
   double _pausedSec = 0, _autoSec = 0;
   DateTime? _slowSince; // when the current slow stretch began
 
+  final _laps = <int>[];
+  final _kmCues = <KmCue>[];
+  double _lastKmMoving = 0; // Moving time at the last km mark
+
   bool get paused => _pausedAt != null;
+
+  /// Lap marks, seconds from the start.
+  List<int> get laps => List.unmodifiable(_laps);
+
+  /// The km completed so far, in order. A new one appearing is the moment to speak.
+  List<KmCue> get kmCues => List.unmodifiable(_kmCues);
+
+  /// Marks a lap. Ignored while paused.
+  void lap(DateTime at) {
+    if (!paused) _log(RecorderEvent('lap', at));
+  }
 
   /// The last event's time, or [start].
   DateTime get lastEventAt => events.last.at;
@@ -133,6 +162,8 @@ class Recorder {
           altitude: (e.data['alt'] as num?)?.toDouble(),
           accuracy: (e.data['acc'] as num?)?.toDouble(),
         ));
+      case 'lap':
+        _laps.add(max(0, e.at.difference(start).inMilliseconds / 1000).round());
       case 'pause':
         _closeSlow();
         _pausedAt = e.at;
@@ -154,8 +185,10 @@ class Recorder {
       final step = haversineM(last.lat, last.lon, s.lat, s.lon);
       if (step > maxRunSpeed * max(1, dt)) return; // a GPS jump
       if (step / dt >= autoPauseSpeed) {
+        final before = _dist;
         _dist += step;
         _closeSlow();
+        _kmCrossings(before, step, last.time, dt);
       } else {
         _slowSince ??= last.time;
       }
@@ -166,6 +199,18 @@ class Recorder {
     _lat.add(s.lat);
     _lon.add(s.lon);
     _alt.add(s.altitude);
+  }
+
+  /// Records a cue for each km boundary the step from [before] (of length [step], starting at [from] and lasting [dt] s) crossed.
+  void _kmCrossings(double before, double step, DateTime from, double dt) {
+    while (_dist >= (_kmCues.length + 1) * 1000) {
+      final mark = (_kmCues.length + 1) * 1000.0;
+      final at = from.difference(start).inMilliseconds / 1000 + dt * (mark - before) / step;
+      final moving = at - _pausedSec - _autoSec;
+      final split = moving - _lastKmMoving;
+      _kmCues.add(KmCue(_kmCues.length + 1, split, split));
+      _lastKmMoving = moving;
+    }
   }
 
   /// Ends the slow stretch: counted as auto-paused when it lasted [autoPauseSec] or more (as `autoPauseMovingSec` does for a finished track).
@@ -224,7 +269,7 @@ class Recorder {
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
       track: _t.isEmpty
           ? null
-          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null),
+          : Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, laps: _laps.isEmpty ? null : List.of(_laps)),
     );
   }
 }
