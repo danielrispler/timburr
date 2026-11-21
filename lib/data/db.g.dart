@@ -5585,6 +5585,107 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _elapsedSecMeta = const VerificationMeta(
+    'elapsedSec',
+  );
+  @override
+  late final GeneratedColumn<int> elapsedSec = GeneratedColumn<int>(
+    'elapsed_sec',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _externalIdMeta = const VerificationMeta(
+    'externalId',
+  );
+  @override
+  late final GeneratedColumn<String> externalId = GeneratedColumn<String>(
+    'external_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _elevationGainMMeta = const VerificationMeta(
+    'elevationGainM',
+  );
+  @override
+  late final GeneratedColumn<double> elevationGainM = GeneratedColumn<double>(
+    'elevation_gain_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _maxHrMeta = const VerificationMeta('maxHr');
+  @override
+  late final GeneratedColumn<int> maxHr = GeneratedColumn<int>(
+    'max_hr',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avgCadenceMeta = const VerificationMeta(
+    'avgCadence',
+  );
+  @override
+  late final GeneratedColumn<double> avgCadence = GeneratedColumn<double>(
+    'avg_cadence',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _caloriesMeta = const VerificationMeta(
+    'calories',
+  );
+  @override
+  late final GeneratedColumn<int> calories = GeneratedColumn<int>(
+    'calories',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _routeMeta = const VerificationMeta('route');
+  @override
+  late final GeneratedColumn<String> route = GeneratedColumn<String>(
+    'route',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<List<String>, String>
+  editedFields = GeneratedColumn<String>(
+    'edited_fields',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  ).withConverter<List<String>>($CardioTable.$convertereditedFields);
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5602,6 +5703,16 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     inclinePct,
     rpe,
     notes,
+    elapsedSec,
+    title,
+    source,
+    externalId,
+    elevationGainM,
+    maxHr,
+    avgCadence,
+    calories,
+    route,
+    editedFields,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5716,6 +5827,63 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('elapsed_sec')) {
+      context.handle(
+        _elapsedSecMeta,
+        elapsedSec.isAcceptableOrUnknown(data['elapsed_sec']!, _elapsedSecMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('external_id')) {
+      context.handle(
+        _externalIdMeta,
+        externalId.isAcceptableOrUnknown(data['external_id']!, _externalIdMeta),
+      );
+    }
+    if (data.containsKey('elevation_gain_m')) {
+      context.handle(
+        _elevationGainMMeta,
+        elevationGainM.isAcceptableOrUnknown(
+          data['elevation_gain_m']!,
+          _elevationGainMMeta,
+        ),
+      );
+    }
+    if (data.containsKey('max_hr')) {
+      context.handle(
+        _maxHrMeta,
+        maxHr.isAcceptableOrUnknown(data['max_hr']!, _maxHrMeta),
+      );
+    }
+    if (data.containsKey('avg_cadence')) {
+      context.handle(
+        _avgCadenceMeta,
+        avgCadence.isAcceptableOrUnknown(data['avg_cadence']!, _avgCadenceMeta),
+      );
+    }
+    if (data.containsKey('calories')) {
+      context.handle(
+        _caloriesMeta,
+        calories.isAcceptableOrUnknown(data['calories']!, _caloriesMeta),
+      );
+    }
+    if (data.containsKey('route')) {
+      context.handle(
+        _routeMeta,
+        route.isAcceptableOrUnknown(data['route']!, _routeMeta),
+      );
+    }
     return context;
   }
 
@@ -5785,6 +5953,48 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      elapsedSec: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}elapsed_sec'],
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      ),
+      externalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}external_id'],
+      ),
+      elevationGainM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}elevation_gain_m'],
+      ),
+      maxHr: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_hr'],
+      ),
+      avgCadence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}avg_cadence'],
+      ),
+      calories: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}calories'],
+      ),
+      route: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route'],
+      ),
+      editedFields: $CardioTable.$convertereditedFields.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}edited_fields'],
+        )!,
+      ),
     );
   }
 
@@ -5792,6 +6002,9 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
   $CardioTable createAlias(String alias) {
     return $CardioTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<List<String>, String> $convertereditedFields =
+      const StringList();
 }
 
 class CardioData extends DataClass implements Insertable<CardioData> {
@@ -5810,6 +6023,16 @@ class CardioData extends DataClass implements Insertable<CardioData> {
   final double? inclinePct;
   final int? rpe;
   final String? notes;
+  final int? elapsedSec;
+  final String? title;
+  final String? source;
+  final String? externalId;
+  final double? elevationGainM;
+  final int? maxHr;
+  final double? avgCadence;
+  final int? calories;
+  final String? route;
+  final List<String> editedFields;
   const CardioData({
     required this.id,
     this.userId,
@@ -5826,6 +6049,16 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     this.inclinePct,
     this.rpe,
     this.notes,
+    this.elapsedSec,
+    this.title,
+    this.source,
+    this.externalId,
+    this.elevationGainM,
+    this.maxHr,
+    this.avgCadence,
+    this.calories,
+    this.route,
+    required this.editedFields,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5861,6 +6094,38 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    if (!nullToAbsent || elapsedSec != null) {
+      map['elapsed_sec'] = Variable<int>(elapsedSec);
+    }
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || source != null) {
+      map['source'] = Variable<String>(source);
+    }
+    if (!nullToAbsent || externalId != null) {
+      map['external_id'] = Variable<String>(externalId);
+    }
+    if (!nullToAbsent || elevationGainM != null) {
+      map['elevation_gain_m'] = Variable<double>(elevationGainM);
+    }
+    if (!nullToAbsent || maxHr != null) {
+      map['max_hr'] = Variable<int>(maxHr);
+    }
+    if (!nullToAbsent || avgCadence != null) {
+      map['avg_cadence'] = Variable<double>(avgCadence);
+    }
+    if (!nullToAbsent || calories != null) {
+      map['calories'] = Variable<int>(calories);
+    }
+    if (!nullToAbsent || route != null) {
+      map['route'] = Variable<String>(route);
+    }
+    {
+      map['edited_fields'] = Variable<String>(
+        $CardioTable.$convertereditedFields.toSql(editedFields),
+      );
+    }
     return map;
   }
 
@@ -5895,6 +6160,34 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      elapsedSec: elapsedSec == null && nullToAbsent
+          ? const Value.absent()
+          : Value(elapsedSec),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      source: source == null && nullToAbsent
+          ? const Value.absent()
+          : Value(source),
+      externalId: externalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(externalId),
+      elevationGainM: elevationGainM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(elevationGainM),
+      maxHr: maxHr == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxHr),
+      avgCadence: avgCadence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avgCadence),
+      calories: calories == null && nullToAbsent
+          ? const Value.absent()
+          : Value(calories),
+      route: route == null && nullToAbsent
+          ? const Value.absent()
+          : Value(route),
+      editedFields: Value(editedFields),
     );
   }
 
@@ -5919,6 +6212,16 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       inclinePct: serializer.fromJson<double?>(json['inclinePct']),
       rpe: serializer.fromJson<int?>(json['rpe']),
       notes: serializer.fromJson<String?>(json['notes']),
+      elapsedSec: serializer.fromJson<int?>(json['elapsedSec']),
+      title: serializer.fromJson<String?>(json['title']),
+      source: serializer.fromJson<String?>(json['source']),
+      externalId: serializer.fromJson<String?>(json['externalId']),
+      elevationGainM: serializer.fromJson<double?>(json['elevationGainM']),
+      maxHr: serializer.fromJson<int?>(json['maxHr']),
+      avgCadence: serializer.fromJson<double?>(json['avgCadence']),
+      calories: serializer.fromJson<int?>(json['calories']),
+      route: serializer.fromJson<String?>(json['route']),
+      editedFields: serializer.fromJson<List<String>>(json['editedFields']),
     );
   }
   @override
@@ -5940,6 +6243,16 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       'inclinePct': serializer.toJson<double?>(inclinePct),
       'rpe': serializer.toJson<int?>(rpe),
       'notes': serializer.toJson<String?>(notes),
+      'elapsedSec': serializer.toJson<int?>(elapsedSec),
+      'title': serializer.toJson<String?>(title),
+      'source': serializer.toJson<String?>(source),
+      'externalId': serializer.toJson<String?>(externalId),
+      'elevationGainM': serializer.toJson<double?>(elevationGainM),
+      'maxHr': serializer.toJson<int?>(maxHr),
+      'avgCadence': serializer.toJson<double?>(avgCadence),
+      'calories': serializer.toJson<int?>(calories),
+      'route': serializer.toJson<String?>(route),
+      'editedFields': serializer.toJson<List<String>>(editedFields),
     };
   }
 
@@ -5959,6 +6272,16 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     Value<double?> inclinePct = const Value.absent(),
     Value<int?> rpe = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<int?> elapsedSec = const Value.absent(),
+    Value<String?> title = const Value.absent(),
+    Value<String?> source = const Value.absent(),
+    Value<String?> externalId = const Value.absent(),
+    Value<double?> elevationGainM = const Value.absent(),
+    Value<int?> maxHr = const Value.absent(),
+    Value<double?> avgCadence = const Value.absent(),
+    Value<int?> calories = const Value.absent(),
+    Value<String?> route = const Value.absent(),
+    List<String>? editedFields,
   }) => CardioData(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -5977,6 +6300,18 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     inclinePct: inclinePct.present ? inclinePct.value : this.inclinePct,
     rpe: rpe.present ? rpe.value : this.rpe,
     notes: notes.present ? notes.value : this.notes,
+    elapsedSec: elapsedSec.present ? elapsedSec.value : this.elapsedSec,
+    title: title.present ? title.value : this.title,
+    source: source.present ? source.value : this.source,
+    externalId: externalId.present ? externalId.value : this.externalId,
+    elevationGainM: elevationGainM.present
+        ? elevationGainM.value
+        : this.elevationGainM,
+    maxHr: maxHr.present ? maxHr.value : this.maxHr,
+    avgCadence: avgCadence.present ? avgCadence.value : this.avgCadence,
+    calories: calories.present ? calories.value : this.calories,
+    route: route.present ? route.value : this.route,
+    editedFields: editedFields ?? this.editedFields,
   );
   CardioData copyWithCompanion(CardioCompanion data) {
     return CardioData(
@@ -6003,6 +6338,26 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           : this.inclinePct,
       rpe: data.rpe.present ? data.rpe.value : this.rpe,
       notes: data.notes.present ? data.notes.value : this.notes,
+      elapsedSec: data.elapsedSec.present
+          ? data.elapsedSec.value
+          : this.elapsedSec,
+      title: data.title.present ? data.title.value : this.title,
+      source: data.source.present ? data.source.value : this.source,
+      externalId: data.externalId.present
+          ? data.externalId.value
+          : this.externalId,
+      elevationGainM: data.elevationGainM.present
+          ? data.elevationGainM.value
+          : this.elevationGainM,
+      maxHr: data.maxHr.present ? data.maxHr.value : this.maxHr,
+      avgCadence: data.avgCadence.present
+          ? data.avgCadence.value
+          : this.avgCadence,
+      calories: data.calories.present ? data.calories.value : this.calories,
+      route: data.route.present ? data.route.value : this.route,
+      editedFields: data.editedFields.present
+          ? data.editedFields.value
+          : this.editedFields,
     );
   }
 
@@ -6023,13 +6378,23 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ..write('avgHr: $avgHr, ')
           ..write('inclinePct: $inclinePct, ')
           ..write('rpe: $rpe, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('elapsedSec: $elapsedSec, ')
+          ..write('title: $title, ')
+          ..write('source: $source, ')
+          ..write('externalId: $externalId, ')
+          ..write('elevationGainM: $elevationGainM, ')
+          ..write('maxHr: $maxHr, ')
+          ..write('avgCadence: $avgCadence, ')
+          ..write('calories: $calories, ')
+          ..write('route: $route, ')
+          ..write('editedFields: $editedFields')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     userId,
     createdAt,
@@ -6045,7 +6410,17 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     inclinePct,
     rpe,
     notes,
-  );
+    elapsedSec,
+    title,
+    source,
+    externalId,
+    elevationGainM,
+    maxHr,
+    avgCadence,
+    calories,
+    route,
+    editedFields,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6064,7 +6439,17 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           other.avgHr == this.avgHr &&
           other.inclinePct == this.inclinePct &&
           other.rpe == this.rpe &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.elapsedSec == this.elapsedSec &&
+          other.title == this.title &&
+          other.source == this.source &&
+          other.externalId == this.externalId &&
+          other.elevationGainM == this.elevationGainM &&
+          other.maxHr == this.maxHr &&
+          other.avgCadence == this.avgCadence &&
+          other.calories == this.calories &&
+          other.route == this.route &&
+          other.editedFields == this.editedFields);
 }
 
 class CardioCompanion extends UpdateCompanion<CardioData> {
@@ -6083,6 +6468,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
   final Value<double?> inclinePct;
   final Value<int?> rpe;
   final Value<String?> notes;
+  final Value<int?> elapsedSec;
+  final Value<String?> title;
+  final Value<String?> source;
+  final Value<String?> externalId;
+  final Value<double?> elevationGainM;
+  final Value<int?> maxHr;
+  final Value<double?> avgCadence;
+  final Value<int?> calories;
+  final Value<String?> route;
+  final Value<List<String>> editedFields;
   final Value<int> rowid;
   const CardioCompanion({
     this.id = const Value.absent(),
@@ -6100,6 +6495,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.inclinePct = const Value.absent(),
     this.rpe = const Value.absent(),
     this.notes = const Value.absent(),
+    this.elapsedSec = const Value.absent(),
+    this.title = const Value.absent(),
+    this.source = const Value.absent(),
+    this.externalId = const Value.absent(),
+    this.elevationGainM = const Value.absent(),
+    this.maxHr = const Value.absent(),
+    this.avgCadence = const Value.absent(),
+    this.calories = const Value.absent(),
+    this.route = const Value.absent(),
+    this.editedFields = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CardioCompanion.insert({
@@ -6118,6 +6523,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.inclinePct = const Value.absent(),
     this.rpe = const Value.absent(),
     this.notes = const Value.absent(),
+    this.elapsedSec = const Value.absent(),
+    this.title = const Value.absent(),
+    this.source = const Value.absent(),
+    this.externalId = const Value.absent(),
+    this.elevationGainM = const Value.absent(),
+    this.maxHr = const Value.absent(),
+    this.avgCadence = const Value.absent(),
+    this.calories = const Value.absent(),
+    this.route = const Value.absent(),
+    this.editedFields = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -6139,6 +6554,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Expression<double>? inclinePct,
     Expression<int>? rpe,
     Expression<String>? notes,
+    Expression<int>? elapsedSec,
+    Expression<String>? title,
+    Expression<String>? source,
+    Expression<String>? externalId,
+    Expression<double>? elevationGainM,
+    Expression<int>? maxHr,
+    Expression<double>? avgCadence,
+    Expression<int>? calories,
+    Expression<String>? route,
+    Expression<String>? editedFields,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6157,6 +6582,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       if (inclinePct != null) 'incline_pct': inclinePct,
       if (rpe != null) 'rpe': rpe,
       if (notes != null) 'notes': notes,
+      if (elapsedSec != null) 'elapsed_sec': elapsedSec,
+      if (title != null) 'title': title,
+      if (source != null) 'source': source,
+      if (externalId != null) 'external_id': externalId,
+      if (elevationGainM != null) 'elevation_gain_m': elevationGainM,
+      if (maxHr != null) 'max_hr': maxHr,
+      if (avgCadence != null) 'avg_cadence': avgCadence,
+      if (calories != null) 'calories': calories,
+      if (route != null) 'route': route,
+      if (editedFields != null) 'edited_fields': editedFields,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6177,6 +6612,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Value<double?>? inclinePct,
     Value<int?>? rpe,
     Value<String?>? notes,
+    Value<int?>? elapsedSec,
+    Value<String?>? title,
+    Value<String?>? source,
+    Value<String?>? externalId,
+    Value<double?>? elevationGainM,
+    Value<int?>? maxHr,
+    Value<double?>? avgCadence,
+    Value<int?>? calories,
+    Value<String?>? route,
+    Value<List<String>>? editedFields,
     Value<int>? rowid,
   }) {
     return CardioCompanion(
@@ -6195,6 +6640,16 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       inclinePct: inclinePct ?? this.inclinePct,
       rpe: rpe ?? this.rpe,
       notes: notes ?? this.notes,
+      elapsedSec: elapsedSec ?? this.elapsedSec,
+      title: title ?? this.title,
+      source: source ?? this.source,
+      externalId: externalId ?? this.externalId,
+      elevationGainM: elevationGainM ?? this.elevationGainM,
+      maxHr: maxHr ?? this.maxHr,
+      avgCadence: avgCadence ?? this.avgCadence,
+      calories: calories ?? this.calories,
+      route: route ?? this.route,
+      editedFields: editedFields ?? this.editedFields,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6247,6 +6702,38 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (elapsedSec.present) {
+      map['elapsed_sec'] = Variable<int>(elapsedSec.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (externalId.present) {
+      map['external_id'] = Variable<String>(externalId.value);
+    }
+    if (elevationGainM.present) {
+      map['elevation_gain_m'] = Variable<double>(elevationGainM.value);
+    }
+    if (maxHr.present) {
+      map['max_hr'] = Variable<int>(maxHr.value);
+    }
+    if (avgCadence.present) {
+      map['avg_cadence'] = Variable<double>(avgCadence.value);
+    }
+    if (calories.present) {
+      map['calories'] = Variable<int>(calories.value);
+    }
+    if (route.present) {
+      map['route'] = Variable<String>(route.value);
+    }
+    if (editedFields.present) {
+      map['edited_fields'] = Variable<String>(
+        $CardioTable.$convertereditedFields.toSql(editedFields.value),
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6271,6 +6758,1510 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
           ..write('inclinePct: $inclinePct, ')
           ..write('rpe: $rpe, ')
           ..write('notes: $notes, ')
+          ..write('elapsedSec: $elapsedSec, ')
+          ..write('title: $title, ')
+          ..write('source: $source, ')
+          ..write('externalId: $externalId, ')
+          ..write('elevationGainM: $elevationGainM, ')
+          ..write('maxHr: $maxHr, ')
+          ..write('avgCadence: $avgCadence, ')
+          ..write('calories: $calories, ')
+          ..write('route: $route, ')
+          ..write('editedFields: $editedFields, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CardioTracksTable extends CardioTracks
+    with TableInfo<$CardioTracksTable, CardioTrack> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CardioTracksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serverUpdatedAtMeta = const VerificationMeta(
+    'serverUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> serverUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'server_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
+  @override
+  late final GeneratedColumn<int> dirty = GeneratedColumn<int>(
+    'dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _cardioIdMeta = const VerificationMeta(
+    'cardioId',
+  );
+  @override
+  late final GeneratedColumn<String> cardioId = GeneratedColumn<String>(
+    'cardio_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'UNIQUE REFERENCES cardio (id)',
+    ),
+  );
+  static const VerificationMeta _pointsMeta = const VerificationMeta('points');
+  @override
+  late final GeneratedColumn<String> points = GeneratedColumn<String>(
+    'points',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    cardioId,
+    points,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cardio_tracks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CardioTrack> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('server_updated_at')) {
+      context.handle(
+        _serverUpdatedAtMeta,
+        serverUpdatedAt.isAcceptableOrUnknown(
+          data['server_updated_at']!,
+          _serverUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dirty')) {
+      context.handle(
+        _dirtyMeta,
+        dirty.isAcceptableOrUnknown(data['dirty']!, _dirtyMeta),
+      );
+    }
+    if (data.containsKey('cardio_id')) {
+      context.handle(
+        _cardioIdMeta,
+        cardioId.isAcceptableOrUnknown(data['cardio_id']!, _cardioIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardioIdMeta);
+    }
+    if (data.containsKey('points')) {
+      context.handle(
+        _pointsMeta,
+        points.isAcceptableOrUnknown(data['points']!, _pointsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pointsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CardioTrack map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CardioTrack(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      serverUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}server_updated_at'],
+      ),
+      dirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dirty'],
+      )!,
+      cardioId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cardio_id'],
+      )!,
+      points: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}points'],
+      )!,
+    );
+  }
+
+  @override
+  $CardioTracksTable createAlias(String alias) {
+    return $CardioTracksTable(attachedDatabase, alias);
+  }
+}
+
+class CardioTrack extends DataClass implements Insertable<CardioTrack> {
+  final String id;
+  final String? userId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final DateTime? serverUpdatedAt;
+  final int dirty;
+  final String cardioId;
+  final String points;
+  const CardioTrack({
+    required this.id,
+    this.userId,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.serverUpdatedAt,
+    required this.dirty,
+    required this.cardioId,
+    required this.points,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || serverUpdatedAt != null) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt);
+    }
+    map['dirty'] = Variable<int>(dirty);
+    map['cardio_id'] = Variable<String>(cardioId);
+    map['points'] = Variable<String>(points);
+    return map;
+  }
+
+  CardioTracksCompanion toCompanion(bool nullToAbsent) {
+    return CardioTracksCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      serverUpdatedAt: serverUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverUpdatedAt),
+      dirty: Value(dirty),
+      cardioId: Value(cardioId),
+      points: Value(points),
+    );
+  }
+
+  factory CardioTrack.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CardioTrack(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      serverUpdatedAt: serializer.fromJson<DateTime?>(json['serverUpdatedAt']),
+      dirty: serializer.fromJson<int>(json['dirty']),
+      cardioId: serializer.fromJson<String>(json['cardioId']),
+      points: serializer.fromJson<String>(json['points']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'serverUpdatedAt': serializer.toJson<DateTime?>(serverUpdatedAt),
+      'dirty': serializer.toJson<int>(dirty),
+      'cardioId': serializer.toJson<String>(cardioId),
+      'points': serializer.toJson<String>(points),
+    };
+  }
+
+  CardioTrack copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<DateTime?> serverUpdatedAt = const Value.absent(),
+    int? dirty,
+    String? cardioId,
+    String? points,
+  }) => CardioTrack(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    serverUpdatedAt: serverUpdatedAt.present
+        ? serverUpdatedAt.value
+        : this.serverUpdatedAt,
+    dirty: dirty ?? this.dirty,
+    cardioId: cardioId ?? this.cardioId,
+    points: points ?? this.points,
+  );
+  CardioTrack copyWithCompanion(CardioTracksCompanion data) {
+    return CardioTrack(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      serverUpdatedAt: data.serverUpdatedAt.present
+          ? data.serverUpdatedAt.value
+          : this.serverUpdatedAt,
+      dirty: data.dirty.present ? data.dirty.value : this.dirty,
+      cardioId: data.cardioId.present ? data.cardioId.value : this.cardioId,
+      points: data.points.present ? data.points.value : this.points,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CardioTrack(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('cardioId: $cardioId, ')
+          ..write('points: $points')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    cardioId,
+    points,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CardioTrack &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.serverUpdatedAt == this.serverUpdatedAt &&
+          other.dirty == this.dirty &&
+          other.cardioId == this.cardioId &&
+          other.points == this.points);
+}
+
+class CardioTracksCompanion extends UpdateCompanion<CardioTrack> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<DateTime?> serverUpdatedAt;
+  final Value<int> dirty;
+  final Value<String> cardioId;
+  final Value<String> points;
+  final Value<int> rowid;
+  const CardioTracksCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    this.cardioId = const Value.absent(),
+    this.points = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CardioTracksCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    required String cardioId,
+    required String points,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       cardioId = Value(cardioId),
+       points = Value(points);
+  static Insertable<CardioTrack> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<DateTime>? serverUpdatedAt,
+    Expression<int>? dirty,
+    Expression<String>? cardioId,
+    Expression<String>? points,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (serverUpdatedAt != null) 'server_updated_at': serverUpdatedAt,
+      if (dirty != null) 'dirty': dirty,
+      if (cardioId != null) 'cardio_id': cardioId,
+      if (points != null) 'points': points,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CardioTracksCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<DateTime?>? serverUpdatedAt,
+    Value<int>? dirty,
+    Value<String>? cardioId,
+    Value<String>? points,
+    Value<int>? rowid,
+  }) {
+    return CardioTracksCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      serverUpdatedAt: serverUpdatedAt ?? this.serverUpdatedAt,
+      dirty: dirty ?? this.dirty,
+      cardioId: cardioId ?? this.cardioId,
+      points: points ?? this.points,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (serverUpdatedAt.present) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt.value);
+    }
+    if (dirty.present) {
+      map['dirty'] = Variable<int>(dirty.value);
+    }
+    if (cardioId.present) {
+      map['cardio_id'] = Variable<String>(cardioId.value);
+    }
+    if (points.present) {
+      map['points'] = Variable<String>(points.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CardioTracksCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('cardioId: $cardioId, ')
+          ..write('points: $points, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppSettingsTable extends AppSettings
+    with TableInfo<$AppSettingsTable, AppSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serverUpdatedAtMeta = const VerificationMeta(
+    'serverUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> serverUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'server_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
+  @override
+  late final GeneratedColumn<int> dirty = GeneratedColumn<int>(
+    'dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _maxHrMeta = const VerificationMeta('maxHr');
+  @override
+  late final GeneratedColumn<int> maxHr = GeneratedColumn<int>(
+    'max_hr',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _birthYearMeta = const VerificationMeta(
+    'birthYear',
+  );
+  @override
+  late final GeneratedColumn<int> birthYear = GeneratedColumn<int>(
+    'birth_year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _strideMMeta = const VerificationMeta(
+    'strideM',
+  );
+  @override
+  late final GeneratedColumn<double> strideM = GeneratedColumn<double>(
+    'stride_m',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _strideSamplesMeta = const VerificationMeta(
+    'strideSamples',
+  );
+  @override
+  late final GeneratedColumn<int> strideSamples = GeneratedColumn<int>(
+    'stride_samples',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    maxHr,
+    birthYear,
+    strideM,
+    strideSamples,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('server_updated_at')) {
+      context.handle(
+        _serverUpdatedAtMeta,
+        serverUpdatedAt.isAcceptableOrUnknown(
+          data['server_updated_at']!,
+          _serverUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dirty')) {
+      context.handle(
+        _dirtyMeta,
+        dirty.isAcceptableOrUnknown(data['dirty']!, _dirtyMeta),
+      );
+    }
+    if (data.containsKey('max_hr')) {
+      context.handle(
+        _maxHrMeta,
+        maxHr.isAcceptableOrUnknown(data['max_hr']!, _maxHrMeta),
+      );
+    }
+    if (data.containsKey('birth_year')) {
+      context.handle(
+        _birthYearMeta,
+        birthYear.isAcceptableOrUnknown(data['birth_year']!, _birthYearMeta),
+      );
+    }
+    if (data.containsKey('stride_m')) {
+      context.handle(
+        _strideMMeta,
+        strideM.isAcceptableOrUnknown(data['stride_m']!, _strideMMeta),
+      );
+    }
+    if (data.containsKey('stride_samples')) {
+      context.handle(
+        _strideSamplesMeta,
+        strideSamples.isAcceptableOrUnknown(
+          data['stride_samples']!,
+          _strideSamplesMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSetting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      serverUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}server_updated_at'],
+      ),
+      dirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dirty'],
+      )!,
+      maxHr: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}max_hr'],
+      ),
+      birthYear: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}birth_year'],
+      ),
+      strideM: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}stride_m'],
+      ),
+      strideSamples: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stride_samples'],
+      ),
+    );
+  }
+
+  @override
+  $AppSettingsTable createAlias(String alias) {
+    return $AppSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AppSetting extends DataClass implements Insertable<AppSetting> {
+  final String id;
+  final String? userId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final DateTime? serverUpdatedAt;
+  final int dirty;
+  final int? maxHr;
+  final int? birthYear;
+  final double? strideM;
+  final int? strideSamples;
+  const AppSetting({
+    required this.id,
+    this.userId,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.serverUpdatedAt,
+    required this.dirty,
+    this.maxHr,
+    this.birthYear,
+    this.strideM,
+    this.strideSamples,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || serverUpdatedAt != null) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt);
+    }
+    map['dirty'] = Variable<int>(dirty);
+    if (!nullToAbsent || maxHr != null) {
+      map['max_hr'] = Variable<int>(maxHr);
+    }
+    if (!nullToAbsent || birthYear != null) {
+      map['birth_year'] = Variable<int>(birthYear);
+    }
+    if (!nullToAbsent || strideM != null) {
+      map['stride_m'] = Variable<double>(strideM);
+    }
+    if (!nullToAbsent || strideSamples != null) {
+      map['stride_samples'] = Variable<int>(strideSamples);
+    }
+    return map;
+  }
+
+  AppSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      serverUpdatedAt: serverUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverUpdatedAt),
+      dirty: Value(dirty),
+      maxHr: maxHr == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxHr),
+      birthYear: birthYear == null && nullToAbsent
+          ? const Value.absent()
+          : Value(birthYear),
+      strideM: strideM == null && nullToAbsent
+          ? const Value.absent()
+          : Value(strideM),
+      strideSamples: strideSamples == null && nullToAbsent
+          ? const Value.absent()
+          : Value(strideSamples),
+    );
+  }
+
+  factory AppSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSetting(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      serverUpdatedAt: serializer.fromJson<DateTime?>(json['serverUpdatedAt']),
+      dirty: serializer.fromJson<int>(json['dirty']),
+      maxHr: serializer.fromJson<int?>(json['maxHr']),
+      birthYear: serializer.fromJson<int?>(json['birthYear']),
+      strideM: serializer.fromJson<double?>(json['strideM']),
+      strideSamples: serializer.fromJson<int?>(json['strideSamples']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'serverUpdatedAt': serializer.toJson<DateTime?>(serverUpdatedAt),
+      'dirty': serializer.toJson<int>(dirty),
+      'maxHr': serializer.toJson<int?>(maxHr),
+      'birthYear': serializer.toJson<int?>(birthYear),
+      'strideM': serializer.toJson<double?>(strideM),
+      'strideSamples': serializer.toJson<int?>(strideSamples),
+    };
+  }
+
+  AppSetting copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<DateTime?> serverUpdatedAt = const Value.absent(),
+    int? dirty,
+    Value<int?> maxHr = const Value.absent(),
+    Value<int?> birthYear = const Value.absent(),
+    Value<double?> strideM = const Value.absent(),
+    Value<int?> strideSamples = const Value.absent(),
+  }) => AppSetting(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    serverUpdatedAt: serverUpdatedAt.present
+        ? serverUpdatedAt.value
+        : this.serverUpdatedAt,
+    dirty: dirty ?? this.dirty,
+    maxHr: maxHr.present ? maxHr.value : this.maxHr,
+    birthYear: birthYear.present ? birthYear.value : this.birthYear,
+    strideM: strideM.present ? strideM.value : this.strideM,
+    strideSamples: strideSamples.present
+        ? strideSamples.value
+        : this.strideSamples,
+  );
+  AppSetting copyWithCompanion(AppSettingsCompanion data) {
+    return AppSetting(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      serverUpdatedAt: data.serverUpdatedAt.present
+          ? data.serverUpdatedAt.value
+          : this.serverUpdatedAt,
+      dirty: data.dirty.present ? data.dirty.value : this.dirty,
+      maxHr: data.maxHr.present ? data.maxHr.value : this.maxHr,
+      birthYear: data.birthYear.present ? data.birthYear.value : this.birthYear,
+      strideM: data.strideM.present ? data.strideM.value : this.strideM,
+      strideSamples: data.strideSamples.present
+          ? data.strideSamples.value
+          : this.strideSamples,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSetting(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('maxHr: $maxHr, ')
+          ..write('birthYear: $birthYear, ')
+          ..write('strideM: $strideM, ')
+          ..write('strideSamples: $strideSamples')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    maxHr,
+    birthYear,
+    strideM,
+    strideSamples,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSetting &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.serverUpdatedAt == this.serverUpdatedAt &&
+          other.dirty == this.dirty &&
+          other.maxHr == this.maxHr &&
+          other.birthYear == this.birthYear &&
+          other.strideM == this.strideM &&
+          other.strideSamples == this.strideSamples);
+}
+
+class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<DateTime?> serverUpdatedAt;
+  final Value<int> dirty;
+  final Value<int?> maxHr;
+  final Value<int?> birthYear;
+  final Value<double?> strideM;
+  final Value<int?> strideSamples;
+  final Value<int> rowid;
+  const AppSettingsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    this.maxHr = const Value.absent(),
+    this.birthYear = const Value.absent(),
+    this.strideM = const Value.absent(),
+    this.strideSamples = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppSettingsCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    this.maxHr = const Value.absent(),
+    this.birthYear = const Value.absent(),
+    this.strideM = const Value.absent(),
+    this.strideSamples = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<AppSetting> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<DateTime>? serverUpdatedAt,
+    Expression<int>? dirty,
+    Expression<int>? maxHr,
+    Expression<int>? birthYear,
+    Expression<double>? strideM,
+    Expression<int>? strideSamples,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (serverUpdatedAt != null) 'server_updated_at': serverUpdatedAt,
+      if (dirty != null) 'dirty': dirty,
+      if (maxHr != null) 'max_hr': maxHr,
+      if (birthYear != null) 'birth_year': birthYear,
+      if (strideM != null) 'stride_m': strideM,
+      if (strideSamples != null) 'stride_samples': strideSamples,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppSettingsCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<DateTime?>? serverUpdatedAt,
+    Value<int>? dirty,
+    Value<int?>? maxHr,
+    Value<int?>? birthYear,
+    Value<double?>? strideM,
+    Value<int?>? strideSamples,
+    Value<int>? rowid,
+  }) {
+    return AppSettingsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      serverUpdatedAt: serverUpdatedAt ?? this.serverUpdatedAt,
+      dirty: dirty ?? this.dirty,
+      maxHr: maxHr ?? this.maxHr,
+      birthYear: birthYear ?? this.birthYear,
+      strideM: strideM ?? this.strideM,
+      strideSamples: strideSamples ?? this.strideSamples,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (serverUpdatedAt.present) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt.value);
+    }
+    if (dirty.present) {
+      map['dirty'] = Variable<int>(dirty.value);
+    }
+    if (maxHr.present) {
+      map['max_hr'] = Variable<int>(maxHr.value);
+    }
+    if (birthYear.present) {
+      map['birth_year'] = Variable<int>(birthYear.value);
+    }
+    if (strideM.present) {
+      map['stride_m'] = Variable<double>(strideM.value);
+    }
+    if (strideSamples.present) {
+      map['stride_samples'] = Variable<int>(strideSamples.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('maxHr: $maxHr, ')
+          ..write('birthYear: $birthYear, ')
+          ..write('strideM: $strideM, ')
+          ..write('strideSamples: $strideSamples, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BestEffortsTable extends BestEfforts
+    with TableInfo<$BestEffortsTable, BestEffort> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BestEffortsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardioIdMeta = const VerificationMeta(
+    'cardioId',
+  );
+  @override
+  late final GeneratedColumn<String> cardioId = GeneratedColumn<String>(
+    'cardio_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _distanceMMeta = const VerificationMeta(
+    'distanceM',
+  );
+  @override
+  late final GeneratedColumn<int> distanceM = GeneratedColumn<int>(
+    'distance_m',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondsMeta = const VerificationMeta(
+    'seconds',
+  );
+  @override
+  late final GeneratedColumn<double> seconds = GeneratedColumn<double>(
+    'seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [cardioId, distanceM, seconds];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'best_efforts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BestEffort> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('cardio_id')) {
+      context.handle(
+        _cardioIdMeta,
+        cardioId.isAcceptableOrUnknown(data['cardio_id']!, _cardioIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardioIdMeta);
+    }
+    if (data.containsKey('distance_m')) {
+      context.handle(
+        _distanceMMeta,
+        distanceM.isAcceptableOrUnknown(data['distance_m']!, _distanceMMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_distanceMMeta);
+    }
+    if (data.containsKey('seconds')) {
+      context.handle(
+        _secondsMeta,
+        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_secondsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardioId, distanceM};
+  @override
+  BestEffort map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BestEffort(
+      cardioId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cardio_id'],
+      )!,
+      distanceM: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}distance_m'],
+      )!,
+      seconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}seconds'],
+      )!,
+    );
+  }
+
+  @override
+  $BestEffortsTable createAlias(String alias) {
+    return $BestEffortsTable(attachedDatabase, alias);
+  }
+}
+
+class BestEffort extends DataClass implements Insertable<BestEffort> {
+  final String cardioId;
+  final int distanceM;
+  final double seconds;
+  const BestEffort({
+    required this.cardioId,
+    required this.distanceM,
+    required this.seconds,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['cardio_id'] = Variable<String>(cardioId);
+    map['distance_m'] = Variable<int>(distanceM);
+    map['seconds'] = Variable<double>(seconds);
+    return map;
+  }
+
+  BestEffortsCompanion toCompanion(bool nullToAbsent) {
+    return BestEffortsCompanion(
+      cardioId: Value(cardioId),
+      distanceM: Value(distanceM),
+      seconds: Value(seconds),
+    );
+  }
+
+  factory BestEffort.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BestEffort(
+      cardioId: serializer.fromJson<String>(json['cardioId']),
+      distanceM: serializer.fromJson<int>(json['distanceM']),
+      seconds: serializer.fromJson<double>(json['seconds']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardioId': serializer.toJson<String>(cardioId),
+      'distanceM': serializer.toJson<int>(distanceM),
+      'seconds': serializer.toJson<double>(seconds),
+    };
+  }
+
+  BestEffort copyWith({String? cardioId, int? distanceM, double? seconds}) =>
+      BestEffort(
+        cardioId: cardioId ?? this.cardioId,
+        distanceM: distanceM ?? this.distanceM,
+        seconds: seconds ?? this.seconds,
+      );
+  BestEffort copyWithCompanion(BestEffortsCompanion data) {
+    return BestEffort(
+      cardioId: data.cardioId.present ? data.cardioId.value : this.cardioId,
+      distanceM: data.distanceM.present ? data.distanceM.value : this.distanceM,
+      seconds: data.seconds.present ? data.seconds.value : this.seconds,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BestEffort(')
+          ..write('cardioId: $cardioId, ')
+          ..write('distanceM: $distanceM, ')
+          ..write('seconds: $seconds')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardioId, distanceM, seconds);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BestEffort &&
+          other.cardioId == this.cardioId &&
+          other.distanceM == this.distanceM &&
+          other.seconds == this.seconds);
+}
+
+class BestEffortsCompanion extends UpdateCompanion<BestEffort> {
+  final Value<String> cardioId;
+  final Value<int> distanceM;
+  final Value<double> seconds;
+  final Value<int> rowid;
+  const BestEffortsCompanion({
+    this.cardioId = const Value.absent(),
+    this.distanceM = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BestEffortsCompanion.insert({
+    required String cardioId,
+    required int distanceM,
+    required double seconds,
+    this.rowid = const Value.absent(),
+  }) : cardioId = Value(cardioId),
+       distanceM = Value(distanceM),
+       seconds = Value(seconds);
+  static Insertable<BestEffort> custom({
+    Expression<String>? cardioId,
+    Expression<int>? distanceM,
+    Expression<double>? seconds,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (cardioId != null) 'cardio_id': cardioId,
+      if (distanceM != null) 'distance_m': distanceM,
+      if (seconds != null) 'seconds': seconds,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BestEffortsCompanion copyWith({
+    Value<String>? cardioId,
+    Value<int>? distanceM,
+    Value<double>? seconds,
+    Value<int>? rowid,
+  }) {
+    return BestEffortsCompanion(
+      cardioId: cardioId ?? this.cardioId,
+      distanceM: distanceM ?? this.distanceM,
+      seconds: seconds ?? this.seconds,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardioId.present) {
+      map['cardio_id'] = Variable<String>(cardioId.value);
+    }
+    if (distanceM.present) {
+      map['distance_m'] = Variable<int>(distanceM.value);
+    }
+    if (seconds.present) {
+      map['seconds'] = Variable<double>(seconds.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BestEffortsCompanion(')
+          ..write('cardioId: $cardioId, ')
+          ..write('distanceM: $distanceM, ')
+          ..write('seconds: $seconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7165,6 +9156,9 @@ abstract class _$AppDb extends GeneratedDatabase {
   );
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
   late final $CardioTable cardio = $CardioTable(this);
+  late final $CardioTracksTable cardioTracks = $CardioTracksTable(this);
+  late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $BestEffortsTable bestEfforts = $BestEffortsTable(this);
   late final $SyncCursorsTable syncCursors = $SyncCursorsTable(this);
   late final $ErrorLogsTable errorLogs = $ErrorLogsTable(this);
   late final Index exercisesDirty = Index(
@@ -7199,6 +9193,14 @@ abstract class _$AppDb extends GeneratedDatabase {
     'cardio_dirty',
     'CREATE INDEX cardio_dirty ON cardio (dirty)',
   );
+  late final Index cardioTracksDirty = Index(
+    'cardio_tracks_dirty',
+    'CREATE INDEX cardio_tracks_dirty ON cardio_tracks (dirty)',
+  );
+  late final Index settingsDirty = Index(
+    'settings_dirty',
+    'CREATE INDEX settings_dirty ON settings (dirty)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7212,6 +9214,9 @@ abstract class _$AppDb extends GeneratedDatabase {
     workoutExercises,
     workoutSets,
     cardio,
+    cardioTracks,
+    appSettings,
+    bestEfforts,
     syncCursors,
     errorLogs,
     exercisesDirty,
@@ -7222,6 +9227,8 @@ abstract class _$AppDb extends GeneratedDatabase {
     workoutExercisesDirty,
     setsDirty,
     cardioDirty,
+    cardioTracksDirty,
+    settingsDirty,
   ];
   @override
   DriftDatabaseOptions get options =>
@@ -11224,6 +13231,16 @@ typedef $$CardioTableCreateCompanionBuilder =
       Value<double?> inclinePct,
       Value<int?> rpe,
       Value<String?> notes,
+      Value<int?> elapsedSec,
+      Value<String?> title,
+      Value<String?> source,
+      Value<String?> externalId,
+      Value<double?> elevationGainM,
+      Value<int?> maxHr,
+      Value<double?> avgCadence,
+      Value<int?> calories,
+      Value<String?> route,
+      Value<List<String>> editedFields,
       Value<int> rowid,
     });
 typedef $$CardioTableUpdateCompanionBuilder =
@@ -11243,8 +13260,41 @@ typedef $$CardioTableUpdateCompanionBuilder =
       Value<double?> inclinePct,
       Value<int?> rpe,
       Value<String?> notes,
+      Value<int?> elapsedSec,
+      Value<String?> title,
+      Value<String?> source,
+      Value<String?> externalId,
+      Value<double?> elevationGainM,
+      Value<int?> maxHr,
+      Value<double?> avgCadence,
+      Value<int?> calories,
+      Value<String?> route,
+      Value<List<String>> editedFields,
       Value<int> rowid,
     });
+
+final class $$CardioTableReferences
+    extends BaseReferences<_$AppDb, $CardioTable, CardioData> {
+  $$CardioTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$CardioTracksTable, List<CardioTrack>>
+  _cardioTracksRefsTable(_$AppDb db) => MultiTypedResultKey.fromTable(
+    db.cardioTracks,
+    aliasName: 'cardio__id__cardio_tracks__cardio_id',
+  );
+
+  $$CardioTracksTableProcessedTableManager get cardioTracksRefs {
+    final manager = $$CardioTracksTableTableManager(
+      $_db,
+      $_db.cardioTracks,
+    ).filter((f) => f.cardioId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_cardioTracksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
   $$CardioTableFilterComposer({
@@ -11328,6 +13378,82 @@ class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
     column: $table.notes,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get elapsedSec => $composableBuilder(
+    column: $table.elapsedSec,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get elevationGainM => $composableBuilder(
+    column: $table.elevationGainM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxHr => $composableBuilder(
+    column: $table.maxHr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get calories => $composableBuilder(
+    column: $table.calories,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<List<String>, List<String>, String>
+  get editedFields => $composableBuilder(
+    column: $table.editedFields,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  Expression<bool> cardioTracksRefs(
+    Expression<bool> Function($$CardioTracksTableFilterComposer f) f,
+  ) {
+    final $$CardioTracksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.cardioTracks,
+      getReferencedColumn: (t) => t.cardioId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTracksTableFilterComposer(
+            $db: $db,
+            $table: $db.cardioTracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
@@ -11412,6 +13538,56 @@ class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get elapsedSec => $composableBuilder(
+    column: $table.elapsedSec,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get elevationGainM => $composableBuilder(
+    column: $table.elevationGainM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxHr => $composableBuilder(
+    column: $table.maxHr,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get calories => $composableBuilder(
+    column: $table.calories,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get route => $composableBuilder(
+    column: $table.route,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get editedFields => $composableBuilder(
+    column: $table.editedFields,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
@@ -11474,6 +13650,72 @@ class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get elapsedSec => $composableBuilder(
+    column: $table.elapsedSec,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get elevationGainM => $composableBuilder(
+    column: $table.elevationGainM,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get maxHr =>
+      $composableBuilder(column: $table.maxHr, builder: (column) => column);
+
+  GeneratedColumn<double> get avgCadence => $composableBuilder(
+    column: $table.avgCadence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get calories =>
+      $composableBuilder(column: $table.calories, builder: (column) => column);
+
+  GeneratedColumn<String> get route =>
+      $composableBuilder(column: $table.route, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<List<String>, String> get editedFields =>
+      $composableBuilder(
+        column: $table.editedFields,
+        builder: (column) => column,
+      );
+
+  Expression<T> cardioTracksRefs<T extends Object>(
+    Expression<T> Function($$CardioTracksTableAnnotationComposer a) f,
+  ) {
+    final $$CardioTracksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.cardioTracks,
+      getReferencedColumn: (t) => t.cardioId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTracksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cardioTracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CardioTableTableManager
@@ -11487,9 +13729,9 @@ class $$CardioTableTableManager
           $$CardioTableAnnotationComposer,
           $$CardioTableCreateCompanionBuilder,
           $$CardioTableUpdateCompanionBuilder,
-          (CardioData, BaseReferences<_$AppDb, $CardioTable, CardioData>),
+          (CardioData, $$CardioTableReferences),
           CardioData,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool cardioTracksRefs})
         > {
   $$CardioTableTableManager(_$AppDb db, $CardioTable table)
     : super(
@@ -11519,6 +13761,16 @@ class $$CardioTableTableManager
                 Value<double?> inclinePct = const Value.absent(),
                 Value<int?> rpe = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> elapsedSec = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> source = const Value.absent(),
+                Value<String?> externalId = const Value.absent(),
+                Value<double?> elevationGainM = const Value.absent(),
+                Value<int?> maxHr = const Value.absent(),
+                Value<double?> avgCadence = const Value.absent(),
+                Value<int?> calories = const Value.absent(),
+                Value<String?> route = const Value.absent(),
+                Value<List<String>> editedFields = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion(
                 id: id,
@@ -11536,6 +13788,16 @@ class $$CardioTableTableManager
                 inclinePct: inclinePct,
                 rpe: rpe,
                 notes: notes,
+                elapsedSec: elapsedSec,
+                title: title,
+                source: source,
+                externalId: externalId,
+                elevationGainM: elevationGainM,
+                maxHr: maxHr,
+                avgCadence: avgCadence,
+                calories: calories,
+                route: route,
+                editedFields: editedFields,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -11555,6 +13817,16 @@ class $$CardioTableTableManager
                 Value<double?> inclinePct = const Value.absent(),
                 Value<int?> rpe = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> elapsedSec = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> source = const Value.absent(),
+                Value<String?> externalId = const Value.absent(),
+                Value<double?> elevationGainM = const Value.absent(),
+                Value<int?> maxHr = const Value.absent(),
+                Value<double?> avgCadence = const Value.absent(),
+                Value<int?> calories = const Value.absent(),
+                Value<String?> route = const Value.absent(),
+                Value<List<String>> editedFields = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion.insert(
                 id: id,
@@ -11572,21 +13844,56 @@ class $$CardioTableTableManager
                 inclinePct: inclinePct,
                 rpe: rpe,
                 notes: notes,
+                elapsedSec: elapsedSec,
+                title: title,
+                source: source,
+                externalId: externalId,
+                elevationGainM: elevationGainM,
+                maxHr: maxHr,
+                avgCadence: avgCadence,
+                calories: calories,
+                route: route,
+                editedFields: editedFields,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
                   e.readTable<$CardioTable, CardioData>(table),
-                  BaseReferences<_$AppDb, $CardioTable, CardioData>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$CardioTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({cardioTracksRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (cardioTracksRefs) db.cardioTracks],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (cardioTracksRefs)
+                    await $_getPrefetchedDataByColumns<
+                      CardioData,
+                      $CardioTable,
+                      CardioTrack,
+                      $CardioTracksTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$CardioTableReferences
+                          ._cardioTracksRefsTable(db),
+                      managerFromTypedResult: (p0) => $$CardioTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).cardioTracksRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'cardio_id',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -11601,8 +13908,889 @@ typedef $$CardioTableProcessedTableManager =
       $$CardioTableAnnotationComposer,
       $$CardioTableCreateCompanionBuilder,
       $$CardioTableUpdateCompanionBuilder,
-      (CardioData, BaseReferences<_$AppDb, $CardioTable, CardioData>),
+      (CardioData, $$CardioTableReferences),
       CardioData,
+      PrefetchHooks Function({bool cardioTracksRefs})
+    >;
+typedef $$CardioTracksTableCreateCompanionBuilder =
+    CardioTracksCompanion Function({
+      required String id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      required String cardioId,
+      required String points,
+      Value<int> rowid,
+    });
+typedef $$CardioTracksTableUpdateCompanionBuilder =
+    CardioTracksCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      Value<String> cardioId,
+      Value<String> points,
+      Value<int> rowid,
+    });
+
+final class $$CardioTracksTableReferences
+    extends BaseReferences<_$AppDb, $CardioTracksTable, CardioTrack> {
+  $$CardioTracksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $CardioTable _cardioIdTable(_$AppDb db) =>
+      db.cardio.createAlias('cardio_tracks__cardio_id__cardio__id');
+
+  $$CardioTableProcessedTableManager get cardioId {
+    final $_column = $_itemColumn<String>('cardio_id')!;
+
+    final manager = $$CardioTableTableManager(
+      $_db,
+      $_db.cardio,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_cardioIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CardioTracksTableFilterComposer
+    extends Composer<_$AppDb, $CardioTracksTable> {
+  $$CardioTracksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get points => $composableBuilder(
+    column: $table.points,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CardioTableFilterComposer get cardioId {
+    final $$CardioTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardioId,
+      referencedTable: $db.cardio,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTableFilterComposer(
+            $db: $db,
+            $table: $db.cardio,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CardioTracksTableOrderingComposer
+    extends Composer<_$AppDb, $CardioTracksTable> {
+  $$CardioTracksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get points => $composableBuilder(
+    column: $table.points,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CardioTableOrderingComposer get cardioId {
+    final $$CardioTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardioId,
+      referencedTable: $db.cardio,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTableOrderingComposer(
+            $db: $db,
+            $table: $db.cardio,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CardioTracksTableAnnotationComposer
+    extends Composer<_$AppDb, $CardioTracksTable> {
+  $$CardioTracksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dirty =>
+      $composableBuilder(column: $table.dirty, builder: (column) => column);
+
+  GeneratedColumn<String> get points =>
+      $composableBuilder(column: $table.points, builder: (column) => column);
+
+  $$CardioTableAnnotationComposer get cardioId {
+    final $$CardioTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardioId,
+      referencedTable: $db.cardio,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cardio,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CardioTracksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $CardioTracksTable,
+          CardioTrack,
+          $$CardioTracksTableFilterComposer,
+          $$CardioTracksTableOrderingComposer,
+          $$CardioTracksTableAnnotationComposer,
+          $$CardioTracksTableCreateCompanionBuilder,
+          $$CardioTracksTableUpdateCompanionBuilder,
+          (CardioTrack, $$CardioTracksTableReferences),
+          CardioTrack,
+          PrefetchHooks Function({bool cardioId})
+        > {
+  $$CardioTracksTableTableManager(_$AppDb db, $CardioTracksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CardioTracksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CardioTracksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CardioTracksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                Value<String> cardioId = const Value.absent(),
+                Value<String> points = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CardioTracksCompanion(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                cardioId: cardioId,
+                points: points,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                required String cardioId,
+                required String points,
+                Value<int> rowid = const Value.absent(),
+              }) => CardioTracksCompanion.insert(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                cardioId: cardioId,
+                points: points,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CardioTracksTable, CardioTrack>(table),
+                  $$CardioTracksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({cardioId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (cardioId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.cardioId,
+                                referencedTable: $$CardioTracksTableReferences
+                                    ._cardioIdTable(db),
+                                referencedColumn: $$CardioTracksTableReferences
+                                    ._cardioIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CardioTracksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $CardioTracksTable,
+      CardioTrack,
+      $$CardioTracksTableFilterComposer,
+      $$CardioTracksTableOrderingComposer,
+      $$CardioTracksTableAnnotationComposer,
+      $$CardioTracksTableCreateCompanionBuilder,
+      $$CardioTracksTableUpdateCompanionBuilder,
+      (CardioTrack, $$CardioTracksTableReferences),
+      CardioTrack,
+      PrefetchHooks Function({bool cardioId})
+    >;
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      required String id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      Value<int?> maxHr,
+      Value<int?> birthYear,
+      Value<double?> strideM,
+      Value<int?> strideSamples,
+      Value<int> rowid,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      Value<int?> maxHr,
+      Value<int?> birthYear,
+      Value<double?> strideM,
+      Value<int?> strideSamples,
+      Value<int> rowid,
+    });
+
+class $$AppSettingsTableFilterComposer
+    extends Composer<_$AppDb, $AppSettingsTable> {
+  $$AppSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get maxHr => $composableBuilder(
+    column: $table.maxHr,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get birthYear => $composableBuilder(
+    column: $table.birthYear,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get strideM => $composableBuilder(
+    column: $table.strideM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get strideSamples => $composableBuilder(
+    column: $table.strideSamples,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsTableOrderingComposer
+    extends Composer<_$AppDb, $AppSettingsTable> {
+  $$AppSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get maxHr => $composableBuilder(
+    column: $table.maxHr,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get birthYear => $composableBuilder(
+    column: $table.birthYear,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get strideM => $composableBuilder(
+    column: $table.strideM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get strideSamples => $composableBuilder(
+    column: $table.strideSamples,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsTableAnnotationComposer
+    extends Composer<_$AppDb, $AppSettingsTable> {
+  $$AppSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dirty =>
+      $composableBuilder(column: $table.dirty, builder: (column) => column);
+
+  GeneratedColumn<int> get maxHr =>
+      $composableBuilder(column: $table.maxHr, builder: (column) => column);
+
+  GeneratedColumn<int> get birthYear =>
+      $composableBuilder(column: $table.birthYear, builder: (column) => column);
+
+  GeneratedColumn<double> get strideM =>
+      $composableBuilder(column: $table.strideM, builder: (column) => column);
+
+  GeneratedColumn<int> get strideSamples => $composableBuilder(
+    column: $table.strideSamples,
+    builder: (column) => column,
+  );
+}
+
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $AppSettingsTable,
+          AppSetting,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableAnnotationComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (AppSetting, BaseReferences<_$AppDb, $AppSettingsTable, AppSetting>),
+          AppSetting,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsTableTableManager(_$AppDb db, $AppSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                Value<int?> maxHr = const Value.absent(),
+                Value<int?> birthYear = const Value.absent(),
+                Value<double?> strideM = const Value.absent(),
+                Value<int?> strideSamples = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                maxHr: maxHr,
+                birthYear: birthYear,
+                strideM: strideM,
+                strideSamples: strideSamples,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                Value<int?> maxHr = const Value.absent(),
+                Value<int?> birthYear = const Value.absent(),
+                Value<double?> strideM = const Value.absent(),
+                Value<int?> strideSamples = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion.insert(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                maxHr: maxHr,
+                birthYear: birthYear,
+                strideM: strideM,
+                strideSamples: strideSamples,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppSettingsTable, AppSetting>(table),
+                  BaseReferences<_$AppDb, $AppSettingsTable, AppSetting>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $AppSettingsTable,
+      AppSetting,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableAnnotationComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (AppSetting, BaseReferences<_$AppDb, $AppSettingsTable, AppSetting>),
+      AppSetting,
+      PrefetchHooks Function()
+    >;
+typedef $$BestEffortsTableCreateCompanionBuilder =
+    BestEffortsCompanion Function({
+      required String cardioId,
+      required int distanceM,
+      required double seconds,
+      Value<int> rowid,
+    });
+typedef $$BestEffortsTableUpdateCompanionBuilder =
+    BestEffortsCompanion Function({
+      Value<String> cardioId,
+      Value<int> distanceM,
+      Value<double> seconds,
+      Value<int> rowid,
+    });
+
+class $$BestEffortsTableFilterComposer
+    extends Composer<_$AppDb, $BestEffortsTable> {
+  $$BestEffortsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get cardioId => $composableBuilder(
+    column: $table.cardioId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get distanceM => $composableBuilder(
+    column: $table.distanceM,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BestEffortsTableOrderingComposer
+    extends Composer<_$AppDb, $BestEffortsTable> {
+  $$BestEffortsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get cardioId => $composableBuilder(
+    column: $table.cardioId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get distanceM => $composableBuilder(
+    column: $table.distanceM,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BestEffortsTableAnnotationComposer
+    extends Composer<_$AppDb, $BestEffortsTable> {
+  $$BestEffortsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get cardioId =>
+      $composableBuilder(column: $table.cardioId, builder: (column) => column);
+
+  GeneratedColumn<int> get distanceM =>
+      $composableBuilder(column: $table.distanceM, builder: (column) => column);
+
+  GeneratedColumn<double> get seconds =>
+      $composableBuilder(column: $table.seconds, builder: (column) => column);
+}
+
+class $$BestEffortsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $BestEffortsTable,
+          BestEffort,
+          $$BestEffortsTableFilterComposer,
+          $$BestEffortsTableOrderingComposer,
+          $$BestEffortsTableAnnotationComposer,
+          $$BestEffortsTableCreateCompanionBuilder,
+          $$BestEffortsTableUpdateCompanionBuilder,
+          (BestEffort, BaseReferences<_$AppDb, $BestEffortsTable, BestEffort>),
+          BestEffort,
+          PrefetchHooks Function()
+        > {
+  $$BestEffortsTableTableManager(_$AppDb db, $BestEffortsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BestEffortsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BestEffortsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BestEffortsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> cardioId = const Value.absent(),
+                Value<int> distanceM = const Value.absent(),
+                Value<double> seconds = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BestEffortsCompanion(
+                cardioId: cardioId,
+                distanceM: distanceM,
+                seconds: seconds,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String cardioId,
+                required int distanceM,
+                required double seconds,
+                Value<int> rowid = const Value.absent(),
+              }) => BestEffortsCompanion.insert(
+                cardioId: cardioId,
+                distanceM: distanceM,
+                seconds: seconds,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BestEffortsTable, BestEffort>(table),
+                  BaseReferences<_$AppDb, $BestEffortsTable, BestEffort>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BestEffortsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $BestEffortsTable,
+      BestEffort,
+      $$BestEffortsTableFilterComposer,
+      $$BestEffortsTableOrderingComposer,
+      $$BestEffortsTableAnnotationComposer,
+      $$BestEffortsTableCreateCompanionBuilder,
+      $$BestEffortsTableUpdateCompanionBuilder,
+      (BestEffort, BaseReferences<_$AppDb, $BestEffortsTable, BestEffort>),
+      BestEffort,
       PrefetchHooks Function()
     >;
 typedef $$SyncCursorsTableCreateCompanionBuilder =
@@ -12094,6 +15282,12 @@ class $AppDbManager {
       $$WorkoutSetsTableTableManager(_db, _db.workoutSets);
   $$CardioTableTableManager get cardio =>
       $$CardioTableTableManager(_db, _db.cardio);
+  $$CardioTracksTableTableManager get cardioTracks =>
+      $$CardioTracksTableTableManager(_db, _db.cardioTracks);
+  $$AppSettingsTableTableManager get appSettings =>
+      $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$BestEffortsTableTableManager get bestEfforts =>
+      $$BestEffortsTableTableManager(_db, _db.bestEfforts);
   $$SyncCursorsTableTableManager get syncCursors =>
       $$SyncCursorsTableTableManager(_db, _db.syncCursors);
   $$ErrorLogsTableTableManager get errorLogs =>

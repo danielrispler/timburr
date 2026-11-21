@@ -166,6 +166,7 @@ class SyncEngine {
           await _db.delete(t).go();
         }
         await _db.delete(_db.syncCursors).go();
+        await _db.delete(_db.bestEfforts).go();
       });
 }
 
@@ -177,7 +178,7 @@ Map<String, Object?> rowToJson(TableInfo table, Map<String, Object?> raw) => {
             null => null,
             final v when c.type == DriftSqlType.dateTime => DateTime.parse(v as String).toUtc().toIso8601String(),
             final v when c.type == DriftSqlType.bool => v == 1,
-            final String v when c.name == 'muscles' || c.name == 'alternative_ids' => jsonDecode(v),
+            final String v when c.name == 'muscles' || c.name == 'alternative_ids' || c.name == 'edited_fields' => jsonDecode(v),
             final v => v,
           },
     };

@@ -116,7 +116,7 @@ void main() {
 
   group('stats', () {
     CardioData c(String id, String type, double km, int sec, int day) => CardioData(
-        id: id, createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+        id: id, createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0, editedFields: const [],
         type: type, startedAt: DateTime(2026, 1, day), distanceKm: km, durationSec: sec);
 
     test('bucket is 5 or 10 km within 5%', () {
@@ -174,7 +174,7 @@ void main() {
     });
     test('weekly totals: minutes and sessions per Monday-started week', () {
       CardioData s(int day, int sec) => CardioData(
-          id: '$day$sec', createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0,
+          id: '$day$sec', createdAt: DateTime(2026), updatedAt: DateTime(2026), dirty: 0, editedFields: const [],
           type: 'padel', startedAt: DateTime(2026, 10, day, 18), durationSec: sec);
       // 2026-10-19 is a Monday.
       expect(weeklyTotals([s(19, 3600), s(25, 1800), s(26, 600)]), [

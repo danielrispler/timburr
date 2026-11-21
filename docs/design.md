@@ -29,6 +29,8 @@ Common columns: `id` (client uuid), `user_id`, `created_at`, `updated_at`, `dele
 | `sets` | `workout_exercise_id`, `set_number`, `weight_kg`, `reps`, `duration_sec`, `done` |
 | `cardio` | `type` (run, treadmill; old rows may hold walk, bike, swim or sports types), `started_at`, `distance_km` (null only on old sports rows), `duration_sec`, `avg_hr`, `incline_pct`, `rpe`, `notes` |
 
+Migration 006 (drift schema 7) adds Run data. `cardio` gains `elapsed_sec`, `title`, `source`, `external_id`, `elevation_gain_m`, `max_hr`, `avg_cadence`, `calories`, `route` and `edited_fields[]`; `duration_sec` is Moving time. `cardio_tracks` (`cardio_id` unique, `points` gzip + base64, see `lib/data/track.dart`) has one row per Run, id `uuidv5(cardio_id)`. `settings` is one row with the fixed id `settingsRowId`: `max_hr`, `birth_year`, `stride_m`, `stride_samples`. Both tables sync after `cardio`. `best_efforts` is a local-only cache, never synced or backed up.
+
 Changes from the brief:
 
 - **`exercises` and `exercise_settings` are merged.** A library exercise gets a row only once it is used or configured. The row's id is deterministic, `uuidv5(library_id)`, so two offline devices (or a restore into a fresh project) produce the same id, and `unique (user_id, library_id)` guards against duplicates. Every reference (`exercise_ref`) becomes a real `exercise_id` uuid foreign key. Open research: [#1](https://github.com/danielrispler/timburr/issues/1).

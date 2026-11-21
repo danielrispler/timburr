@@ -93,6 +93,21 @@ void main() {
     expect(set.containsKey('dirty'), isFalse);
   });
 
+  test('a Run, its track and the settings push after their parents and pull onto a fresh phone', () async {
+    await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title']});
+    await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
+    await db.save(db.appSettings, {'id': 'settings1', 'max_hr': 190, 'stride_m': 0.92});
+    await engine.sync();
+    expect(remote.upserts, ['cardio', 'cardio_tracks', 'settings']);
+    expect(remote.tables['cardio']!['c1']!['edited_fields'], ['title']);
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    expect((await other.select(other.cardioTracks).getSingle()).points, 'H4sIAAAA');
+    expect((await other.select(other.appSettings).getSingle()).maxHr, 190);
+    expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
+  });
+
   test('an edit made during the push stays dirty', () async {
     await db.save(db.routines, {'id': 'r1', 'name': 'Push'});
     remote.onUpsert = (_) async {
@@ -218,6 +233,7 @@ void main() {
 
   test('offline skips sync and wipe clears the local copy', () async {
     await seedWorkout(db);
+    await db.into(db.bestEfforts).insert(BestEffortsCompanion.insert(cardioId: 'c1', distanceM: 1000, seconds: 240));
     final offline = SyncEngine(db, remote, isOnline: () async => false);
     await offline.sync();
     expect(offline.offline.value, isTrue);
@@ -227,6 +243,7 @@ void main() {
     await engine.wipe();
     expect(await db.select(db.workoutSets).get(), isEmpty);
     expect(await db.select(db.syncCursors).get(), isEmpty);
+    expect(await db.select(db.bestEfforts).get(), isEmpty);
   });
   // Mis-sorted as text only where UTC is behind local time by 3h or more, for example TZ=Asia/Jerusalem.
   test('pulled datetimes sort with local writes by started_at', () async {
