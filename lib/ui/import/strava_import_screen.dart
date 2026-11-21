@@ -8,12 +8,16 @@ import '../../data/error_log.dart';
 import '../../data/strava_import.dart';
 import '../../data/strava_tcx.dart';
 import '../core/theme.dart';
+import 'shared_files.dart';
 
-/// Pick Strava TCX files, see what they would add, then save them all through the Run store.
+/// Pick Strava TCX or GPX files (or open ones shared from another app), see what they would add, then save them all through the Run store.
 class StravaImportScreen extends StatefulWidget {
-  const StravaImportScreen({super.key, required this.cardio});
+  const StravaImportScreen({super.key, required this.cardio, this.shared});
 
   final CardioStore cardio;
+
+  /// Files shared from another app; read straight away.
+  final List<SharedFile>? shared;
 
   @override
   State<StravaImportScreen> createState() => _StravaImportScreenState();
@@ -24,23 +28,38 @@ class _StravaImportScreenState extends State<StravaImportScreen> {
   bool _busy = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.shared != null) _load(Stream.fromIterable(widget.shared!), widget.shared!.length);
+  }
+
   Future<void> _pick() async {
     final picked = await FilePicker.pickFiles();
     if (picked.isEmpty || !mounted) return;
+    picked.sort((a, b) => a.name.compareTo(b.name));
+    await _load(() async* {
+      for (final f in picked) {
+        yield (name: f.name, text: utf8.decode(await f.readAsBytes(), allowMalformed: true));
+      }
+    }(), picked.length);
+  }
+
+  Future<void> _load(Stream<SharedFile> files, int count) async {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final files = <ParsedFile>[];
-      for (final f in picked..sort((a, b) => a.name.compareTo(b.name))) {
-        files.add(parseStravaTcx(f.name, utf8.decode(await f.readAsBytes(), allowMalformed: true)));
+      final parsed = <ParsedFile>[];
+      await for (final f in files) {
+        parsed.add(parseRunFile(f.name, f.text));
         await Future<void>.delayed(Duration.zero); // let the progress bar draw between big files
       }
-      final preview = await previewStrava(widget.cardio, files);
+      final preview = await previewStrava(widget.cardio, parsed);
       if (mounted) setState(() => _preview = preview);
     } catch (e, st) {
-      reportError('strava_preview', e, st, {'files': picked.length});
+      reportError('strava_preview', e, st, {'files': count});
       if (mounted) setState(() => _error = 'Could not read the files: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -79,7 +98,7 @@ class _StravaImportScreenState extends State<StravaImportScreen> {
             onPressed: _busy ? null : _save,
             child: Text(p.merged > 0 ? 'Import ${p.newRuns} Runs, fill ${p.merged}' : 'Import ${p.newRuns} Runs'),
           ),
-        FilledButton.tonalIcon(onPressed: _busy ? null : _pick, icon: const Icon(Icons.folder_open), label: Text(p == null ? 'Pick TCX files' : 'Pick other files')),
+        FilledButton.tonalIcon(onPressed: _busy ? null : _pick, icon: const Icon(Icons.folder_open), label: Text(p == null ? 'Pick TCX or GPX files' : 'Pick other files')),
       ]),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 16),
@@ -88,7 +107,7 @@ class _StravaImportScreenState extends State<StravaImportScreen> {
           if (p == null && _error == null)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Pick the TCX files from a Strava export. Nothing is saved until you confirm. '
+              child: Text('Pick the TCX or GPX files from a Strava export. Nothing is saved until you confirm. '
                   'Files that overlap a Run you already have only fill what it is missing, and picking a file twice changes nothing.'),
             ),
           if (_error != null) Padding(padding: const EdgeInsets.all(16), child: Text(_error!, style: TextStyle(color: colors.error))),

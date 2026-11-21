@@ -13,7 +13,7 @@ class ParsedFile {
 }
 
 // Strava names a file `2026-10-24T17_17_39.5+03_00_PT13M33.4S_<label>.tcx`: local start, Moving time, type label.
-final _name = RegExp(r'^\d{4}-\d\d-\d\dT[\d_.]+[+-]\d\d_\d\d_PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?_(.+)\.tcx$', caseSensitive: false);
+final _name = RegExp(r'^\d{4}-\d\d-\d\dT[\d_.]+[+-]\d\d_\d\d_PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?_(.+)\.(?:tcx|gpx)$', caseSensitive: false);
 
 /// Moving time in seconds from a Strava file name, or null when the name carries none.
 int? _movingFromName(RegExpMatch m) {
@@ -34,7 +34,6 @@ ParsedFile parseStravaTcx(String fileName, String xml) {
   }
   final activity = doc.findAllElements('Activity').firstOrNull;
   if (activity == null) return ParsedFile(name, skipReason: 'No activity in the file');
-  final warnings = <String>[];
 
   String? text(XmlElement e, String tag) => e.getElement(tag)?.innerText.trim();
 
@@ -60,6 +59,15 @@ ParsedFile parseStravaTcx(String fileName, String xml) {
     offset += double.tryParse(text(lap, 'DistanceMeters') ?? '') ?? lapEnd;
     lapSeconds += double.tryParse(text(lap, 'TotalTimeSeconds') ?? '') ?? 0;
   }
+  return buildRunFile(name, text(activity, 'Id') ?? name, time: time, dist: dist, lat: lat, lon: lon, alt: alt, hr: hr, distanceM: offset, lapSeconds: lapSeconds);
+}
+
+/// Turns parsed points into a [Recording] (source `file`) using the Strava file-name rules, shared by the TCX and GPX readers. [distanceM] is the total, [lapSeconds] the fallback Moving time.
+ParsedFile buildRunFile(String fileName, String externalId,
+    {required List<DateTime> time, required List<double?> dist, required List<double?> lat, required List<double?> lon, required List<double?> alt, required List<int?> hr, required double distanceM, double lapSeconds = 0}) {
+  final name = fileName.split('/').last;
+  final warnings = <String>[];
+  final offset = distanceM;
   if (time.isEmpty) return ParsedFile(name, skipReason: 'No track points');
   if (offset <= 0) return ParsedFile(name, skipReason: 'No distance recorded');
 
@@ -107,7 +115,7 @@ ParsedFile parseStravaTcx(String fileName, String xml) {
       warnings: warnings,
       recording: Recording(
         source: 'file',
-        externalId: text(activity, 'Id') ?? name,
+        externalId: externalId,
         type: type,
         start: start,
         elapsedSec: elapsed,

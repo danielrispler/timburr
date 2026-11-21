@@ -1,5 +1,10 @@
 import 'cardio.dart';
+import 'strava_gpx.dart';
 import 'strava_tcx.dart';
+
+/// Reads a .tcx or .gpx file by its extension.
+ParsedFile parseRunFile(String fileName, String xml) =>
+    fileName.toLowerCase().endsWith('.gpx') ? parseStravaGpx(fileName, xml) : parseStravaTcx(fileName, xml);
 
 /// What importing [files] would do, for the preview before anything is saved.
 class StravaPreview {
