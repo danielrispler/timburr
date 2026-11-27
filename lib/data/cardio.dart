@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -6,13 +7,15 @@ import 'package:uuid/uuid.dart';
 import 'best_efforts.dart';
 import 'db.dart';
 import 'goals.dart';
+import 'interval_store.dart';
 import 'recording.dart';
 import 'settings.dart';
 import 'shoes.dart';
 import 'track.dart';
 
-/// The types Timburr records. Old backups and the database may still hold others (walk, bike, swim, sports); they load but are not offered.
-const cardioTypes = ['run', 'treadmill'];
+/// The types Timburr records: a Run and an Interval run, both outdoors. Old backups and the database may still hold others (treadmill, walk, bike,
+/// swim, sports); they load but are not offered or counted.
+const cardioTypes = ['run', 'interval'];
 
 /// Seconds per km, or null when there is no distance.
 double? paceSecPerKm(double? distanceKm, int durationSec) =>
@@ -44,7 +47,7 @@ int? parseDuration(String text) {
 /// Parses a number, accepting a decimal comma.
 double? parseNum(String text) => double.tryParse(text.trim().replaceAll(',', '.'));
 
-/// Server column caps (supabase/migrations): Postgres int, numeric(7, 3) distance, incline 0 to 40 %.
+/// Server column caps (supabase/migrations): Postgres int, numeric(7, 3) distance, incline 0 to 40 % (still checked on imported rows).
 const int4Max = 2147483647;
 const distanceBelow = 10000;
 const maxIncline = 40;
@@ -58,10 +61,7 @@ Map<String, String> validateCardio({
   required String distance,
   required String duration,
   String avgHr = '',
-  String incline = '',
   String rpe = '',
-  String steps = '',
-  String calories = '',
 }) {
   final e = <String, String>{};
   if (!cardioTypes.contains(type)) e['type'] = 'Pick a type';
@@ -73,14 +73,6 @@ Map<String, String> validateCardio({
   if (sec == null || sec <= 0 || sec > int4Max) e['duration'] = 'Enter a duration like 27:30';
   final hr = int.tryParse(avgHr.trim());
   if (avgHr.trim().isNotEmpty && (hr == null || hr <= 0 || hr > int4Max)) e['avgHr'] = 'Enter a whole number above 0';
-  final inc = parseNum(incline);
-  if (incline.trim().isNotEmpty && (inc == null || inc < 0 || roundTo(inc, 1) > maxIncline)) {
-    e['incline'] = 'Enter 0 to $maxIncline';
-  }
-  for (final (key, text) in [('steps', steps), ('calories', calories)]) {
-    final n = int.tryParse(text.trim());
-    if (text.trim().isNotEmpty && (n == null || n < 0 || n > int4Max)) e[key] = 'Enter a whole number, 0 or more';
-  }
   if (rpe.trim().isNotEmpty) {
     final r = int.tryParse(rpe.trim());
     if (r == null || r < 1 || r > 10) e['rpe'] = 'Enter 1 to 10';
@@ -100,12 +92,9 @@ class IngestResult {
 
 /// Which source wins a field when the phone's recording and an import disagree, by the Run's type. Nothing else is ever replaced: an import into an
 /// imported Run only fills what is empty.
-/// Outdoor Run: route, distance and pace from the phone's GPS (`recorded`), heart rate from the Fitbit (`health_connect`).
-/// Treadmill run: time from the phone, heart rate and distance from the Fitbit (until Daniel corrects it, which is an edit and always wins).
-String? _preferredSource(String type, String column) => switch (column) {
-      'type' || 'duration_sec' => 'recorded',
-      'distance_km' => type == 'treadmill' ? 'health_connect' : 'recorded',
-      'elevation_gain_m' => type == 'treadmill' ? null : 'recorded',
+/// Route, distance and pace from the phone's GPS (`recorded`), heart rate from the Fitbit (`health_connect`).
+String? _preferredSource(String column) => switch (column) {
+      'type' || 'duration_sec' || 'distance_km' || 'elevation_gain_m' => 'recorded',
       'avg_hr' || 'max_hr' || 'calories' || 'avg_cadence' => 'health_connect',
       _ => null,
     };
@@ -127,6 +116,9 @@ class CardioStore {
   /// The shoes, for the Run page and mileage. Shares this store's sync hook.
   late final shoes = ShoeStore(_db, onSaved: onSaved);
 
+  /// The Interval plans and their history. Shares this store's sync hook.
+  late final intervals = IntervalStore(_db, this, onSaved: onSaved);
+
   /// The shoe a new session of [type] starts with: the default shoe for a Run, none for other types.
   Future<String?> _defaultShoeFor(String type) async => cardioTypes.contains(type) ? await shoes.defaultId() : null;
 
@@ -141,7 +133,6 @@ class CardioStore {
     required double? distanceKm,
     required int durationSec,
     int? avgHr,
-    double? inclinePct,
     int? rpe,
     String? notes,
   }) async {
@@ -155,7 +146,6 @@ class CardioStore {
       'distance_km': distanceKm,
       'duration_sec': durationSec,
       'avg_hr': avgHr,
-      'incline_pct': inclinePct,
       'rpe': rpe,
       'notes': notes,
     });
@@ -205,6 +195,8 @@ class CardioStore {
           'elevation_gain_m': r.elevation,
           'notes': r.notes,
           'route': r.route,
+          'interval_plan_id': r.planId,
+          'interval_plan': r.plan == null ? null : jsonEncode(r.plan!.toJson()),
         });
         if (r.track != null) await _saveTrack(id, r.track!);
         return IngestResult(id, IngestOutcome.created);
@@ -213,15 +205,13 @@ class CardioStore {
       final edited = match.editedFields.toSet();
       final handTyped = match.source == null || match.source == 'manual';
       final changes = <String, Object?>{};
-      var type = match.type; // the Run's type once this recording is merged: it decides who is preferred for the other fields
       void put(String column, Object? incoming, Object? current) {
         if (incoming == null || incoming == current || edited.contains(column)) return;
-        final replaces = !handTyped && r.source != match.source && _preferredSource(type, column) == r.source && (r.source == 'recorded' || match.source == 'recorded'); // import against import: fill only
+        final replaces = !handTyped && r.source != match.source && _preferredSource(column) == r.source && (r.source == 'recorded' || match.source == 'recorded'); // import against import: fill only
         if (current == null || replaces) changes[column] = incoming;
       }
 
       put('type', r.type, match.type);
-      type = (changes['type'] as String?) ?? type;
       put('distance_km', r.distanceKm, match.distanceKm);
       put('duration_sec', r.moving, match.durationSec);
       put('avg_hr', r.avgHr, match.avgHr);
@@ -230,6 +220,8 @@ class CardioStore {
       put('avg_cadence', r.avgCadence, match.avgCadence);
       put('elevation_gain_m', r.elevation, match.elevationGainM);
       put('notes', r.notes, match.notes); // Daniel's words: nobody prefers an import's
+      put('interval_plan_id', r.planId, match.intervalPlanId);
+      put('interval_plan', r.plan == null ? null : jsonEncode(r.plan!.toJson()), match.intervalPlan);
       final takesOver = r.source == 'recorded' && !handTyped && match.source != 'recorded' && r.externalId != null;
       if (takesOver) { // the live recording becomes the Run's identity
         changes['source'] = r.source;
@@ -257,7 +249,7 @@ class CardioStore {
       }
       if (track != null && stored != null && track.encode() == stored.encode()) track = null;
       if (track != null && !edited.contains('route')) {
-        final route = drawsRoute(changes['type'] as String? ?? match.type) ? simplifyRoute(track) : null;
+        final route = simplifyRoute(track);
         if (route != match.route) changes['route'] = route;
       }
 
@@ -291,7 +283,7 @@ class CardioStore {
     unawaited(onSaved?.call()); // sync in the background; the local write is done
   }
 
-  /// Cached Best efforts of live outdoor Runs, every distance.
+  /// Cached Best efforts of live Runs, every distance.
   Stream<List<Effort>> watchBestEfforts() => _db.watchBestEfforts();
 
   /// The Run's points, null when it has none.
@@ -325,6 +317,16 @@ class CardioStore {
       await (_db.delete(_db.cardio)..where((c) => c.id.isIn(ids))).go();
       await _db.rebuildBestEfforts(ids);
     });
+    return ids.length;
+  }
+
+  /// Soft-deletes every live treadmill Run and its track: Daniel runs only outside, so they leave totals, goals and shoes. The deletes sync.
+  /// Returns how many; once done there are none left, so it is cheap to run at every start.
+  Future<int> dropTreadmillRuns() async {
+    final ids = [for (final c in await (_db.select(_db.cardio)..where((c) => c.type.equals('treadmill') & c.deletedAt.isNull())).get()) c.id];
+    for (final id in ids) {
+      await delete(id);
+    }
     return ids.length;
   }
 

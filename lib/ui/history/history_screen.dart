@@ -91,7 +91,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     return ListTile(
       leading: IconTile(activityIcon(c.type)),
-      title: Text(c.title ?? runTitle(c.startedAt.toLocal(), treadmill: c.type == 'treadmill')),
+      title: Text(c.title ?? runTitle(c.startedAt.toLocal(), interval: c.type == 'interval')),
       subtitle: Text(
           [_when(context, c.startedAt), if (c.distanceKm != null) '${c.distanceKm} km', '${c.durationSec ~/ 60} min', if (pace != null) '${formatPace(pace)} /km'].join(' · '),
           maxLines: 1,

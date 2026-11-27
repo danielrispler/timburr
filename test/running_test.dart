@@ -10,15 +10,15 @@ void main() {
   // Saturday 21 Nov 2026; its week starts Monday 16 Nov.
   final now = DateTime(2026, 11, 21, 9);
 
-  test('runsOf keeps outdoor and treadmill Runs, not other types or deleted rows', () {
-    final all = [run(now, 5, 1500), run(now, 3, 1000, type: 'treadmill'), run(now, 4, 2000, type: 'walk'), run(now, 1, 300, deleted: now)];
-    expect(runsOf(all).map((r) => r.type), ['run', 'treadmill']);
+  test('runsOf keeps Runs and Interval runs, not other types or deleted rows', () {
+    final all = [run(now, 5, 1500), run(now, 3, 1000, type: 'interval'), run(now, 4, 2000, type: 'walk'), run(now, 1, 300, deleted: now)];
+    expect(runsOf(all).map((r) => r.type), ['run', 'interval']);
   });
 
-  test('summary: week, 12-week average, month, year and all-time, treadmill included', () {
+  test('summary: week, 12-week average, month, year and all-time, Interval runs included', () {
     final runs = [
       run(DateTime(2026, 11, 17, 7), 5, 1500), // this week
-      run(DateTime(2026, 11, 18, 7), 3, 1200, type: 'treadmill'), // this week
+      run(DateTime(2026, 11, 18, 7), 3, 1200, type: 'interval'), // this week
       run(DateTime(2026, 11, 9, 7), 12, 3600), // last week: in the 12 weeks, this month
       run(DateTime(2026, 8, 24, 7), 24, 7200), // Monday 12 weeks back: in the 12 weeks
       run(DateTime(2026, 8, 23, 7), 100, 100), // the day before: out

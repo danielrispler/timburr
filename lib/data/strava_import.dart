@@ -17,9 +17,8 @@ class StravaPreview {
   Iterable<ParsedFile> get _readable => files.where((f) => f.recording != null);
   int get readable => _readable.length;
   int get skipped => files.length - readable;
-  int get treadmill => _readable.where((f) => f.recording!.type == 'treadmill').length;
-  int get withMap => _readable.where((f) => f.recording!.type == 'run' && f.recording!.hasRoute).length;
-  int get noRoute => _readable.where((f) => f.recording!.type == 'run' && !f.recording!.hasRoute).length;
+  int get withMap => _readable.where((f) => f.recording!.hasRoute).length;
+  int get noRoute => _readable.where((f) => !f.recording!.hasRoute).length;
 
   int _count(IngestOutcome o) => outcomes.values.where((v) => v == o).length;
   int get newRuns => _count(IngestOutcome.created);

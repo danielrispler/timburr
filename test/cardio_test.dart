@@ -34,13 +34,14 @@ void main() {
             String km = '5',
             String dur = '27:30',
             String hr = '',
-            String incline = '',
-            String rpe = '',
-            String steps = '',
-            String calories = ''}) =>
-        validateCardio(type: type, distance: km, duration: dur, avgHr: hr, incline: incline, rpe: rpe, steps: steps, calories: calories);
+            String rpe = ''}) =>
+        validateCardio(type: type, distance: km, duration: dur, avgHr: hr, rpe: rpe);
 
-    test('valid input has no errors', () => expect(v(hr: '150', incline: '0', rpe: '7'), isEmpty));
+    test('valid input has no errors', () => expect(v(hr: '150', rpe: '7'), isEmpty));
+    test('an Interval run is a type; a treadmill run no longer is', () {
+      expect(v(type: 'interval'), isEmpty);
+      expect(v(type: 'treadmill').keys, ['type']);
+    });
     test('required fields', () {
       expect(v(type: null, km: '', dur: '').keys, containsAll(['type', 'distance', 'duration']));
     });
@@ -49,7 +50,6 @@ void main() {
       expect(v(km: '-1').keys, ['distance']);
       expect(v(dur: '0:00').keys, ['duration']);
       expect(v(hr: '0').keys, ['avgHr']);
-      expect(v(incline: '-2').keys, ['incline']);
     });
     test('RPE is 1-10 whole', () {
       expect(v(rpe: '0').keys, ['rpe']);
@@ -59,19 +59,13 @@ void main() {
       expect(v(rpe: '10'), isEmpty);
     });
     test('server column limits are rejected', () {
-      expect(v(incline: '41').keys, ['incline']); // check 0..40
-      expect(v(incline: '40.04'), isEmpty); // rounds to 40.0
-      expect(v(incline: '40.06').keys, ['incline']); // rounds to 40.1
-      expect(v(steps: '-1').keys, ['steps']);
-      expect(v(steps: '5000.5').keys, ['steps']);
-      expect(v(calories: '2147483648').keys, ['calories']);
       expect(v(km: '10000').keys, ['distance']); // numeric(7, 3)
       expect(v(km: '0.0004').keys, ['distance']); // rounds to 0
       expect(v(hr: '2147483648').keys, ['avgHr']); // int4
       expect(v(dur: '35791395:00').keys, ['duration']); // 2147483700 s > int4
     });
     test('valid edge values pass', () {
-      expect(v(incline: '40', steps: '6200', calories: '410', km: '9999.999', hr: '2147483647', dur: '35791394:07'), isEmpty);
+      expect(v(km: '9999.999', hr: '2147483647', dur: '35791394:07'), isEmpty);
       expect(v(km: '0.0005'), isEmpty);
     });
     test('decimal comma is accepted', () => expect(v(km: '5,2'), isEmpty));
@@ -95,9 +89,9 @@ void main() {
       expect([for (final c in await store.watchAll().first) c.id], [b, a]);
 
       await store.save(
-          id: a, type: 'treadmill', startedAt: DateTime(2026, 1, 1), distanceKm: 6, durationSec: 1800, inclinePct: 2);
+          id: a, type: 'interval', startedAt: DateTime(2026, 1, 1), distanceKm: 6, durationSec: 1800);
       final edited = await store.watch(a).first;
-      expect((edited.type, edited.distanceKm, edited.inclinePct, edited.rpe, edited.dirty), ('treadmill', 6.0, 2.0, null, 1));
+      expect((edited.type, edited.distanceKm, edited.rpe, edited.dirty), ('interval', 6.0, null, 1));
 
       await store.delete(b);
       expect([for (final c in await store.watchAll().first) c.id], [a]);

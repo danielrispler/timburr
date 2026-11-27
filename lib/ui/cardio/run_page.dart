@@ -10,12 +10,12 @@ import '../../data/cardio.dart';
 import '../../data/db.dart';
 import '../../data/hr_zones.dart';
 import '../../data/load.dart';
-import '../../data/recording.dart' show drawsRoute;
 import '../../data/run_analysis.dart';
 import '../../data/settings.dart';
 import '../../data/track.dart';
 import '../core/chart_axis.dart';
 import '../core/theme.dart';
+import '../running/interval_plans.dart' show StepsSection;
 import '../running/race_predictor.dart';
 import '../running/shoes_screen.dart' show ShoePicker;
 import 'activity_timer.dart';
@@ -62,7 +62,7 @@ class RunPage extends StatelessWidget {
           }
           return Scaffold(
             appBar: AppBar(
-              title: Text(c.title ?? runTitle(c.startedAt.toLocal(), treadmill: c.type == 'treadmill')),
+              title: Text(c.title ?? runTitle(c.startedAt.toLocal(), interval: c.type == 'interval')),
               actions: [
                 IconButton(
                     icon: const Icon(Icons.edit),
@@ -106,7 +106,7 @@ class _RunBodyState extends State<_RunBody> {
     final metric = metrics.contains(_metric) ? _metric : metrics.firstOrNull;
     final at = c.startedAt.toLocal();
     return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
-      if (t != null && drawsRoute(c.type) && _positions(t).length >= 2) RunMap(_positions(t)),
+      if (t != null && _positions(t).length >= 2) RunMap(_positions(t)),
       Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
         child: Text('${loc.formatMediumDate(at)}, ${TimeOfDay.fromDateTime(at).format(context)} · ${activityLabel(c.type)}',
@@ -129,8 +129,6 @@ class _RunBodyState extends State<_RunBody> {
             },
           ),
           _Stat('Elevation gain', c.elevationGainM == null ? '-' : '${c.elevationGainM!.round()} m'),
-          if (c.inclinePct != null) _Stat('Incline', '${c.inclinePct! == c.inclinePct!.roundToDouble() ? c.inclinePct!.toInt() : c.inclinePct}%'),
-          if (c.steps != null) _Stat('Steps', '${c.steps}'),
         ]),
       ),
       if (c.notes?.isNotEmpty == true) Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: Text(c.notes!)),
@@ -159,6 +157,7 @@ class _RunBodyState extends State<_RunBody> {
             trailing: Text(s.avgHr == null ? '' : '${s.avgHr} bpm'),
           ),
       ]),
+      if (t != null && c.type == 'interval') StepsSection(store: widget.store, run: c, track: t),
       if (laps.isNotEmpty) TileGroup(title: 'Laps', children: [
         for (final l in laps)
           ListTile(

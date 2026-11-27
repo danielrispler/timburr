@@ -35,7 +35,7 @@ beforeAll(async () => {
       as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
   `)
-  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_treadmill.sql', '008_goals.sql', '009_shoes.sql']) {
+  for (const f of ['001_init.sql', '002_routine_sets_and_sports.sql', '003_drops_backups_health.sql', '004_app_errors.sql', '005_alternatives_and_skip.sql', '006_runs.sql', '007_treadmill.sql', '008_goals.sql', '009_shoes.sql', '010_intervals.sql']) {
     await db.exec(readFileSync(new URL(`./migrations/${f}`, import.meta.url), 'utf8'))
   }
   await rows('insert into auth.users values ($1), ($2)', [me, other])
@@ -313,5 +313,44 @@ describe('009_shoes.sql', () => {
     await db.exec('set role anon')
     await expect(rows('select * from shoes')).rejects.toThrow(/permission denied/)
     await db.exec('reset role')
+  })
+})
+
+describe('010_intervals.sql', () => {
+  const plan = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+  const run = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+  const structure = { name: '6 x 400', reps: 6, rep: { m: 400 }, recovery: { s: 90 } }
+  const put = (name: string, at: string, uid = me) =>
+    as(uid, () =>
+      rows(
+        `insert into interval_plans (id, user_id, name, structure, updated_at) values ($1, $2, $3, $4, $5)
+         on conflict (id) do update set name = excluded.name, updated_at = excluded.updated_at`,
+        [plan, uid, name, structure, at],
+      ),
+    )
+
+  it('keeps interval plans per user under RLS and last-write-wins', async () => {
+    await put('6 x 400', '2026-11-27T10:00:00Z')
+    await put('Old name', '2026-11-27T09:00:00Z')
+    expect(await as(me, () => rows('select name, structure from interval_plans'))).toEqual([{ name: '6 x 400', structure }])
+    expect(await as(other, () => rows('select * from interval_plans'))).toHaveLength(0)
+    await expect(put('Hijack', '2026-11-27T11:00:00Z', other)).rejects.toThrow() // same id, someone else's row
+    await expect(put('  ', '2026-11-27T12:00:00Z')).rejects.toThrow(/name/)
+    await expect(as(me, () => rows(`insert into interval_plans (id, name, structure) values (gen_random_uuid(), 'x', '[1]')`))).rejects.toThrow(/structure/)
+    await db.exec('set role anon')
+    await expect(rows('select * from interval_plans')).rejects.toThrow(/permission denied/)
+    await db.exec('reset role')
+  })
+
+  it('stores an Interval run with its plan and a copy of it; a free one has neither', async () => {
+    await as(me, () =>
+      rows(`insert into cardio (id, type, started_at, distance_km, duration_sec, interval_plan_id, interval_plan) values ($1, 'interval', now(), 6, 1800, $2, $3)`, [run, plan, structure]),
+    )
+    expect(await as(me, () => rows('select type, interval_plan_id, interval_plan from cardio where id = $1', [run]))).toEqual([{ type: 'interval', interval_plan_id: plan, interval_plan: structure }])
+    await as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), 'interval', now(), 4, 1200)`))
+    await expect(as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec, interval_plan_id) values (gen_random_uuid(), 'interval', now(), 1, 60, gen_random_uuid())`))).rejects.toThrow(/foreign key/)
+    await expect(as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), 'hike', now(), 1, 60)`))).rejects.toThrow(/cardio_type_check/)
+    // Old treadmill rows and backups still load.
+    await as(me, () => rows(`insert into cardio (id, type, started_at, distance_km, duration_sec) values (gen_random_uuid(), 'treadmill', now(), 5, 1500)`))
   })
 })

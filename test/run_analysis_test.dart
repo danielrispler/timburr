@@ -158,6 +158,6 @@ void main() {
       expect([for (final h in [4, 5, 10, 11, 13, 14, 17, 18, 21, 22, 0]) at(h)],
           ['Night run', 'Morning run', 'Morning run', 'Lunch run', 'Lunch run', 'Afternoon run', 'Afternoon run', 'Evening run', 'Evening run', 'Night run', 'Night run']);
     });
-    test('treadmill', () => expect(runTitle(DateTime(2026, 1, 1, 7), treadmill: true), 'Morning treadmill run'));
+    test('interval', () => expect(runTitle(DateTime(2026, 1, 1, 7), interval: true), 'Morning interval run'));
   });
 }

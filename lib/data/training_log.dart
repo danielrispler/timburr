@@ -6,7 +6,7 @@ import 'stats.dart' show dayOf, mondayOf;
 typedef LogDay = ({List<CardioData> runs, List<Workout> workouts});
 
 /// The Runs and Workouts of the month holding [month], per day (midnight keys). Days with nothing are absent.
-/// Deleted rows are left out, and so are rows of types other than run and treadmill.
+/// Deleted rows are left out, and so are rows of types other than run and interval.
 Map<DateTime, LogDay> monthLog(Iterable<CardioData> runs, Iterable<Workout> workouts, DateTime month) {
   bool inMonth(DateTime d) => dayOf(d).year == month.year && dayOf(d).month == month.month;
   final out = <DateTime, LogDay>{};

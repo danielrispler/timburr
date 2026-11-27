@@ -139,17 +139,6 @@ void main() {
       expect(copy.finish(at(5)).track!.hr, [140, 141, 142, 143, 144, 145]);
     });
 
-    test('a treadmill run, which has no fixes, still gets a track of heart rate', () {
-      final r = Recorder.start('treadmill', at(0), 's');
-      for (var s = 0; s < 5; s++) {
-        r.heartRate(130 + s, at(s));
-      }
-      final t = r.finish(at(5)).track!;
-      expect(t.hr, [130, 131, 132, 133, 134]);
-      expect(t.time, [0, 1, 2, 3, 4]);
-      expect(t.lat, isNull);
-    });
-
     test('readings while paused are not recorded', () {
       final r = Recorder.start('run', at(0), 's');
       r.pause(at(1));

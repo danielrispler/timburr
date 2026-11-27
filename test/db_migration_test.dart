@@ -52,7 +52,8 @@ void main() {
   test('v8 to v9 adds steps to cardio, keeping rows and their incline and calories', () async {
     final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
     var db = AppDb(NativeDatabase(file));
-    final id = await CardioStore(db).save(type: 'treadmill', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500, inclinePct: 1.5);
+    const id = 'c1';
+    await db.save(db.cardio, {'id': id, 'type': 'treadmill', 'started_at': DateTime(2026), 'distance_km': 5.0, 'duration_sec': 1500, 'incline_pct': 1.5});
     await _dropV11Schema(db);
     await db.customStatement('drop table goals');
     await db.customStatement('alter table cardio drop column steps');
@@ -101,6 +102,25 @@ void main() {
     await CardioStore(db).edit(run.id, {'shoe_id': 's1'});
     expect((await CardioStore(db).watchAll().first).single.shoeId, 's1');
     final idx = await db.customSelect("select name from sqlite_master where type = 'index' and name = 'shoes_dirty'").get();
+    expect(idx, hasLength(1));
+    await db.close();
+  });
+
+  test('v11 to v12 adds interval plans and the plan columns on cardio, keeping rows', () async {
+    final file = File('${Directory.systemTemp.createTempSync().path}/t.db');
+    var db = AppDb(NativeDatabase(file));
+    await CardioStore(db).save(type: 'run', startedAt: DateTime(2026), distanceKm: 5, durationSec: 1500);
+    await _dropV12Schema(db);
+    await db.customStatement('pragma user_version = 11');
+    await db.close();
+
+    db = AppDb(NativeDatabase(file));
+    final run = (await CardioStore(db).watchAll().first).single;
+    expect((run.distanceKm, run.intervalPlanId, run.intervalPlan), (5.0, null, null));
+    await db.save(db.intervalPlans, {'id': 'p1', 'name': '6 × 400', 'structure': '{"reps":6}'});
+    await CardioStore(db).edit(run.id, {'type': 'interval', 'interval_plan_id': 'p1', 'interval_plan': '{"reps":6}'});
+    expect((await CardioStore(db).watchAll().first).single.intervalPlanId, 'p1');
+    final idx = await db.customSelect("select name from sqlite_master where type = 'index' and name = 'interval_plans_dirty'").get();
     expect(idx, hasLength(1));
     await db.close();
   });
@@ -200,23 +220,34 @@ Future<void> _dropV3Columns(AppDb db) async {
   }
 }
 
-/// Back to the v10 schema: drops what v11 added. A column with a foreign key cannot be dropped, so cardio is rebuilt without it.
-Future<void> _dropV11Schema(AppDb db) async {
+/// Rebuilds cardio without the foreign-key column [fk], which SQLite cannot drop.
+Future<void> _dropCardioForeignKey(AppDb db, String fk) async {
   await db.customStatement('pragma foreign_keys = OFF');
-  final cols = [for (final r in await db.customSelect("select name from pragma_table_info('cardio')").get()) r.read<String>('name')]..remove('shoe_id');
+  final cols = [for (final r in await db.customSelect("select name from pragma_table_info('cardio')").get()) r.read<String>('name')]..remove(fk);
   await db.customStatement('alter table cardio rename to cardio_old');
   await db.customStatement('drop index if exists cardio_dirty');
   final create = (await db.customSelect("select sql from sqlite_master where name = 'cardio_old'").getSingle()).read<String>('sql');
-  await db.customStatement(create.replaceFirst('"cardio_old"', 'cardio').replaceFirst('cardio_old', 'cardio').replaceAll(RegExp(r',\s*"?shoe_id"?[^,]*?REFERENCES[^,)]*\([^)]*\)', caseSensitive: false), ''));
+  await db.customStatement(create.replaceFirst('"cardio_old"', 'cardio').replaceFirst('cardio_old', 'cardio').replaceAll(RegExp(',\\s*"?$fk"?[^,]*?REFERENCES[^,)]*\\([^)]*\\)', caseSensitive: false), ''));
   await db.customStatement('insert into cardio (${cols.join(',')}) select ${cols.join(',')} from cardio_old');
   await db.customStatement('drop table cardio_old');
-  await db.customStatement('drop table shoes');
   await db.customStatement('pragma foreign_keys = ON');
 }
 
-/// Back to the v6 schema: drops what v7, v8, v9 and v10 added.
+/// Back to the v11 schema: drops what v12 added.
+Future<void> _dropV12Schema(AppDb db) async {
+  await _dropCardioForeignKey(db, 'interval_plan_id');
+  await db.customStatement('alter table cardio drop column interval_plan');
+  await db.customStatement('drop table interval_plans');
+}
 
-/// Back to the v6 schema: drops what v7, v8, v9, v10 and v11 added.
+/// Back to the v10 schema: drops what v11 and v12 added.
+Future<void> _dropV11Schema(AppDb db) async {
+  await _dropV12Schema(db);
+  await _dropCardioForeignKey(db, 'shoe_id');
+  await db.customStatement('drop table shoes');
+}
+
+/// Back to the v6 schema: drops what v7 to v12 added.
 Future<void> _dropV7Schema(AppDb db) async {
   await _dropV11Schema(db);
   await db.customStatement('drop table goals');

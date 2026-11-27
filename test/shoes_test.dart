@@ -31,7 +31,7 @@ void main() {
       await run('r3', km: 8);
       await run('r4', km: 3);
       await run('r5', km: 100, deleted: DateTime(2026, 11, 2));
-      await run('r6', km: 7, type: 'treadmill');
+      await run('r6', km: 7, type: 'interval');
       await store.edit('r1', {'shoe_id': a});
       await store.edit('r2', {'shoe_id': a});
       await store.edit('r3', {'shoe_id': b});
@@ -90,11 +90,11 @@ void main() {
       await store.shoes.setDefault(a);
       final ingested = (await store.ingest(Recording(source: 'file', type: 'run', start: DateTime.utc(2026, 11, 3, 7), elapsedSec: 1800, externalId: 'x', distanceKm: 5))).id!;
       expect((await store.watch(ingested).first).shoeId, a);
-      final saved = await store.save(type: 'treadmill', startedAt: DateTime(2026, 11, 5), distanceKm: 3, durationSec: 900);
+      final saved = await store.save(type: 'interval', startedAt: DateTime(2026, 11, 5), distanceKm: 3, durationSec: 900);
       expect((await store.watch(saved).first).shoeId, a);
       expect((await store.watch(none).first).shoeId, isNull); // earlier Runs are left alone
       await store.shoes.setDefault(await store.shoes.add('Ghost'));
-      await store.save(id: saved, type: 'treadmill', startedAt: DateTime(2026, 11, 5), distanceKm: 4, durationSec: 900); // editing a Run keeps its shoe
+      await store.save(id: saved, type: 'interval', startedAt: DateTime(2026, 11, 5), distanceKm: 4, durationSec: 900); // editing a Run keeps its shoe
       expect((await store.watch(saved).first).shoeId, a);
     });
 
@@ -121,7 +121,7 @@ void main() {
       await run('a', route: '32.00000,34.80000;32.00100,34.80100;32.00200,34.80200');
       await run('b', route: '32.1,34.8'); // one point
       await run('c', route: null);
-      await run('d', type: 'treadmill', route: '32.0,34.8;32.1,34.9');
+      await run('d', type: 'interval', route: '32.0,34.8;32.1,34.9');
       await run('e', route: '32.0,34.8;32.1,34.9', deleted: DateTime(2026, 11, 2));
       final routes = heatmapRoutes(await store.watchAll().first);
       expect(routes, hasLength(1));

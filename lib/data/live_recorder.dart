@@ -10,10 +10,11 @@ import 'db.dart';
 import 'error_log.dart';
 import 'heart_rate.dart';
 import 'hr_zones.dart';
+import 'intervals.dart';
 import 'recorder.dart';
 
 export 'heart_rate.dart' show HrLink;
-export 'recorder.dart' show GpsSignal, PositionSample, RunSnapshot, kmCueText;
+export 'recorder.dart' show GpsSignal, IntervalSnapshot, PositionSample, RunSnapshot, kmCueText;
 
 /// The app's one recorder, set in main (like `errorLog`). Null in tests that do not record.
 LiveRecorder? liveRecorder;
@@ -34,14 +35,14 @@ abstract class PositionSource {
 
 /// The foreground service that keeps the app alive with the screen off, with its ongoing notification.
 abstract class RecordingService {
-  /// [gps] false for a treadmill recording, which does not use the location permission.
-  Future<void> start({bool gps = true});
+  Future<void> start();
   Future<void> stop();
 }
 
-/// Speaks the km cues. The one platform seam for text to speech; see `platform_recording.dart`.
+/// Speaks the km and interval cues and beeps an interval countdown. The one platform seam for sound; see `platform_recording.dart`.
 abstract class SpeechService {
   Future<void> speak(String text);
+  Future<void> beep();
 }
 
 /// The ongoing recording notification: time and distance, and a Pause/Resume button.
@@ -113,6 +114,9 @@ class LiveRecorder extends ChangeNotifier {
   /// True while a recording exists, running or paused.
   bool get active => _rec != null;
   String? get type => _rec?.type;
+
+  /// The plan of the Interval run in progress; null for a free one or a Run.
+  IntervalPlan? get plan => _rec?.plan;
   int get lapCount => _rec?.laps.length ?? 0;
 
   /// The recording's numbers now, null when nothing is being recorded.
@@ -135,13 +139,14 @@ class LiveRecorder extends ChangeNotifier {
     if (_rec == null) await _stopListening();
   }
 
-  /// [paceSecPerKm] is Daniel's usual treadmill pace, which a treadmill recording estimates distance with.
-  Future<void> start(String type, {double? paceSecPerKm}) async {
+  /// Starts a recording of [type] ('run' or 'interval'). An Interval run follows [plan] (saved as [planId]), or is free without one.
+  Future<void> start(String type, {IntervalPlan? plan, String? planId}) async {
     if (_rec != null) return;
-    final rec = Recorder.start(type, _now(), const Uuid().v4(), paceSecPerKm: paceSecPerKm);
+    final rec = Recorder.start(type, _now(), const Uuid().v4(), plan: plan, planId: planId);
     _rec = rec;
     _save(rec.events.last);
-    await service.start(gps: !rec.isTreadmill);
+    _speakNew(rec, 0, 0); // an Interval run names its first step
+    await service.start();
     await _listen(background: true);
     heartRate?.start();
     _startNotifying();
@@ -156,21 +161,24 @@ class LiveRecorder extends ChangeNotifier {
   /// Marks a lap now.
   void lap() => _act((r, at) => r.lap(at));
 
+  /// Next (planned Interval run) or Switch (free): ends the current step now.
+  void next() => _act((r, at) => r.next(at));
+
   /// Puts the current time, distance and pause state in the notification.
   void refreshNotification() {
     final s = snapshot;
     if (s != null) notification?.update(s);
   }
 
-  /// A treadmill recording moves with the clock, not with inputs: this completes its km cues and autosaves its time.
+  /// An Interval run's time steps end with the clock, between fixes too.
   void _everySecond() {
-    if (_rec?.isTreadmill ?? false) _input((r, at) => r.tick(at));
+    if (_rec?.isInterval ?? false) _input((r, at) => r.tick(at));
     refreshNotification();
   }
 
   Future<void> resume() async {
     if (_rec == null) return;
-    await service.start(gps: !_rec!.isTreadmill); // after a restart the service is not running yet
+    await service.start(); // after a restart the service is not running yet
     if (_sub == null || !_background) await _listen(background: true);
     if (hrState == HrLink.off) heartRate?.start();
     _act((r, at) => r.resume(at));
@@ -236,7 +244,7 @@ class LiveRecorder extends ChangeNotifier {
       _save(rec.events.last);
     }
     _rec = rec;
-    if (!rec.isTreadmill) await _listen(background: false);
+    await _listen(background: false);
     notifyListeners();
     return true;
   }
@@ -249,7 +257,6 @@ class LiveRecorder extends ChangeNotifier {
   Future<void> _listen({required bool background}) async {
     await _stopListening();
     _background = background;
-    if (_rec?.isTreadmill ?? false) return; // no GPS
     _sub = source.positions(background: background).listen(_onSample, onError: (Object e, StackTrace st) => reportError('location', e, st));
   }
 
@@ -272,14 +279,23 @@ class LiveRecorder extends ChangeNotifier {
   void _input(void Function(Recorder, DateTime) f) {
     final rec = _rec;
     if (rec != null) {
-      final before = rec.events.length, cues = rec.kmCues.length;
+      final before = rec.events.length, cues = rec.kmCues.length, voice = rec.voiceCues.length;
       f(rec, _now());
       if (rec.events.length > before) _save(rec.events.last);
-      for (final c in rec.kmCues.skip(cues)) {
-        speech?.speak(kmCueText(c)).catchError((Object e, StackTrace st) => reportError('km_voice', e, st));
-      }
+      _speakNew(rec, cues, voice);
     }
     notifyListeners();
+  }
+
+  /// Speaks the km cues after the first [km] and the interval cues after the first [voice].
+  void _speakNew(Recorder rec, int km, int voice) {
+    void failed(Object e, StackTrace st) => reportError('km_voice', e, st);
+    for (final c in rec.kmCues.skip(km)) {
+      speech?.speak(kmCueText(c)).catchError(failed);
+    }
+    for (final c in rec.voiceCues.skip(voice)) {
+      (c.text == null ? speech?.beep() : speech?.speak(c.text!))?.catchError(failed);
+    }
   }
 
   /// Autosave: appended in order, one at a time, as events arrive.

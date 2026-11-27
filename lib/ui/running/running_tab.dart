@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 import '../../data/cardio.dart';
 import '../../data/db.dart';
 import '../../data/health_connect.dart';
-import '../../data/recording.dart' show drawsRoute;
 import '../../data/running.dart';
 import '../cardio/activity_timer.dart';
 import '../cardio/run_page.dart';
@@ -102,11 +101,11 @@ class _RunsPage extends StatelessWidget {
                     onTap: () => openRecorder(context, stores),
                   ),
                   ListTile(
-                    leading: const IconTile(Icons.directions_run),
-                    title: const Text('Record treadmill run'),
-                    subtitle: const Text('Timed, with an estimated distance you can correct'),
+                    leading: const IconTile(Icons.speed),
+                    title: const Text('Record interval run'),
+                    subtitle: const Text('Guided by a plan, or switched by hand'),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => openRecorder(context, stores, type: 'treadmill'),
+                    onTap: () => openRecorder(context, stores, type: 'interval'),
                   ),
                 ]),
                 TileGroup(title: 'This week', children: [
@@ -155,11 +154,11 @@ class _RunsPage extends StatelessWidget {
     final pace = paceSecPerKm(c.distanceKm, c.durationSec);
     final route = parseRoute(c.route);
     return ListTile(
-      leading: drawsRoute(c.type) && route.length >= 2
+      leading: route.length >= 2
           ? RouteThumbnail(route)
           : IconTile(activityIcon(c.type)),
       title: Text('${c.distanceKm == null ? '-' : _km(c.distanceKm!)} · ${_time(c.durationSec)}'),
-      subtitle: Text([MaterialLocalizations.of(context).formatMediumDate(c.startedAt), if (c.type == 'treadmill') 'Treadmill', if (pace != null) '${formatPace(pace)} /km'].join(' · ')),
+      subtitle: Text([MaterialLocalizations.of(context).formatMediumDate(c.startedAt), if (c.type == 'interval') 'Intervals', if (pace != null) '${formatPace(pace)} /km'].join(' · ')),
       onTap: () => openRun(context, stores.cardio, c.id),
     );
   }

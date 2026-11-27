@@ -54,6 +54,7 @@ Future<void> main() async {
   final workouts = WorkoutStore(db, onFinished: sync?.sync);
   final cardio = CardioStore(db, onSaved: sync?.sync);
   await cardio.dropUnsyncableRuns(); // 0 km test recordings from before Finish refused them; the server rejects them forever
+  await cardio.dropTreadmillRuns(); // Daniel runs only outside: old treadmill Runs go, once
   // A recording the app was killed in comes back paused; the Home and Running tabs offer to resume it.
   // The Max HR in force sets the zone of the live heart rate; kept current from the settings row.
   final recordingService = ForegroundRecordingService();

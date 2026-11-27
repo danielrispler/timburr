@@ -45,8 +45,8 @@ void main() {
   });
 
   test('Strava file-name rules apply to GPX', () {
-    final r = parseStravaGpx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה על הליכון.gpx', gpx(60)).recording!;
-    expect(r.type, 'treadmill');
+    expect(parseStravaGpx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה על הליכון.gpx', gpx(60)).skipReason, 'Treadmill run');
+    final r = parseStravaGpx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה.gpx', gpx(60)).recording!;
     expect(r.movingSec, 528);
     expect(parseStravaGpx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה,הליכה.gpx', gpx(60)).recording!.notes, 'run/walk');
     final plain = parseStravaGpx('morning.gpx', gpx(60));

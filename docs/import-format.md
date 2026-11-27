@@ -42,7 +42,7 @@ More > Import accepts one JSON object. "Copy import format" copies a short versi
 | exercise `sets` | Required, non-empty. |
 | set `weightKg` | Optional number >= 0. For bodyweight sets it is the added weight, or `null`. |
 | set `reps` / `durationSec` | Exactly one, a whole number >= 0. Timed sets use `durationSec`. |
-| cardio `type` | `run` or `treadmill`. Other types (walk, bike, swim, sports) are rejected. |
+| cardio `type` | `run` or `interval` (an Interval run). Other types (treadmill, walk, bike, swim, sports) are rejected. |
 | cardio `date` | Required, as for workouts. |
 | cardio `distanceKm` | Required number > 0. |
 | cardio `durationSec` | Required whole number > 0. |

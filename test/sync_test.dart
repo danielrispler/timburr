@@ -113,7 +113,23 @@ void main() {
     expect((await other.select(other.cardio).getSingle()).editedFields, ['title']);
   });
 
-  test('the treadmill columns (incline, steps, calories) push and pull with their edited fields', () async {
+  test('an Interval plan and an Interval run push their JSON as objects (jsonb) and pull back unchanged', () async {
+    const structure = '{"name":"6 × 400","reps":6,"rep":{"m":400},"recovery":{"s":90}}';
+    await db.save(db.intervalPlans, {'id': 'p1', 'name': '6 × 400', 'structure': structure});
+    await db.save(db.cardio, {'id': 'c1', 'type': 'interval', 'started_at': DateTime.utc(2026, 11, 27), 'distance_km': 6.0, 'duration_sec': 1800, 'interval_plan_id': 'p1', 'interval_plan': structure});
+    await engine.sync();
+    expect(remote.upserts, ['interval_plans', 'cardio']);
+    expect(remote.tables['interval_plans']!['p1']!['structure'], {'name': '6 × 400', 'reps': 6, 'rep': {'m': 400}, 'recovery': {'s': 90}});
+    expect((remote.tables['cardio']!['c1']!['interval_plan'] as Map)['reps'], 6);
+
+    final other = newDb();
+    await SyncEngine(other, remote).sync();
+    expect((await other.select(other.intervalPlans).getSingle()).structure, structure);
+    final c = await other.select(other.cardio).getSingle();
+    expect((c.type, c.intervalPlanId, c.intervalPlan), ('interval', 'p1', structure));
+  });
+
+  test('the treadmill columns of an old row (incline, steps, calories) push and pull with their edited fields', () async {
     await db.save(db.cardio, {'id': 'c1', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 4.8, 'duration_sec': 1500, 'incline_pct': 1.5, 'steps': 6100, 'calories': 380, 'edited_fields': ['steps', 'incline_pct']});
     await engine.sync();
     final row = remote.tables['cardio']!['c1']!;
@@ -127,7 +143,7 @@ void main() {
     expect(c.editedFields, ['steps', 'incline_pct']);
   });
 
-  test('a pulled Run and track rebuild the Best efforts, a pulled Treadmill run adds none', () async {
+  test('a pulled Run and track rebuild the Best efforts, a pulled old treadmill row adds none', () async {
     final track = Track(time: [for (var i = 0; i <= 300; i++) i], distance: [for (var i = 0; i <= 300; i++) i * 4.0]).encode();
     await db.save(db.cardio, {'id': 'c1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 1.2, 'duration_sec': 300});
     await db.save(db.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': track});

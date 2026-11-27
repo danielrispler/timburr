@@ -41,7 +41,7 @@ ParsedFile buildRunFile(String fileName, String externalId,
       case 'ריצה':
         break;
       case 'ריצה על הליכון':
-        type = 'treadmill';
+        return ParsedFile(name, skipReason: 'Treadmill run'); // Daniel runs only outside
       case 'ריצה,הליכה':
         notes = 'run/walk';
       default:

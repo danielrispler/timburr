@@ -1,3 +1,4 @@
+import 'intervals.dart';
 import 'track.dart';
 
 /// One kilometer of a Run (the last may be shorter): how long it took and the average heart rate over it.
@@ -159,11 +160,11 @@ List<(double, double)> chartSeries(Track track, RunMetric metric, {int maxPoints
 }
 
 /// "Morning run", "Lunch run", "Afternoon run", "Evening run" or "Night run" by the hour of [start] (local time):
-/// 5-10 Morning, 11-13 Lunch, 14-17 Afternoon, 18-21 Evening, 22-4 Night. A treadmill Run says "treadmill run".
-String runTitle(DateTime start, {bool treadmill = false}) {
+/// 5-10 Morning, 11-13 Lunch, 14-17 Afternoon, 18-21 Evening, 22-4 Night. An Interval run says "interval run".
+String runTitle(DateTime start, {bool interval = false}) {
   final h = start.hour;
   final part = h >= 5 && h < 11 ? 'Morning' : h >= 11 && h < 14 ? 'Lunch' : h >= 14 && h < 18 ? 'Afternoon' : h >= 18 && h < 22 ? 'Evening' : 'Night';
-  return '$part ${treadmill ? 'treadmill run' : 'run'}';
+  return '$part ${interval ? 'interval run' : 'run'}';
 }
 
 /// One lap of a Run: the stretch between two Lap presses (the first starts at the start, the last runs to the end of the track).
@@ -171,7 +172,7 @@ class Lap {
   Lap(this.index, this.durationSec, this.distanceM);
   final int index; // 1 for the first
   final int durationSec;
-  final double? distanceM; // null when the track has no distance (a treadmill Run)
+  final double? distanceM; // null when the track has no distance
 
   double? get paceSecPerKm => distanceM == null || distanceM! < 10 ? null : durationSec / (distanceM! / 1000);
 }
@@ -213,4 +214,18 @@ List<Lap> _timeOnlyLaps(Track track, List<int> marks) {
     for (var k = 0; k + 1 < bounds.length; k++)
       if (bounds[k + 1] > bounds[k]) Lap(k + 1, bounds[k + 1] - bounds[k], null),
   ];
+}
+
+/// The average heart rate over an Interval run's step [s], from the track's readings inside it; null without readings.
+int? stepAvgHr(Track t, StepMark s) {
+  final time = t.time, hr = t.hr;
+  if (time == null || hr == null) return null;
+  var sum = 0, n = 0;
+  for (var i = 0; i < time.length && i < hr.length; i++) {
+    final at = time[i], bpm = hr[i];
+    if (at == null || bpm == null || at < s.startSec || at >= s.endSec) continue;
+    sum += bpm;
+    n++;
+  }
+  return n == 0 ? null : (sum / n).round();
 }

@@ -58,7 +58,7 @@ void main() {
   test('type labels', () {
     String type(String label) => parseStravaTcx('2026-11-16T20_00_00+02_00_PT8M48S_$label.tcx', tcx([points(60)])).recording!.type;
     expect(type('ריצה'), 'run');
-    expect(type('ריצה על הליכון'), 'treadmill');
+    expect(parseStravaTcx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה על הליכון.tcx', tcx([points(60)])).skipReason, 'Treadmill run'); // Daniel runs only outside
     final walk = parseStravaTcx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה,הליכה.tcx', tcx([points(60)])).recording!;
     expect(walk.type, 'run');
     expect(walk.notes, 'run/walk');
@@ -79,13 +79,6 @@ void main() {
     expect(p.recording!.track!.lat, isNull);
     expect(p.recording!.distanceKm, closeTo(0.117, 1e-9));
     expect(p.warnings, contains(contains('route')));
-  });
-
-  test('a treadmill file has no GPS and no route', () {
-    final r = parseStravaTcx('2026-11-16T20_00_00+02_00_PT8M48S_ריצה על הליכון.tcx', tcx([points(300, gps: false, hr: 140)])).recording!;
-    expect(r.type, 'treadmill');
-    expect(r.hasRoute, isFalse);
-    expect(r.track!.hr!.length, 300);
   });
 
   test('zero distance is skipped with a reason', () {

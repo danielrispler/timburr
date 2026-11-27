@@ -1,12 +1,11 @@
 import 'cardio.dart';
 import 'db.dart';
-import 'recording.dart' show drawsRoute;
 import 'stats.dart' show dayOf, mondayOf;
 
 /// Distance, moving time and Run count over some stretch.
 typedef RunTotals = ({double km, int sec, int count});
 
-/// The Runs among [sessions]: outdoor and treadmill. Old rows of other types (walk, padel) and Workouts are not Runs.
+/// The Runs among [sessions]: Runs and Interval runs. Old rows of other types (treadmill, walk, padel) and Workouts are not Runs.
 List<CardioData> runsOf(Iterable<CardioData> sessions) => [for (final s in sessions) if (s.deletedAt == null && cardioTypes.contains(s.type)) s];
 
 /// Totals of the Runs starting in [from, to).
@@ -85,7 +84,6 @@ List<(double, double)> parseRoute(String? route) {
 List<List<(double, double)>> heatmapRoutes(Iterable<CardioData> runs) {
   final out = <List<(double, double)>>[];
   for (final r in runsOf(runs)) {
-    if (!drawsRoute(r.type)) continue;
     final p = parseRoute(r.route);
     if (p.length >= 2) out.add(p);
   }

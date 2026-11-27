@@ -60,7 +60,7 @@ void main() {
     expect(groups.map((g) => [for (final r in g.runs) r.id]), [['rev', 'rev2'], ['a', 'b']]);
   });
 
-  test('a single Run, a Run without a route, a Treadmill run and a deleted Run make no group', () {
+  test('a single Run, a Run without a route, an old treadmill row and a deleted Run make no group', () {
     final groups = groupRuns([
       run('a', d, loop()),
       run('none', d.add(const Duration(days: 1)), null),

@@ -46,7 +46,7 @@ Future<void> startStrength(BuildContext context, Stores s, {String? routineId, r
 }
 
 void startActivity(BuildContext context, Stores s, String type, {required bool now}) {
-  if (now && liveRecorder != null) return openRecorder(context, s, type: type); // outdoor: GPS recording, treadmill: step counting
+  if (now && liveRecorder != null) return openRecorder(context, s, type: type); // GPS recording; an Interval run first picks its plan
   Navigator.of(context).push(MaterialPageRoute(builder: (_) => now ? ActivityTimer(store: s.cardio, type: type) : CardioForm(store: s.cardio, type: type)));
 }
 
@@ -62,7 +62,7 @@ Future<bool?> askWhen(BuildContext context, String title) => showModalBottomShee
       ),
     );
 
-/// Saved workouts, an empty one, Run and Treadmill run. Each asks Start now or I did it.
+/// Saved workouts, an empty one, Run and Interval run. Each asks Start now or I did it.
 class StartWorkoutScreen extends StatelessWidget {
   const StartWorkoutScreen({super.key, required this.stores});
 

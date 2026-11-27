@@ -6033,6 +6033,565 @@ class ShoesCompanion extends UpdateCompanion<Shoe> {
   }
 }
 
+class $IntervalPlansTable extends IntervalPlans
+    with TableInfo<$IntervalPlansTable, IntervalPlanRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IntervalPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serverUpdatedAtMeta = const VerificationMeta(
+    'serverUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> serverUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'server_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _dirtyMeta = const VerificationMeta('dirty');
+  @override
+  late final GeneratedColumn<int> dirty = GeneratedColumn<int>(
+    'dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _structureMeta = const VerificationMeta(
+    'structure',
+  );
+  @override
+  late final GeneratedColumn<String> structure = GeneratedColumn<String>(
+    'structure',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    name,
+    structure,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'interval_plans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IntervalPlanRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('server_updated_at')) {
+      context.handle(
+        _serverUpdatedAtMeta,
+        serverUpdatedAt.isAcceptableOrUnknown(
+          data['server_updated_at']!,
+          _serverUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dirty')) {
+      context.handle(
+        _dirtyMeta,
+        dirty.isAcceptableOrUnknown(data['dirty']!, _dirtyMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('structure')) {
+      context.handle(
+        _structureMeta,
+        structure.isAcceptableOrUnknown(data['structure']!, _structureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_structureMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  IntervalPlanRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IntervalPlanRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      serverUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}server_updated_at'],
+      ),
+      dirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dirty'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      structure: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}structure'],
+      )!,
+    );
+  }
+
+  @override
+  $IntervalPlansTable createAlias(String alias) {
+    return $IntervalPlansTable(attachedDatabase, alias);
+  }
+}
+
+class IntervalPlanRow extends DataClass implements Insertable<IntervalPlanRow> {
+  final String id;
+  final String? userId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final DateTime? serverUpdatedAt;
+  final int dirty;
+  final String name;
+  final String structure;
+  const IntervalPlanRow({
+    required this.id,
+    this.userId,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    this.serverUpdatedAt,
+    required this.dirty,
+    required this.name,
+    required this.structure,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || serverUpdatedAt != null) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt);
+    }
+    map['dirty'] = Variable<int>(dirty);
+    map['name'] = Variable<String>(name);
+    map['structure'] = Variable<String>(structure);
+    return map;
+  }
+
+  IntervalPlansCompanion toCompanion(bool nullToAbsent) {
+    return IntervalPlansCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      serverUpdatedAt: serverUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverUpdatedAt),
+      dirty: Value(dirty),
+      name: Value(name),
+      structure: Value(structure),
+    );
+  }
+
+  factory IntervalPlanRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IntervalPlanRow(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      serverUpdatedAt: serializer.fromJson<DateTime?>(json['serverUpdatedAt']),
+      dirty: serializer.fromJson<int>(json['dirty']),
+      name: serializer.fromJson<String>(json['name']),
+      structure: serializer.fromJson<String>(json['structure']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'serverUpdatedAt': serializer.toJson<DateTime?>(serverUpdatedAt),
+      'dirty': serializer.toJson<int>(dirty),
+      'name': serializer.toJson<String>(name),
+      'structure': serializer.toJson<String>(structure),
+    };
+  }
+
+  IntervalPlanRow copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<DateTime?> serverUpdatedAt = const Value.absent(),
+    int? dirty,
+    String? name,
+    String? structure,
+  }) => IntervalPlanRow(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    serverUpdatedAt: serverUpdatedAt.present
+        ? serverUpdatedAt.value
+        : this.serverUpdatedAt,
+    dirty: dirty ?? this.dirty,
+    name: name ?? this.name,
+    structure: structure ?? this.structure,
+  );
+  IntervalPlanRow copyWithCompanion(IntervalPlansCompanion data) {
+    return IntervalPlanRow(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      serverUpdatedAt: data.serverUpdatedAt.present
+          ? data.serverUpdatedAt.value
+          : this.serverUpdatedAt,
+      dirty: data.dirty.present ? data.dirty.value : this.dirty,
+      name: data.name.present ? data.name.value : this.name,
+      structure: data.structure.present ? data.structure.value : this.structure,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IntervalPlanRow(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('name: $name, ')
+          ..write('structure: $structure')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    serverUpdatedAt,
+    dirty,
+    name,
+    structure,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IntervalPlanRow &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.serverUpdatedAt == this.serverUpdatedAt &&
+          other.dirty == this.dirty &&
+          other.name == this.name &&
+          other.structure == this.structure);
+}
+
+class IntervalPlansCompanion extends UpdateCompanion<IntervalPlanRow> {
+  final Value<String> id;
+  final Value<String?> userId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<DateTime?> serverUpdatedAt;
+  final Value<int> dirty;
+  final Value<String> name;
+  final Value<String> structure;
+  final Value<int> rowid;
+  const IntervalPlansCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    this.name = const Value.absent(),
+    this.structure = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  IntervalPlansCompanion.insert({
+    required String id,
+    this.userId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.serverUpdatedAt = const Value.absent(),
+    this.dirty = const Value.absent(),
+    required String name,
+    required String structure,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       structure = Value(structure);
+  static Insertable<IntervalPlanRow> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<DateTime>? serverUpdatedAt,
+    Expression<int>? dirty,
+    Expression<String>? name,
+    Expression<String>? structure,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (serverUpdatedAt != null) 'server_updated_at': serverUpdatedAt,
+      if (dirty != null) 'dirty': dirty,
+      if (name != null) 'name': name,
+      if (structure != null) 'structure': structure,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  IntervalPlansCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? userId,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<DateTime?>? serverUpdatedAt,
+    Value<int>? dirty,
+    Value<String>? name,
+    Value<String>? structure,
+    Value<int>? rowid,
+  }) {
+    return IntervalPlansCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      serverUpdatedAt: serverUpdatedAt ?? this.serverUpdatedAt,
+      dirty: dirty ?? this.dirty,
+      name: name ?? this.name,
+      structure: structure ?? this.structure,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (serverUpdatedAt.present) {
+      map['server_updated_at'] = Variable<DateTime>(serverUpdatedAt.value);
+    }
+    if (dirty.present) {
+      map['dirty'] = Variable<int>(dirty.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (structure.present) {
+      map['structure'] = Variable<String>(structure.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IntervalPlansCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('serverUpdatedAt: $serverUpdatedAt, ')
+          ..write('dirty: $dirty, ')
+          ..write('name: $name, ')
+          ..write('structure: $structure, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -6315,6 +6874,31 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _intervalPlanIdMeta = const VerificationMeta(
+    'intervalPlanId',
+  );
+  @override
+  late final GeneratedColumn<String> intervalPlanId = GeneratedColumn<String>(
+    'interval_plan_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES interval_plans (id)',
+    ),
+  );
+  static const VerificationMeta _intervalPlanMeta = const VerificationMeta(
+    'intervalPlan',
+  );
+  @override
+  late final GeneratedColumn<String> intervalPlan = GeneratedColumn<String>(
+    'interval_plan',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6344,6 +6928,8 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
     shoeId,
     editedFields,
     steps,
+    intervalPlanId,
+    intervalPlan,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6527,6 +7113,24 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         steps.isAcceptableOrUnknown(data['steps']!, _stepsMeta),
       );
     }
+    if (data.containsKey('interval_plan_id')) {
+      context.handle(
+        _intervalPlanIdMeta,
+        intervalPlanId.isAcceptableOrUnknown(
+          data['interval_plan_id']!,
+          _intervalPlanIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('interval_plan')) {
+      context.handle(
+        _intervalPlanMeta,
+        intervalPlan.isAcceptableOrUnknown(
+          data['interval_plan']!,
+          _intervalPlanMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6646,6 +7250,14 @@ class $CardioTable extends Cardio with TableInfo<$CardioTable, CardioData> {
         DriftSqlType.int,
         data['${effectivePrefix}steps'],
       ),
+      intervalPlanId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}interval_plan_id'],
+      ),
+      intervalPlan: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}interval_plan'],
+      ),
     );
   }
 
@@ -6686,6 +7298,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
   final String? shoeId;
   final List<String> editedFields;
   final int? steps;
+  final String? intervalPlanId;
+  final String? intervalPlan;
   const CardioData({
     required this.id,
     this.userId,
@@ -6714,6 +7328,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     this.shoeId,
     required this.editedFields,
     this.steps,
+    this.intervalPlanId,
+    this.intervalPlan,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6787,6 +7403,12 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     if (!nullToAbsent || steps != null) {
       map['steps'] = Variable<int>(steps);
     }
+    if (!nullToAbsent || intervalPlanId != null) {
+      map['interval_plan_id'] = Variable<String>(intervalPlanId);
+    }
+    if (!nullToAbsent || intervalPlan != null) {
+      map['interval_plan'] = Variable<String>(intervalPlan);
+    }
     return map;
   }
 
@@ -6855,6 +7477,12 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       steps: steps == null && nullToAbsent
           ? const Value.absent()
           : Value(steps),
+      intervalPlanId: intervalPlanId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(intervalPlanId),
+      intervalPlan: intervalPlan == null && nullToAbsent
+          ? const Value.absent()
+          : Value(intervalPlan),
     );
   }
 
@@ -6891,6 +7519,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       shoeId: serializer.fromJson<String?>(json['shoeId']),
       editedFields: serializer.fromJson<List<String>>(json['editedFields']),
       steps: serializer.fromJson<int?>(json['steps']),
+      intervalPlanId: serializer.fromJson<String?>(json['intervalPlanId']),
+      intervalPlan: serializer.fromJson<String?>(json['intervalPlan']),
     );
   }
   @override
@@ -6924,6 +7554,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
       'shoeId': serializer.toJson<String?>(shoeId),
       'editedFields': serializer.toJson<List<String>>(editedFields),
       'steps': serializer.toJson<int?>(steps),
+      'intervalPlanId': serializer.toJson<String?>(intervalPlanId),
+      'intervalPlan': serializer.toJson<String?>(intervalPlan),
     };
   }
 
@@ -6955,6 +7587,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     Value<String?> shoeId = const Value.absent(),
     List<String>? editedFields,
     Value<int?> steps = const Value.absent(),
+    Value<String?> intervalPlanId = const Value.absent(),
+    Value<String?> intervalPlan = const Value.absent(),
   }) => CardioData(
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
@@ -6987,6 +7621,10 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     shoeId: shoeId.present ? shoeId.value : this.shoeId,
     editedFields: editedFields ?? this.editedFields,
     steps: steps.present ? steps.value : this.steps,
+    intervalPlanId: intervalPlanId.present
+        ? intervalPlanId.value
+        : this.intervalPlanId,
+    intervalPlan: intervalPlan.present ? intervalPlan.value : this.intervalPlan,
   );
   CardioData copyWithCompanion(CardioCompanion data) {
     return CardioData(
@@ -7035,6 +7673,12 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ? data.editedFields.value
           : this.editedFields,
       steps: data.steps.present ? data.steps.value : this.steps,
+      intervalPlanId: data.intervalPlanId.present
+          ? data.intervalPlanId.value
+          : this.intervalPlanId,
+      intervalPlan: data.intervalPlan.present
+          ? data.intervalPlan.value
+          : this.intervalPlan,
     );
   }
 
@@ -7067,7 +7711,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           ..write('route: $route, ')
           ..write('shoeId: $shoeId, ')
           ..write('editedFields: $editedFields, ')
-          ..write('steps: $steps')
+          ..write('steps: $steps, ')
+          ..write('intervalPlanId: $intervalPlanId, ')
+          ..write('intervalPlan: $intervalPlan')
           ..write(')'))
         .toString();
   }
@@ -7101,6 +7747,8 @@ class CardioData extends DataClass implements Insertable<CardioData> {
     shoeId,
     editedFields,
     steps,
+    intervalPlanId,
+    intervalPlan,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -7132,7 +7780,9 @@ class CardioData extends DataClass implements Insertable<CardioData> {
           other.route == this.route &&
           other.shoeId == this.shoeId &&
           other.editedFields == this.editedFields &&
-          other.steps == this.steps);
+          other.steps == this.steps &&
+          other.intervalPlanId == this.intervalPlanId &&
+          other.intervalPlan == this.intervalPlan);
 }
 
 class CardioCompanion extends UpdateCompanion<CardioData> {
@@ -7163,6 +7813,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
   final Value<String?> shoeId;
   final Value<List<String>> editedFields;
   final Value<int?> steps;
+  final Value<String?> intervalPlanId;
+  final Value<String?> intervalPlan;
   final Value<int> rowid;
   const CardioCompanion({
     this.id = const Value.absent(),
@@ -7192,6 +7844,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.shoeId = const Value.absent(),
     this.editedFields = const Value.absent(),
     this.steps = const Value.absent(),
+    this.intervalPlanId = const Value.absent(),
+    this.intervalPlan = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CardioCompanion.insert({
@@ -7222,6 +7876,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     this.shoeId = const Value.absent(),
     this.editedFields = const Value.absent(),
     this.steps = const Value.absent(),
+    this.intervalPlanId = const Value.absent(),
+    this.intervalPlan = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        type = Value(type),
@@ -7255,6 +7911,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Expression<String>? shoeId,
     Expression<String>? editedFields,
     Expression<int>? steps,
+    Expression<String>? intervalPlanId,
+    Expression<String>? intervalPlan,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7285,6 +7943,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       if (shoeId != null) 'shoe_id': shoeId,
       if (editedFields != null) 'edited_fields': editedFields,
       if (steps != null) 'steps': steps,
+      if (intervalPlanId != null) 'interval_plan_id': intervalPlanId,
+      if (intervalPlan != null) 'interval_plan': intervalPlan,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7317,6 +7977,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     Value<String?>? shoeId,
     Value<List<String>>? editedFields,
     Value<int?>? steps,
+    Value<String?>? intervalPlanId,
+    Value<String?>? intervalPlan,
     Value<int>? rowid,
   }) {
     return CardioCompanion(
@@ -7347,6 +8009,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
       shoeId: shoeId ?? this.shoeId,
       editedFields: editedFields ?? this.editedFields,
       steps: steps ?? this.steps,
+      intervalPlanId: intervalPlanId ?? this.intervalPlanId,
+      intervalPlan: intervalPlan ?? this.intervalPlan,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7437,6 +8101,12 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
     if (steps.present) {
       map['steps'] = Variable<int>(steps.value);
     }
+    if (intervalPlanId.present) {
+      map['interval_plan_id'] = Variable<String>(intervalPlanId.value);
+    }
+    if (intervalPlan.present) {
+      map['interval_plan'] = Variable<String>(intervalPlan.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7473,6 +8143,8 @@ class CardioCompanion extends UpdateCompanion<CardioData> {
           ..write('shoeId: $shoeId, ')
           ..write('editedFields: $editedFields, ')
           ..write('steps: $steps, ')
+          ..write('intervalPlanId: $intervalPlanId, ')
+          ..write('intervalPlan: $intervalPlan, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10616,6 +11288,7 @@ abstract class _$AppDb extends GeneratedDatabase {
   );
   late final $WorkoutSetsTable workoutSets = $WorkoutSetsTable(this);
   late final $ShoesTable shoes = $ShoesTable(this);
+  late final $IntervalPlansTable intervalPlans = $IntervalPlansTable(this);
   late final $CardioTable cardio = $CardioTable(this);
   late final $CardioTracksTable cardioTracks = $CardioTracksTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
@@ -10674,6 +11347,10 @@ abstract class _$AppDb extends GeneratedDatabase {
     'shoes_dirty',
     'CREATE INDEX shoes_dirty ON shoes (dirty)',
   );
+  late final Index intervalPlansDirty = Index(
+    'interval_plans_dirty',
+    'CREATE INDEX interval_plans_dirty ON interval_plans (dirty)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -10687,6 +11364,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     workoutExercises,
     workoutSets,
     shoes,
+    intervalPlans,
     cardio,
     cardioTracks,
     appSettings,
@@ -10707,6 +11385,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     settingsDirty,
     goalsDirty,
     shoesDirty,
+    intervalPlansDirty,
   ];
   @override
   DriftDatabaseOptions get options =>
@@ -15086,6 +15765,391 @@ typedef $$ShoesTableProcessedTableManager =
       Shoe,
       PrefetchHooks Function({bool cardioRefs})
     >;
+typedef $$IntervalPlansTableCreateCompanionBuilder =
+    IntervalPlansCompanion Function({
+      required String id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      required String name,
+      required String structure,
+      Value<int> rowid,
+    });
+typedef $$IntervalPlansTableUpdateCompanionBuilder =
+    IntervalPlansCompanion Function({
+      Value<String> id,
+      Value<String?> userId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> serverUpdatedAt,
+      Value<int> dirty,
+      Value<String> name,
+      Value<String> structure,
+      Value<int> rowid,
+    });
+
+final class $$IntervalPlansTableReferences
+    extends BaseReferences<_$AppDb, $IntervalPlansTable, IntervalPlanRow> {
+  $$IntervalPlansTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$CardioTable, List<CardioData>> _cardioRefsTable(
+    _$AppDb db,
+  ) => MultiTypedResultKey.fromTable(
+    db.cardio,
+    aliasName: 'interval_plans__id__cardio__interval_plan_id',
+  );
+
+  $$CardioTableProcessedTableManager get cardioRefs {
+    final manager = $$CardioTableTableManager(
+      $_db,
+      $_db.cardio,
+    ).filter((f) => f.intervalPlanId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_cardioRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$IntervalPlansTableFilterComposer
+    extends Composer<_$AppDb, $IntervalPlansTable> {
+  $$IntervalPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get structure => $composableBuilder(
+    column: $table.structure,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> cardioRefs(
+    Expression<bool> Function($$CardioTableFilterComposer f) f,
+  ) {
+    final $$CardioTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.cardio,
+      getReferencedColumn: (t) => t.intervalPlanId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTableFilterComposer(
+            $db: $db,
+            $table: $db.cardio,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$IntervalPlansTableOrderingComposer
+    extends Composer<_$AppDb, $IntervalPlansTable> {
+  $$IntervalPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dirty => $composableBuilder(
+    column: $table.dirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get structure => $composableBuilder(
+    column: $table.structure,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$IntervalPlansTableAnnotationComposer
+    extends Composer<_$AppDb, $IntervalPlansTable> {
+  $$IntervalPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get serverUpdatedAt => $composableBuilder(
+    column: $table.serverUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dirty =>
+      $composableBuilder(column: $table.dirty, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get structure =>
+      $composableBuilder(column: $table.structure, builder: (column) => column);
+
+  Expression<T> cardioRefs<T extends Object>(
+    Expression<T> Function($$CardioTableAnnotationComposer a) f,
+  ) {
+    final $$CardioTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.cardio,
+      getReferencedColumn: (t) => t.intervalPlanId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardioTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cardio,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$IntervalPlansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $IntervalPlansTable,
+          IntervalPlanRow,
+          $$IntervalPlansTableFilterComposer,
+          $$IntervalPlansTableOrderingComposer,
+          $$IntervalPlansTableAnnotationComposer,
+          $$IntervalPlansTableCreateCompanionBuilder,
+          $$IntervalPlansTableUpdateCompanionBuilder,
+          (IntervalPlanRow, $$IntervalPlansTableReferences),
+          IntervalPlanRow,
+          PrefetchHooks Function({bool cardioRefs})
+        > {
+  $$IntervalPlansTableTableManager(_$AppDb db, $IntervalPlansTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IntervalPlansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$IntervalPlansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$IntervalPlansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> structure = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => IntervalPlansCompanion(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                name: name,
+                structure: structure,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> userId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> serverUpdatedAt = const Value.absent(),
+                Value<int> dirty = const Value.absent(),
+                required String name,
+                required String structure,
+                Value<int> rowid = const Value.absent(),
+              }) => IntervalPlansCompanion.insert(
+                id: id,
+                userId: userId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                serverUpdatedAt: serverUpdatedAt,
+                dirty: dirty,
+                name: name,
+                structure: structure,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$IntervalPlansTable, IntervalPlanRow>(table),
+                  $$IntervalPlansTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({cardioRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (cardioRefs) db.cardio],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (cardioRefs)
+                    await $_getPrefetchedDataByColumns<
+                      IntervalPlanRow,
+                      $IntervalPlansTable,
+                      CardioData,
+                      $CardioTable
+                    >(
+                      currentTable: table,
+                      referencedTable: $$IntervalPlansTableReferences
+                          ._cardioRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$IntervalPlansTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).cardioRefs,
+                      currentColumn: 'id',
+                      referencedColumn: 'interval_plan_id',
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$IntervalPlansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $IntervalPlansTable,
+      IntervalPlanRow,
+      $$IntervalPlansTableFilterComposer,
+      $$IntervalPlansTableOrderingComposer,
+      $$IntervalPlansTableAnnotationComposer,
+      $$IntervalPlansTableCreateCompanionBuilder,
+      $$IntervalPlansTableUpdateCompanionBuilder,
+      (IntervalPlanRow, $$IntervalPlansTableReferences),
+      IntervalPlanRow,
+      PrefetchHooks Function({bool cardioRefs})
+    >;
 typedef $$CardioTableCreateCompanionBuilder =
     CardioCompanion Function({
       required String id,
@@ -15115,6 +16179,8 @@ typedef $$CardioTableCreateCompanionBuilder =
       Value<String?> shoeId,
       Value<List<String>> editedFields,
       Value<int?> steps,
+      Value<String?> intervalPlanId,
+      Value<String?> intervalPlan,
       Value<int> rowid,
     });
 typedef $$CardioTableUpdateCompanionBuilder =
@@ -15146,6 +16212,8 @@ typedef $$CardioTableUpdateCompanionBuilder =
       Value<String?> shoeId,
       Value<List<String>> editedFields,
       Value<int?> steps,
+      Value<String?> intervalPlanId,
+      Value<String?> intervalPlan,
       Value<int> rowid,
     });
 
@@ -15164,6 +16232,24 @@ final class $$CardioTableReferences
       $_db.shoes,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_shoeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $IntervalPlansTable _intervalPlanIdTable(_$AppDb db) => db
+      .intervalPlans
+      .createAlias('cardio__interval_plan_id__interval_plans__id');
+
+  $$IntervalPlansTableProcessedTableManager? get intervalPlanId {
+    final $_column = $_itemColumn<String>('interval_plan_id');
+    if ($_column == null) return null;
+    final manager = $$IntervalPlansTableTableManager(
+      $_db,
+      $_db.intervalPlans,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_intervalPlanIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -15328,6 +16414,11 @@ class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get intervalPlan => $composableBuilder(
+    column: $table.intervalPlan,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ShoesTableFilterComposer get shoeId {
     final $$ShoesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -15342,6 +16433,29 @@ class $$CardioTableFilterComposer extends Composer<_$AppDb, $CardioTable> {
           }) => $$ShoesTableFilterComposer(
             $db: $db,
             $table: $db.shoes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$IntervalPlansTableFilterComposer get intervalPlanId {
+    final $$IntervalPlansTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.intervalPlanId,
+      referencedTable: $db.intervalPlans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IntervalPlansTableFilterComposer(
+            $db: $db,
+            $table: $db.intervalPlans,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -15515,6 +16629,11 @@ class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get intervalPlan => $composableBuilder(
+    column: $table.intervalPlan,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ShoesTableOrderingComposer get shoeId {
     final $$ShoesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -15529,6 +16648,29 @@ class $$CardioTableOrderingComposer extends Composer<_$AppDb, $CardioTable> {
           }) => $$ShoesTableOrderingComposer(
             $db: $db,
             $table: $db.shoes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$IntervalPlansTableOrderingComposer get intervalPlanId {
+    final $$IntervalPlansTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.intervalPlanId,
+      referencedTable: $db.intervalPlans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IntervalPlansTableOrderingComposer(
+            $db: $db,
+            $table: $db.intervalPlans,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -15644,6 +16786,11 @@ class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
   GeneratedColumn<int> get steps =>
       $composableBuilder(column: $table.steps, builder: (column) => column);
 
+  GeneratedColumn<String> get intervalPlan => $composableBuilder(
+    column: $table.intervalPlan,
+    builder: (column) => column,
+  );
+
   $$ShoesTableAnnotationComposer get shoeId {
     final $$ShoesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -15658,6 +16805,29 @@ class $$CardioTableAnnotationComposer extends Composer<_$AppDb, $CardioTable> {
           }) => $$ShoesTableAnnotationComposer(
             $db: $db,
             $table: $db.shoes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$IntervalPlansTableAnnotationComposer get intervalPlanId {
+    final $$IntervalPlansTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.intervalPlanId,
+      referencedTable: $db.intervalPlans,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IntervalPlansTableAnnotationComposer(
+            $db: $db,
+            $table: $db.intervalPlans,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -15706,7 +16876,11 @@ class $$CardioTableTableManager
           $$CardioTableUpdateCompanionBuilder,
           (CardioData, $$CardioTableReferences),
           CardioData,
-          PrefetchHooks Function({bool shoeId, bool cardioTracksRefs})
+          PrefetchHooks Function({
+            bool shoeId,
+            bool intervalPlanId,
+            bool cardioTracksRefs,
+          })
         > {
   $$CardioTableTableManager(_$AppDb db, $CardioTable table)
     : super(
@@ -15748,6 +16922,8 @@ class $$CardioTableTableManager
                 Value<String?> shoeId = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
                 Value<int?> steps = const Value.absent(),
+                Value<String?> intervalPlanId = const Value.absent(),
+                Value<String?> intervalPlan = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion(
                 id: id,
@@ -15777,6 +16953,8 @@ class $$CardioTableTableManager
                 shoeId: shoeId,
                 editedFields: editedFields,
                 steps: steps,
+                intervalPlanId: intervalPlanId,
+                intervalPlan: intervalPlan,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -15808,6 +16986,8 @@ class $$CardioTableTableManager
                 Value<String?> shoeId = const Value.absent(),
                 Value<List<String>> editedFields = const Value.absent(),
                 Value<int?> steps = const Value.absent(),
+                Value<String?> intervalPlanId = const Value.absent(),
+                Value<String?> intervalPlan = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CardioCompanion.insert(
                 id: id,
@@ -15837,6 +17017,8 @@ class $$CardioTableTableManager
                 shoeId: shoeId,
                 editedFields: editedFields,
                 steps: steps,
+                intervalPlanId: intervalPlanId,
+                intervalPlan: intervalPlan,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -15847,67 +17029,88 @@ class $$CardioTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({shoeId = false, cardioTracksRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (cardioTracksRefs) db.cardioTracks],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (shoeId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.shoeId,
-                                referencedTable: $$CardioTableReferences
-                                    ._shoeIdTable(db),
-                                referencedColumn: $$CardioTableReferences
-                                    ._shoeIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
+          prefetchHooksCallback:
+              ({
+                shoeId = false,
+                intervalPlanId = false,
+                cardioTracksRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (cardioTracksRefs) db.cardioTracks,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (shoeId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.shoeId,
+                                    referencedTable: $$CardioTableReferences
+                                        ._shoeIdTable(db),
+                                    referencedColumn: $$CardioTableReferences
+                                        ._shoeIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (intervalPlanId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.intervalPlanId,
+                                    referencedTable: $$CardioTableReferences
+                                        ._intervalPlanIdTable(db),
+                                    referencedColumn: $$CardioTableReferences
+                                        ._intervalPlanIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
 
-                    return state;
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (cardioTracksRefs)
+                        await $_getPrefetchedDataByColumns<
+                          CardioData,
+                          $CardioTable,
+                          CardioTrack,
+                          $CardioTracksTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CardioTableReferences
+                              ._cardioTracksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CardioTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).cardioTracksRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'cardio_id',
+                          typedResults: items,
+                        ),
+                    ];
                   },
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (cardioTracksRefs)
-                    await $_getPrefetchedDataByColumns<
-                      CardioData,
-                      $CardioTable,
-                      CardioTrack,
-                      $CardioTracksTable
-                    >(
-                      currentTable: table,
-                      referencedTable: $$CardioTableReferences
-                          ._cardioTracksRefsTable(db),
-                      managerFromTypedResult: (p0) => $$CardioTableReferences(
-                        db,
-                        table,
-                        p0,
-                      ).cardioTracksRefs,
-                      currentColumn: 'id',
-                      referencedColumn: 'cardio_id',
-                      typedResults: items,
-                    ),
-                ];
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -15924,7 +17127,11 @@ typedef $$CardioTableProcessedTableManager =
       $$CardioTableUpdateCompanionBuilder,
       (CardioData, $$CardioTableReferences),
       CardioData,
-      PrefetchHooks Function({bool shoeId, bool cardioTracksRefs})
+      PrefetchHooks Function({
+        bool shoeId,
+        bool intervalPlanId,
+        bool cardioTracksRefs,
+      })
     >;
 typedef $$CardioTracksTableCreateCompanionBuilder =
     CardioTracksCompanion Function({
@@ -17702,6 +18909,8 @@ class $AppDbManager {
       $$WorkoutSetsTableTableManager(_db, _db.workoutSets);
   $$ShoesTableTableManager get shoes =>
       $$ShoesTableTableManager(_db, _db.shoes);
+  $$IntervalPlansTableTableManager get intervalPlans =>
+      $$IntervalPlansTableTableManager(_db, _db.intervalPlans);
   $$CardioTableTableManager get cardio =>
       $$CardioTableTableManager(_db, _db.cardio);
   $$CardioTracksTableTableManager get cardioTracks =>

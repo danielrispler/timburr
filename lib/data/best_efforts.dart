@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import 'db.dart';
+import 'cardio.dart' show cardioTypes;
 import 'run_analysis.dart' show timedIndices;
 import 'track.dart';
 
@@ -117,14 +118,14 @@ List<Effort> topEfforts(Iterable<Effort> all, int distanceM, {int n = 5}) =>
 Effort? prAt(Iterable<Effort> all, int distanceM) => topEfforts(all, distanceM, n: 1).firstOrNull;
 
 extension BestEffortCache on AppDb {
-  /// Recomputes the cached Best efforts of the Runs [ids] (every Run when null) from their tracks. Only live outdoor Runs count; a Treadmill run, a deleted Run or a missing track leaves none.
+  /// Recomputes the cached Best efforts of the Runs [ids] (every Run when null) from their tracks. Only live Runs count; a deleted Run or a missing track leaves none.
   Future<void> rebuildBestEfforts([Iterable<String>? ids]) => transaction(() async {
         final wanted = ids?.toSet();
         if (wanted != null && wanted.isEmpty) return;
         final stale = delete(bestEfforts);
         if (wanted != null) stale.where((b) => b.cardioId.isIn(wanted));
         await stale.go();
-        final runs = select(cardio)..where((c) => c.deletedAt.isNull() & c.type.equals('run'));
+        final runs = select(cardio)..where((c) => c.deletedAt.isNull() & c.type.isIn(cardioTypes));
         if (wanted != null) runs.where((c) => c.id.isIn(wanted));
         for (final run in await runs.get()) {
           final row = await liveTrackRow(run.id).getSingleOrNull();

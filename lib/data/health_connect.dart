@@ -50,7 +50,7 @@ class HcSession {
   final List<DateTime> hrTimes; // heart-rate samples, paired with [hrBpm]
   final List<int> hrBpm;
 
-  bool get isRun => exerciseType == hcRunning || exerciseType == hcTreadmill;
+  bool get isRun => exerciseType == hcRunning; // a treadmill session is not a Run: Daniel runs only outside
   int get elapsedSec => end.difference(start).inSeconds;
 
   /// The session's heart-rate samples inside its time range, in order.
@@ -84,7 +84,7 @@ Recording? runRecording(HcSession s) {
   final km = s.distanceM == null || s.distanceM! <= 0 ? null : roundTo(s.distanceM! / 1000, 3);
   return Recording(
     source: 'health_connect',
-    type: s.exerciseType == hcTreadmill ? 'treadmill' : 'run',
+    type: 'run',
     start: s.start,
     elapsedSec: s.elapsedSec,
     externalId: s.id,

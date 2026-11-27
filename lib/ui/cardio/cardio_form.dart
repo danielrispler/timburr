@@ -30,9 +30,6 @@ class _CardioFormState extends State<CardioForm> {
   late final _km = TextEditingController(text: c?.distanceKm == null ? '' : _num(roundTo(c!.distanceKm!, 3)));
   late final _dur = TextEditingController(text: switch (c?.durationSec ?? widget.durationSec) { final s? => formatDuration(s), null => '' });
   late final _hr = TextEditingController(text: c?.avgHr?.toString() ?? '');
-  late final _incline = TextEditingController(text: c?.inclinePct == null ? '' : _num(c!.inclinePct!));
-  late final _steps = TextEditingController(text: c?.steps?.toString() ?? '');
-  late final _calories = TextEditingController(text: c?.calories?.toString() ?? '');
   late final _rpe = TextEditingController(text: c?.rpe?.toString() ?? '');
   late final _notes = TextEditingController(text: c?.notes ?? '');
   late final _title = TextEditingController(text: c?.title ?? '');
@@ -43,7 +40,7 @@ class _CardioFormState extends State<CardioForm> {
 
   @override
   void dispose() {
-    for (final t in [_km, _dur, _hr, _incline, _steps, _calories, _rpe, _notes, _title]) {
+    for (final t in [_km, _dur, _hr, _rpe, _notes, _title]) {
       t.dispose();
     }
     super.dispose();
@@ -70,9 +67,7 @@ class _CardioFormState extends State<CardioForm> {
   }
 
   Future<void> _save() async {
-    final errors = validateCardio(
-        type: _type, distance: _km.text, duration: _dur.text, avgHr: _hr.text, incline: _type == 'treadmill' ? _incline.text : '', rpe: _rpe.text,
-        steps: _type == 'treadmill' ? _steps.text : '', calories: _type == 'treadmill' ? _calories.text : '');
+    final errors = validateCardio(type: _type, distance: _km.text, duration: _dur.text, avgHr: _hr.text, rpe: _rpe.text);
     final elapsed = _end.difference(_at).inSeconds;
     if (c != null && elapsed <= 0) errors['elapsed'] = 'End must be after the start';
     setState(() => _errors = errors);
@@ -91,9 +86,6 @@ class _CardioFormState extends State<CardioForm> {
       diff('duration_sec', parseDuration(_dur.text), old.durationSec);
       diff('elapsed_sec', elapsed, old.elapsedSec ?? old.durationSec);
       diff('avg_hr', opt(_hr) == null ? null : int.parse(opt(_hr)!), old.avgHr);
-      diff('incline_pct', _type != 'treadmill' || opt(_incline) == null ? null : parseNum(_incline.text), old.inclinePct);
-      diff('steps', _type != 'treadmill' || opt(_steps) == null ? null : int.parse(opt(_steps)!), old.steps);
-      diff('calories', _type != 'treadmill' || opt(_calories) == null ? null : int.parse(opt(_calories)!), old.calories);
       diff('rpe', opt(_rpe) == null ? null : int.parse(opt(_rpe)!), old.rpe);
       diff('title', opt(_title), old.title);
       diff('notes', opt(_notes), old.notes);
@@ -108,7 +100,6 @@ class _CardioFormState extends State<CardioForm> {
       distanceKm: parseNum(_km.text),
       durationSec: parseDuration(_dur.text)!,
       avgHr: opt(_hr) == null ? null : int.parse(opt(_hr)!),
-      inclinePct: _type != 'treadmill' || opt(_incline) == null ? null : parseNum(_incline.text),
       rpe: opt(_rpe) == null ? null : int.parse(opt(_rpe)!),
       notes: opt(_notes),
     );
@@ -198,7 +189,7 @@ class _CardioFormState extends State<CardioForm> {
                         onTap: _pickEnd,
                       )),
                 ),
-              if (c != null) _field('title', _title, 'Title', keyboard: TextInputType.text, hint: runTitle(_at, treadmill: _type == 'treadmill')),
+              if (c != null) _field('title', _title, 'Title', keyboard: TextInputType.text, hint: runTitle(_at, interval: _type == 'interval')),
               _field('distance', _km, 'Distance (km)'),
               _field('duration', _dur, c == null ? 'Duration' : 'Moving time', keyboard: TextInputType.datetime, hint: 'mm:ss or h:mm:ss'),
               Padding(
@@ -206,11 +197,6 @@ class _CardioFormState extends State<CardioForm> {
                 child: Text(pace == null ? 'Pace: -' : 'Pace: ${formatPace(pace)} min/km', style: Theme.of(context).textTheme.titleMedium),
               ),
               _field('avgHr', _hr, 'Average HR (optional)', keyboard: TextInputType.number),
-              if (_type == 'treadmill') _field('incline', _incline, 'Incline % (optional)'),
-              if (_type == 'treadmill' && c != null) ...[
-                _field('steps', _steps, 'Steps (optional)', keyboard: TextInputType.number),
-                _field('calories', _calories, 'Calories (optional)', keyboard: TextInputType.number),
-              ],
               _field('rpe', _rpe, 'RPE 1-10 (optional)', keyboard: TextInputType.number),
               _field('notes', _notes, 'Notes (optional)', keyboard: TextInputType.multiline),
             ],
