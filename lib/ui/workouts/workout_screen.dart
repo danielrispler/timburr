@@ -286,9 +286,10 @@ class _GroupCardState extends State<_GroupCard> {
     if (ok == true) await widget.store.remove(e.id);
   }
 
-  /// Lists [e]'s alternatives with their last session; picking one swaps to it.
+  /// Lists [e]'s alternatives with their last session, then any other exercise from the picker; picking one swaps to it.
   Future<void> _pickAlternative(WorkoutExercise e) async {
-    final id = await showModalBottomSheet<String>(
+    const other = ''; // "Choose another exercise…"
+    var id = e.alternativeIds.isEmpty ? other : await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -307,10 +308,29 @@ class _GroupCardState extends State<_GroupCard> {
               ),
               onTap: () => Navigator.pop(context, id),
             ),
+          ListTile(
+            leading: const Icon(Icons.search),
+            title: const Text('Choose another exercise…'),
+            onTap: () => Navigator.pop(context, other),
+          ),
         ]),
       ),
     );
-    if (id != null) await widget.store.swap(e, id);
+    if (id == other && mounted) {
+      final picked = await Navigator.of(context).push<CatalogEntry>(MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('Swap to')),
+          body: ExercisePicker(
+            catalog: widget.catalog,
+            onSelected: (x) => Navigator.of(context).pop(x),
+            onCreate: () => Navigator.of(context)
+                .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
+          ),
+        ),
+      ));
+      id = picked == null ? null : await widget.catalog.rowIdFor(picked);
+    }
+    if (id != null && id != e.exerciseId) await widget.store.swap(e, id);
   }
 
   Widget _header(int i, WorkoutExercise e) {
@@ -334,10 +354,10 @@ class _GroupCardState extends State<_GroupCard> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (e.alternativeIds.isNotEmpty && !e.skipped)
+              if (!e.skipped)
                 IconButton(
                   icon: const Icon(Icons.swap_horiz),
-                  tooltip: 'Swap to an alternative',
+                  tooltip: 'Swap exercise',
                   onPressed: () => _pickAlternative(e),
                 ),
               // One menu instead of three icons, so long names keep their width.

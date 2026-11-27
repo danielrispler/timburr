@@ -80,16 +80,17 @@ class RoutineStore {
           final id = await Catalog(_db).rowIdFor(x);
           if (id != e.exerciseId && !ids.contains(id)) ids.add(id);
         }
-        await _saveAlternatives(e, ids);
+        await saveAlternatives(e, ids);
       });
 
   /// Drops exercise [exerciseId] from the alternatives of routine exercise [routineExerciseId].
   Future<void> removeAlternative(String routineExerciseId, String exerciseId) => _db.transaction(() async {
         final e = await (_db.select(_db.routineExercises)..where((e) => e.id.equals(routineExerciseId))).getSingle();
-        await _saveAlternatives(e, [...e.alternativeIds]..remove(exerciseId));
+        await saveAlternatives(e, [...e.alternativeIds]..remove(exerciseId));
       });
 
-  Future<void> _saveAlternatives(RoutineExercise e, List<String> ids) => _db.save(_db.routineExercises, {
+  /// Replaces the alternatives of routine exercise [e] with [ids].
+  Future<void> saveAlternatives(RoutineExercise e, List<String> ids) => _db.save(_db.routineExercises, {
         'id': e.id,
         'routine_id': e.routineId,
         'exercise_id': e.exerciseId,
