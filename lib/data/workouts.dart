@@ -66,7 +66,20 @@ List<SupersetRow> supersetRows(List<List<WorkoutSet>> perExercise) {
 enum SetField { weightKg, reps, durationSec }
 
 /// A routine slot as done in a workout: the exercise done first, every exercise the slot holds (that one included) and the sets.
-typedef _Slot = ({String exerciseId, Set<String> ids, List<PlannedSet> sets});
+typedef _Slot = ({String exerciseId, Set<String> exerciseIds, List<PlannedSet> sets});
+
+/// Every exercise card [e] can be: its exercise and its alternatives.
+Set<String> _exercisesOf(WorkoutExercise e) => {e.exerciseId, ...e.alternativeIds};
+
+/// True when neighbour cards [a] and [b] are one routine slot, split by [WorkoutStore.swap]: different exercises of the same slot.
+/// The same exercise twice in a row is two slots.
+bool _split(WorkoutExercise a, WorkoutExercise b) {
+  final x = _exercisesOf(a), y = _exercisesOf(b);
+  return a.exerciseId != b.exerciseId && x.length == y.length && x.containsAll(y);
+}
+
+/// Whether card [i] links to the next one; the last card's link is ignored.
+bool _linked(List<WorkoutExercise> items, int i) => items[i].supersetWithNext && i < items.length - 1;
 
 class WorkoutStore {
   WorkoutStore(this._db, {this.onFinished});
@@ -121,7 +134,7 @@ class WorkoutStore {
     return a.length != b.length ||
         [
           for (final (i, x) in a.indexed)
-            !b[i].ids.contains(x.exerciseId) ||
+            !b[i].exerciseIds.contains(x.exerciseId) ||
                 x.sets.length != b[i].sets.length ||
                 [for (final (j, s) in x.sets.indexed) !same(s, b[i].sets[j])].any((d) => d)
         ].any((d) => d);
@@ -132,47 +145,49 @@ class WorkoutStore {
   Future<void> updateTemplate(String workoutId) async {
     final routineId = (await watchWorkout(workoutId).first).routineId;
     if (routineId == null) return;
-    final slots = await _slots(workoutId);
-    final match = _match(await RoutineStore(_db).plan(routineId), (r) => r.exerciseId, slots);
-    await RoutineStore(_db).replacePlan(routineId, [
-      for (final (i, slot) in slots.indexed)
-        (
-          exerciseId: match[i]?.exerciseId ?? slot.exerciseId,
-          alternativeIds: _alternatives(match[i]?.exerciseId ?? slot.exerciseId, match[i]?.alternativeIds ?? const [], slot),
-          sets: [for (final s in slot.sets) (weightKg: null, reps: s.reps, durationSec: s.durationSec)],
-        ),
-    ]);
+    final routines = RoutineStore(_db), slots = await _slots(workoutId);
+    final match = _match(await routines.watchExercises(routineId).first, slots);
+    final Plan plan = [];
+    for (final (i, slot) in slots.indexed) {
+      final defaultId = match[i]?.exerciseId ?? slot.exerciseId;
+      plan.add((
+        exerciseId: defaultId,
+        alternativeIds: _alternatives(defaultId, match[i]?.alternativeIds ?? const [], slot),
+        sets: [for (final s in slot.sets) (weightKg: null, reps: s.reps, durationSec: s.durationSec)],
+      ));
+    }
+    await routines.replacePlan(routineId, plan);
   }
 
   /// The routine slot each of [slots] came from: the first unused one whose default it holds, or null for an exercise added in the workout.
-  List<T?> _match<T>(List<T> routine, String Function(T) main, List<_Slot> slots) {
+  List<RoutineExercise?> _match(List<RoutineExercise> routine, List<_Slot> slots) {
     final unused = [...routine];
     return [
       for (final slot in slots)
-        if (unused.indexWhere((r) => slot.ids.contains(main(r))) case final k when k >= 0) unused.removeAt(k) else null
+        if (unused.indexWhere((r) => slot.exerciseIds.contains(r.exerciseId)) case final k when k >= 0) unused.removeAt(k) else null
     ];
   }
 
-  /// The alternatives of a slot with default [main]: the routine's [alternatives] first, then the exercises [slot] gained in the workout.
-  List<String> _alternatives(String main, List<String> alternatives, _Slot slot) =>
-      {...alternatives, ...slot.ids}.where((id) => id != main).toList();
+  /// The alternatives of a slot with default [defaultId]: the routine's [alternatives] first, then the exercises [slot] gained in the workout.
+  List<String> _alternatives(String defaultId, List<String> alternatives, _Slot slot) =>
+      {...alternatives, ...slot.exerciseIds}.where((id) => id != defaultId).toList();
 
   Future<bool> _routineLive(String id) async =>
       await (_db.select(_db.routines)..where((r) => r.id.equals(id) & r.deletedAt.isNull())).getSingleOrNull() != null;
 
-  /// The workout's cards as routine slots. A card split by [swap] is one slot again: next to each other, the two hold the same exercises.
+  /// The workout's cards as routine slots: cards split by [swap] are one slot again.
   Future<List<_Slot>> _slots(String workoutId) async {
     final slots = <_Slot>[];
-    for (final e in await watchExercises(workoutId).first) {
-      final ids = {e.exerciseId, ...e.alternativeIds};
+    final items = await watchExercises(workoutId).first;
+    for (final (i, e) in items.indexed) {
       final sets = [
         for (final s in await watchSets(e.id).first)
           if (!s.isDrop) (weightKg: s.weightKg, reps: s.reps, durationSec: s.durationSec)
       ];
-      if (slots.isNotEmpty && slots.last.ids.length == ids.length && slots.last.ids.containsAll(ids)) {
+      if (i > 0 && _split(items[i - 1], e)) {
         slots.last.sets.addAll(sets);
       } else {
-        slots.add((exerciseId: e.exerciseId, ids: ids, sets: sets));
+        slots.add((exerciseId: e.exerciseId, exerciseIds: _exercisesOf(e), sets: sets));
       }
     }
     return slots;
@@ -236,7 +251,7 @@ class WorkoutStore {
       final routineId = (await watchWorkout(id).first).routineId;
       if (routineId == null) return;
       final routines = RoutineStore(_db), slots = await _slots(id);
-      for (final (i, r) in _match(await routines.watchExercises(routineId).first, (r) => r.exerciseId, slots).indexed) {
+      for (final (i, r) in _match(await routines.watchExercises(routineId).first, slots).indexed) {
         if (r == null) continue;
         final ids = _alternatives(r.exerciseId, r.alternativeIds, slots[i]);
         if (ids.length != r.alternativeIds.length) await routines.saveAlternatives(r, ids);
@@ -330,7 +345,7 @@ class WorkoutStore {
         final items = [...await watchExercises(row.workoutId).first];
         await change(items, items.indexWhere((e) => e.id == id));
         for (final (i, e) in items.indexed) {
-          final link = e.supersetWithNext && i < items.length - 1; // the last card links to nothing
+          final link = _linked(items, i);
           if (e.position != i || e.supersetWithNext != link) {
             await saveExercise(e.copyWith(position: i, supersetWithNext: link));
           }
@@ -350,37 +365,50 @@ class WorkoutStore {
         'deleted_at': e.deletedAt,
       });
 
-  /// Swaps workout exercise [e] to [exerciseId], one of its alternatives or any other exercise; [e]'s exercise becomes an alternative.
-  /// Sets already done stay with the exercise done: the rest move to a new card for [exerciseId] right below, in the same superset.
+  /// Swaps workout exercise [e] to [exerciseId], one of its alternatives or any other exercise; [e]'s exercise becomes an alternative,
+  /// and every card of its slot holds [exerciseId] too. In a workout under way, sets already done stay with the exercise done: the rest
+  /// move to a new card for [exerciseId] right below, in the same superset. A finished workout's card is relabelled whole.
   /// Sets not done yet take the new exercise's weights from last time.
   Future<void> swap(WorkoutExercise e, String exerciseId) => _db.transaction(() async {
-        final slot = [e.exerciseId, ...e.alternativeIds]..remove(exerciseId);
+        final items = [...await watchExercises(e.workoutId).first], before = [...items];
+        final i = items.indexWhere((x) => x.id == e.id);
+        final old = items[i], slot = [old.exerciseId, ...old.alternativeIds]..remove(exerciseId);
+        // The cards of the slot: this one and those split from it.
+        var from = i, to = i;
+        while (from > 0 && _split(items[from - 1], items[from])) {
+          from--;
+        }
+        while (to < items.length - 1 && _split(items[to], items[to + 1])) {
+          to++;
+        }
+        for (var j = from; j <= to; j++) {
+          if (!_exercisesOf(items[j]).contains(exerciseId)) {
+            items[j] = items[j].copyWith(alternativeIds: [...items[j].alternativeIds, exerciseId]);
+          }
+        }
         // A set moves with the drop sets after it.
-        final units = (await watchSets(e.id).first)
+        final units = (await watchSets(old.id).first)
             .fold(<List<WorkoutSet>>[], (r, s) => r..add(s.isDrop && r.isNotEmpty ? (r.removeLast()..add(s)) : [s]));
         final done = [for (final u in units) if (u.first.done) ...u], rest = [for (final u in units) if (!u.first.done) ...u];
-        var id = e.id;
-        if (done.isEmpty) {
-          await saveExercise(e.copyWith(exerciseId: exerciseId, alternativeIds: slot));
+        final finished = (await watchWorkout(old.workoutId).first).finishedAt != null;
+        var id = old.id;
+        if (done.isEmpty || finished) {
+          items[i] = items[i].copyWith(exerciseId: exerciseId, alternativeIds: slot);
         } else {
-          final items = await watchExercises(e.workoutId).first;
-          final i = items.indexWhere((x) => x.id == e.id);
-          final link = e.supersetWithNext && i < items.length - 1; // the last card's link is ignored
-          for (final x in items.skip(i + 1)) {
-            await saveExercise(x.copyWith(position: x.position + 1));
+          final link = _linked(items, i);
+          items[i] = items[i].copyWith(supersetWithNext: link || i > 0 && items[i - 1].supersetWithNext);
+          for (var j = i + 1; j < items.length; j++) {
+            items[j] = items[j].copyWith(position: j + 1);
           }
           id = _uuid.v4();
           await _db.save(_db.workoutExercises, {
             'id': id,
-            'workout_id': e.workoutId,
+            'workout_id': old.workoutId,
             'exercise_id': exerciseId,
             'alternative_ids': slot,
-            'position': e.position + 1,
+            'position': i + 1,
             'superset_with_next': link,
           });
-          await saveExercise(e.copyWith(
-              alternativeIds: e.alternativeIds.contains(exerciseId) ? e.alternativeIds : [...e.alternativeIds, exerciseId],
-              supersetWithNext: link || i > 0 && items[i - 1].supersetWithNext));
           for (final (n, s) in done.indexed) {
             if (s.setNumber != n + 1) await updateSet(s.copyWith(setNumber: n + 1));
           }
@@ -388,7 +416,10 @@ class WorkoutStore {
             await updateSet(s.copyWith(workoutExerciseId: id, setNumber: n + 1));
           }
         }
-        final last = (await lastTime(exerciseId, excludeWorkoutId: e.workoutId)).where((s) => !s.isDrop).toList();
+        for (final (j, x) in items.indexed) {
+          if (!identical(x, before[j])) await saveExercise(x);
+        }
+        final last = (await lastTime(exerciseId, excludeWorkoutId: old.workoutId)).where((s) => !s.isDrop).toList();
         if (last.isEmpty) return;
         for (final (n, s) in (await watchSets(id).first).where((s) => !s.isDrop).indexed) {
           if (!s.done) await updateSet(s.copyWith(weightKg: Value((n < last.length ? last[n] : last.last).weightKg)));

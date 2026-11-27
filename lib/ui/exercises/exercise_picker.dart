@@ -7,6 +7,21 @@ import '../core/theme.dart';
 import 'exercise_detail.dart';
 import 'exercise_image.dart';
 
+/// Pushes the picker as a page titled [title] and returns what was picked: one entry, or with [multi] the ticked ones.
+/// Null when backed out.
+Future<List<CatalogEntry>?> pickExercises(BuildContext context, Catalog catalog, {required String title, bool multi = true}) =>
+    Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
+      builder: (context) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: ExercisePicker(
+          catalog: catalog,
+          onSelected: (e) => Navigator.of(context).pop([e]),
+          onCreate: () => Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: catalog))),
+          onAdd: multi ? (list) => Navigator.of(context).pop(list) : null,
+        ),
+      ),
+    ));
+
 /// Search plus muscle and equipment filters over the catalog. Reused by later tickets to pick an exercise.
 class ExercisePicker extends StatefulWidget {
   const ExercisePicker({super.key, required this.catalog, required this.onSelected, this.onCreate, this.onAdd});

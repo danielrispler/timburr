@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/routines.dart';
@@ -97,18 +96,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
   }
 
   Future<void> _addExercises() async {
-    final picked = await Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
-      builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Add exercises')),
-        body: ExercisePicker(
-          catalog: widget.stores.catalog,
-          onSelected: (e) => Navigator.of(context).pop([e]),
-          onCreate: () => Navigator.of(context)
-              .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.stores.catalog))),
-          onAdd: (list) => Navigator.of(context).pop(list),
-        ),
-      ),
-    ));
+    final picked = await pickExercises(context, widget.stores.catalog, title: 'Add exercises');
     for (final e in picked ?? const <CatalogEntry>[]) {
       await _store.add(widget.routineId, e);
     }
@@ -143,18 +131,7 @@ class _RoutineEditorState extends State<RoutineEditor> {
       );
 
   Future<void> _addAlternatives(String routineExerciseId) async {
-    final picked = await Navigator.of(context).push<List<CatalogEntry>>(MaterialPageRoute(
-      builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Add alternatives')),
-        body: ExercisePicker(
-          catalog: widget.stores.catalog,
-          onSelected: (x) => Navigator.of(context).pop([x]),
-          onCreate: () => Navigator.of(context)
-              .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.stores.catalog))),
-          onAdd: (list) => Navigator.of(context).pop(list),
-        ),
-      ),
-    ));
+    final picked = await pickExercises(context, widget.stores.catalog, title: 'Add alternatives');
     if (picked == null) return;
     await _store.addAlternatives(routineExerciseId, picked);
     await _loadNames();

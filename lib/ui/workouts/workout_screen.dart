@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
-import '../exercises/exercise_detail.dart' show CustomExerciseForm;
 import '../../data/catalog.dart';
 import '../../data/db.dart';
 import '../../data/records.dart';
@@ -43,20 +42,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _addExercise() async {
-    final picked = await Navigator.of(context).push<List<CatalogEntry>>(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(title: const Text('Add exercises')),
-          body: ExercisePicker(
-            catalog: widget.catalog,
-            onSelected: (e) => Navigator.of(context).pop([e]),
-            onCreate: () => Navigator.of(context)
-                .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
-            onAdd: (list) => Navigator.of(context).pop(list),
-          ),
-        ),
-      ),
-    );
+    final picked = await pickExercises(context, widget.catalog, title: 'Add exercises');
     for (final e in picked ?? const <CatalogEntry>[]) {
       await widget.store.addExercise(widget.workoutId, e);
     }
@@ -317,18 +303,8 @@ class _GroupCardState extends State<_GroupCard> {
       ),
     );
     if (id == other && mounted) {
-      final picked = await Navigator.of(context).push<CatalogEntry>(MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(title: const Text('Swap to')),
-          body: ExercisePicker(
-            catalog: widget.catalog,
-            onSelected: (x) => Navigator.of(context).pop(x),
-            onCreate: () => Navigator.of(context)
-                .push<void>(MaterialPageRoute(builder: (_) => CustomExerciseForm(catalog: widget.catalog))),
-          ),
-        ),
-      ));
-      id = picked == null ? null : await widget.catalog.rowIdFor(picked);
+      final picked = await pickExercises(context, widget.catalog, title: 'Swap to', multi: false);
+      id = picked == null ? null : await widget.catalog.rowIdFor(picked.single);
     }
     if (id != null && id != e.exerciseId) await widget.store.swap(e, id);
   }
