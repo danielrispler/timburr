@@ -1,9 +1,9 @@
 import 'dart:math';
 
 import 'hr_zones.dart';
+import 'intervals.dart';
 import 'recording.dart';
 import 'run_analysis.dart';
-import 'treadmill.dart';
 import 'track.dart';
 
 /// One fix from the phone's location sensor.
@@ -36,20 +36,60 @@ class KmCue {
 
 /// What the voice says at a km boundary.
 String kmCueText(KmCue c) {
-  final t = c.splitSec.round(), p = c.paceSecPerKm.round();
+  final t = c.splitSec.round();
   final mins = t ~/ 60, secs = t % 60;
-  return 'Kilometer ${c.km}. Time ${mins > 0 ? '$mins minute${mins == 1 ? '' : 's'} ' : ''}$secs second${secs == 1 ? '' : 's'}. Pace ${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer.';
+  return 'Kilometer ${c.km}. Time ${mins > 0 ? '$mins minute${mins == 1 ? '' : 's'} ' : ''}$secs second${secs == 1 ? '' : 's'}. ${_spokenPace(c.paceSecPerKm)}.';
+}
+
+String _spokenPace(double secPerKm) {
+  final p = secPerKm.round();
+  return 'Pace ${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer';
+}
+
+/// "1 minute 40 seconds", "1 minute", "30 seconds".
+String _spokenTime(int sec) {
+  String unit(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+  final mins = sec ~/ 60, secs = sec % 60;
+  if (mins == 0) return unit(secs, 'second');
+  return secs == 0 ? unit(mins, 'minute') : '${unit(mins, 'minute')} ${unit(secs, 'second')}';
+}
+
+/// "400 meters", "1 kilometer", "1.5 kilometers", or a time.
+String _spokenTarget(StepTarget t) {
+  if (t.isTime) return _spokenTime(t.seconds!);
+  final m = t.meters!;
+  if (m < 1000) return '$m meters';
+  final km = m / 1000;
+  return '${km == km.roundToDouble() ? km.toInt() : km} kilometer${km == 1 ? '' : 's'}';
+}
+
+/// Something an Interval run says: words, or (with no [text]) a beep of the countdown that ends a time step.
+class VoiceCue {
+  const VoiceCue(String this.text);
+  const VoiceCue.beep() : text = null;
+  final String? text;
+}
+
+/// The step an Interval run is in, for the recording screen. [reps] is null on a free Interval run; what is left is null on a step with no target.
+class IntervalSnapshot {
+  const IntervalSnapshot({required this.kind, this.rep, this.reps, required this.stepSec, required this.stepMeters, this.secondsLeft, this.metersLeft, required this.planDone});
+  final StepKind kind;
+  final int? rep, reps;
+  final int stepSec;
+  final double stepMeters;
+  final int? secondsLeft;
+  final double? metersLeft;
+  final bool planDone;
 }
 
 /// The kinds of [RecorderEvent]. The strings are what the autosave stores, so they must not change.
 class EventKind {
-  static const start = 'start', position = 'position', tick = 'tick', pause = 'pause', resume = 'resume', lap = 'lap', hr = 'hr';
+  static const start = 'start', position = 'position', pause = 'pause', resume = 'resume', lap = 'lap', hr = 'hr', next = 'next';
 }
 
 /// An input the recorder was given. The log of these is what gets saved while recording: replaying it rebuilds the recorder exactly.
-/// Kinds ([EventKind]): `start` (type, id, pace), `position`, `pause`, `resume`, `lap`, `hr` (bpm), `tick` (treadmill only: time passing, so a killed recording keeps
-/// its time). An autosave from an older build may hold `steps` events (the phone's step counter); replay ignores them, and a `start` with `stride` but no `pace`
-/// gets the default pace.
+/// Kinds ([EventKind]): `start` (type, id, and an Interval run's plan and planId), `next` (Next or Switch on an Interval run), `position`, `pause`, `resume`, `lap`, `hr` (bpm). Replay ignores kinds it does not know, such as the `steps`
+/// and `tick` events of older builds.
 class RecorderEvent {
   const RecorderEvent(this.kind, this.at, [this.data = const {}]);
 
@@ -76,6 +116,7 @@ class RunSnapshot {
     this.avgPaceSecPerKm,
     this.hr,
     this.hrZone,
+    this.interval,
   });
 
   final int elapsedSec; // clock time since the start, pauses included
@@ -86,6 +127,7 @@ class RunSnapshot {
   final GpsSignal gps;
   final double? currentPaceSecPerKm, avgPaceSecPerKm;
   final int? hr, hrZone; // live beats per minute and its zone (1-5); null when the band is silent
+  final IntervalSnapshot? interval; // an Interval run's current step
 }
 
 /// A heart-rate reading stands for this long; after it the point or the display has a gap.
@@ -94,20 +136,21 @@ const hrStaleSec = 10;
 /// The live recording as a pure state machine: fixes and button presses in, a [Recording] out. It never reads a clock; every input carries its time,
 /// so tests drive it with fake streams. The platform (GPS, foreground service, autosave) lives in `LiveRecorder`.
 class Recorder {
-  Recorder._(this.type, this.start, this.sessionId, this.paceSecPerKm);
+  Recorder._(this.type, this.start, this.sessionId, this.plan, this.planId);
 
-  /// A new recording of [type] ('run' or 'treadmill') starting at [at]. [sessionId] becomes the Recording's external id.
-  /// A treadmill recording estimates distance as Moving time divided by [paceSecPerKm] (Daniel's usual treadmill pace; the default when null) and ignores GPS.
-  factory Recorder.start(String type, DateTime at, String sessionId, {double? paceSecPerKm}) {
-    final r = Recorder._(type, at, sessionId, paceSecPerKm ?? defaultTreadmillPaceSecPerKm);
-    r._log(RecorderEvent(EventKind.start, at, {'type': type, 'id': sessionId, 'pace': r.paceSecPerKm}));
+  /// A new recording of [type] ('run' or 'interval') starting at [at]. [sessionId] becomes the Recording's external id.
+  /// An Interval run follows [plan] (saved as [planId]); without one it is a free Interval run, switched by hand.
+  factory Recorder.start(String type, DateTime at, String sessionId, {IntervalPlan? plan, String? planId}) {
+    final r = Recorder._(type, at, sessionId, plan, planId);
+    r._log(RecorderEvent(EventKind.start, at, {'type': type, 'id': sessionId, if (plan != null) 'plan': plan.toJson(), 'planId': ?planId}));
     return r;
   }
 
   /// Rebuilds a recorder from its saved [events] (the first is `start`).
   factory Recorder.replay(List<RecorderEvent> events) {
     final first = events.first;
-    final r = Recorder._(first.data['type'] as String, first.at, first.data['id'] as String, (first.data['pace'] as num?)?.toDouble() ?? defaultTreadmillPaceSecPerKm);
+    final plan = first.data['plan'] as Map?;
+    final r = Recorder._(first.data['type'] as String, first.at, first.data['id'] as String, plan == null ? null : IntervalPlan.fromJson(plan.cast()), first.data['planId'] as String?);
     for (final e in events) {
       r._log(e);
     }
@@ -117,7 +160,8 @@ class Recorder {
   final String type;
   final DateTime start;
   final String sessionId;
-  final double paceSecPerKm; // treadmill: the usual pace the distance estimate uses
+  final IntervalPlan? plan; // an Interval run's plan, null for a free one and for a Run
+  final String? planId;
   final List<RecorderEvent> events = [];
 
   // Track columns of the accepted fixes.
@@ -135,8 +179,35 @@ class Recorder {
   final _kmCues = <KmCue>[];
   double _lastKmMoving = 0; // Moving time at the last km mark
 
+  // Interval run: the steps done and the one in progress.
+  final _marks = <StepMark>[];
+  final _voice = <VoiceCue>[];
+  StepKind _stepKind = StepKind.warmup;
+  StepTarget? _stepTarget; // null: the step lasts until Next (free) or Finish (after the plan)
+  int? _stepRep;
+  int _stepIndex = 0; // planned: the step's index in plan.steps
+  int _freeReps = 0;
+  DateTime _stepAt = DateTime.utc(0);
+  double _stepDist = 0, _stepPausedBase = 0;
+  int _beeps = 0;
+  bool _planDone = false;
+
   bool get paused => _pausedAt != null;
-  bool get isTreadmill => type == 'treadmill';
+  bool get isInterval => type == 'interval';
+
+  /// What an Interval run has said so far, in order. A new one appearing is the moment to speak (or beep).
+  List<VoiceCue> get voiceCues => List.unmodifiable(_voice);
+
+  /// Next (planned) or Switch (free): ends the current step now and starts the next. Ignored while paused, on a Run, and once the plan is done.
+  void next(DateTime at) {
+    if (!isInterval || paused || _planDone) return;
+    _log(RecorderEvent(EventKind.next, at));
+  }
+
+  /// The clock passing on an Interval run: ends a time step even when no fix comes. Not saved; replay reaches the same steps from the next event.
+  void tick(DateTime at) {
+    if (isInterval && !paused) _advance(at);
+  }
 
   /// Lap marks, seconds from the start.
   List<int> get laps => List.unmodifiable(_laps);
@@ -154,7 +225,7 @@ class Recorder {
 
   void position(PositionSample s) {
     _lastSeen = s;
-    if (isTreadmill || paused) return; // not recorded, not saved
+    if (paused) return; // not recorded, not saved
     _log(RecorderEvent(EventKind.position, s.time, {'lat': s.lat, 'lon': s.lon, 'alt': s.altitude, 'acc': s.accuracy}));
   }
 
@@ -162,17 +233,6 @@ class Recorder {
   void heartRate(int bpm, DateTime at) {
     if (paused) return;
     _log(RecorderEvent(EventKind.hr, at, {'bpm': bpm}));
-  }
-
-  /// Time passing on a treadmill recording: completes any km (the cue to speak) and, at most every 10 s, is saved as an event so a killed app
-  /// keeps its Moving time. Other inputs are not needed for a treadmill to move forward.
-  void tick(DateTime at) {
-    if (!isTreadmill || paused) return;
-    if (at.difference(events.last.at).inSeconds >= 10) {
-      _log(RecorderEvent(EventKind.tick, at));
-    } else {
-      _catchUp(at);
-    }
   }
 
   void pause(DateTime at) {
@@ -189,8 +249,12 @@ class Recorder {
   }
 
   void _apply(RecorderEvent e) {
-    if (isTreadmill && !paused) _catchUp(e.at);
+    if (isInterval && !paused && e.kind != EventKind.position) _advance(e.at); // steps that ended before this event end first
     switch (e.kind) {
+      case EventKind.start:
+        if (isInterval) _openFirstStep(e.at);
+      case EventKind.next:
+        if (!paused && !_planDone) _reachTarget(e.at, _dist);
       case EventKind.position:
         _onPosition(PositionSample(
           time: e.at,
@@ -202,7 +266,6 @@ class Recorder {
       case EventKind.hr:
         _bpm = (e.data['bpm'] as num).round();
         _bpmAt = e.at;
-        if (isTreadmill) _treadmillPoint(e.at); // a treadmill has no fixes, so each reading is its own track point
       case EventKind.lap:
         _laps.add(max(0, e.at.difference(start).inMilliseconds / 1000).round());
       case EventKind.pause:
@@ -218,21 +281,24 @@ class Recorder {
 
   void _onPosition(PositionSample s) {
     _lastSeen = s;
-    if (s.accuracy != null && s.accuracy! > maxAccuracyM) return;
+    if (s.accuracy != null && s.accuracy! > maxAccuracyM) return _advance(s.time);
     final last = _last;
     if (last != null) {
       final dt = s.time.difference(last.time).inMilliseconds / 1000;
       if (dt <= 0) return;
       final step = haversineM(last.lat, last.lon, s.lat, s.lon);
-      if (step > maxRunSpeed * max(1, dt)) return; // a GPS jump
+      if (step > maxRunSpeed * max(1, dt)) return _advance(s.time); // a GPS jump
+      final before = _dist;
       if (step / dt >= autoPauseSpeed) {
-        final before = _dist;
         _dist += step;
         _closeSlow();
-        _kmCrossings(before, _dist, last.time, dt);
+        if (!isInterval) _kmCrossings(before, _dist, last.time, dt); // an Interval run has its own cues
       } else {
         _slowSince ??= last.time;
       }
+      _advanceOver(last.time, before, s.time, _dist);
+    } else {
+      _advance(s.time);
     }
     _last = s;
     _t.add(max(0, s.time.difference(start).inMilliseconds / 1000).round());
@@ -241,12 +307,6 @@ class Recorder {
     _lon.add(s.lon);
     _alt.add(s.altitude);
     _hrCol.add(_bpmAt != null && s.time.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null);
-  }
-
-  /// A treadmill track point: time and heart rate only.
-  void _treadmillPoint(DateTime at) {
-    _t.add(max(0, at.difference(start).inMilliseconds / 1000).round());
-    _hrCol.add(_bpm);
   }
 
   /// Records a cue for each km boundary crossed by the move from distance [before] to [after] (meters), starting at [from] and lasting [dt] s.
@@ -262,12 +322,112 @@ class Recorder {
     }
   }
 
-  /// Treadmill: records a cue for each km the Moving time at [at] has passed. A km takes [paceSecPerKm] by definition.
-  void _catchUp(DateTime at) {
-    final moving = at.difference(start).inMilliseconds / 1000 - _pausedSec;
-    while (moving >= (_kmCues.length + 1) * paceSecPerKm) {
-      _kmCues.add(KmCue(_kmCues.length + 1, paceSecPerKm, paceSecPerKm));
+  double _secFrom(DateTime from, DateTime to) => to.difference(from).inMicroseconds / 1e6;
+
+  /// The current step's clock at [at]: time since it began, without Daniel's pauses.
+  double _stepClock(DateTime at) => _secFrom(_stepAt, at) - (_pausedSec - _stepPausedBase) - (_pausedAt == null ? 0 : _secFrom(_pausedAt!, at));
+
+  /// When the current time step ends, given no more pauses.
+  DateTime _stepEnd() => _stepAt.add(Duration(microseconds: ((_stepTarget!.seconds! + _pausedSec - _stepPausedBase) * 1e6).round()));
+
+  void _openFirstStep(DateTime at) {
+    final p = plan;
+    if (p == null) return _openStep(StepKind.warmup, null, null, at);
+    final first = p.steps.first;
+    _openStep(first.kind, first.target, first.rep, at);
+  }
+
+  void _openStep(StepKind kind, StepTarget? target, int? rep, DateTime at, {String? said}) {
+    _stepKind = kind;
+    _stepTarget = target;
+    _stepRep = rep;
+    _stepAt = at;
+    _stepDist = _distAtStepStart ?? _dist;
+    _stepPausedBase = _pausedSec;
+    _beeps = 0;
+    final size = target == null ? '' : ', ${_spokenTarget(target)}';
+    final name = switch (kind) {
+      StepKind.warmup => 'Warm-up$size.',
+      StepKind.rep => plan == null ? 'Rep $rep.' : 'Rep $rep of ${plan!.reps}$size.',
+      StepKind.recovery => 'Recover$size.',
+      StepKind.cooldown => 'Cool-down$size.',
+    };
+    _voice.add(VoiceCue([?said, name].join(' ')));
+  }
+
+  double? _distAtStepStart; // the distance where the step being opened begins, when it is not the current distance
+
+  StepMark _markAt(DateTime at, double dist, StepKind kind) =>
+      StepMark(kind, _secFrom(start, _stepAt).round(), _secFrom(start, at).round(), _stepClock(at).round(), double.parse((dist - _stepDist).toStringAsFixed(1)));
+
+  /// The current step has reached its target (or Next was pressed) at [at], [dist] meters into the Run: it ends and the next one begins.
+  void _reachTarget(DateTime at, double dist) {
+    final p = plan;
+    if (p != null && _stepIndex == p.steps.length - 1 && _stepKind == StepKind.cooldown) { // the plan's own cool-down: it carries on until Finish
+      _planDone = true;
+      _stepTarget = null;
+      _voice.add(const VoiceCue('Plan done.'));
+      return;
     }
+    final mark = _markAt(at, dist, _stepKind);
+    _marks.add(mark);
+    final result = _stepKind == StepKind.rep
+        ? 'Rep $_stepRep done. ${_spokenTime(mark.sec)}.${mark.paceSecPerKm == null ? '' : ' ${_spokenPace(mark.paceSecPerKm!)}.'}'
+        : null;
+    _distAtStepStart = dist;
+    if (p == null) {
+      if (_stepKind == StepKind.rep) {
+        _openStep(StepKind.recovery, null, _stepRep, at, said: result);
+      } else {
+        _freeReps++;
+        _openStep(StepKind.rep, null, _freeReps, at, said: result);
+      }
+    } else if (++_stepIndex < p.steps.length) {
+      final s = p.steps[_stepIndex];
+      _openStep(s.kind, s.target, s.rep, at, said: result);
+    } else {
+      _planDone = true;
+      _openStep(StepKind.cooldown, null, null, at, said: [?result, 'Plan done.'].join(' '));
+    }
+    _distAtStepStart = null;
+  }
+
+  /// Ends every step whose target is reached by [at], with no distance covered since the last fix.
+  void _advance(DateTime at) => _advanceOver(at, _dist, at, _dist);
+
+  /// Ends every step whose target is reached while the runner goes from [fromDist] at [from] to [toDist] at [to], at the moment it is reached,
+  /// then counts down the last seconds of a time step.
+  void _advanceOver(DateTime from, double fromDist, DateTime to, double toDist) {
+    if (!isInterval || paused) return;
+    final span = _secFrom(from, to);
+    double distAt(DateTime t) => span <= 0 ? toDist : fromDist + (toDist - fromDist) * (_secFrom(from, t) / span).clamp(0.0, 1.0);
+    while (_stepTarget != null) {
+      final target = _stepTarget!;
+      if (target.isTime) {
+        final end = _stepEnd();
+        if (end.isAfter(to)) break;
+        _reachTarget(end, distAt(end));
+      } else {
+        final need = _stepDist + target.meters!;
+        if (toDist < need || toDist <= fromDist && fromDist < need) break;
+        final when = toDist <= fromDist ? to : from.add(Duration(microseconds: (span * 1e6 * ((need - fromDist) / (toDist - fromDist)).clamp(0.0, 1.0)).round()));
+        _reachTarget(when, need);
+      }
+    }
+    if (_stepTarget?.isTime ?? false) {
+      final left = _secFrom(to, _stepEnd());
+      while (_beeps < 3 && left <= 3 - _beeps) {
+        _beeps++;
+        _voice.add(const VoiceCue.beep());
+      }
+    }
+  }
+
+  /// The steps as run up to [end], the current one closed there. A free Interval run's recovery after its last rep is its cool-down.
+  List<StepMark> _stepsUntil(DateTime end) {
+    final all = [..._marks, _markAt(end, _dist, _stepKind)];
+    if (plan == null && all.length > 1 && all.last.kind == StepKind.recovery) all[all.length - 1] = all.last.as(StepKind.cooldown);
+    return all;
   }
 
   /// Ends the slow stretch: counted as auto-paused when it lasted [autoPauseSec] or more (as `autoPauseMovingSec` does for a finished track).
@@ -287,11 +447,11 @@ class Recorder {
   RunSnapshot snapshot(DateTime now, {int maxHr = defaultMaxHr}) {
     final elapsed = max(0.0, now.difference(start).inMilliseconds / 1000);
     final pausedNow = _pausedAt == null ? 0.0 : now.difference(_pausedAt!).inMilliseconds / 1000;
-    final auto = isTreadmill ? 0.0 : _openAutoSec();
+    final auto = _openAutoSec();
     final moving = max(0.0, elapsed - _pausedSec - pausedNow - _autoSec - auto);
     final standing = !paused && auto > 0;
     final bpm = _bpmAt != null && now.difference(_bpmAt!).inSeconds <= hrStaleSec ? _bpm : null;
-    final dist = isTreadmill ? moving / paceSecPerKm * 1000 : _dist;
+    final dist = _dist;
     return RunSnapshot(
       elapsedSec: elapsed.round(),
       movingSec: moving.round(),
@@ -299,10 +459,25 @@ class Recorder {
       paused: paused,
       autoPaused: standing,
       gps: gpsSignalOf(_lastSeen, now),
-      currentPaceSecPerKm: paused || standing || isTreadmill ? null : _currentPace(),
+      currentPaceSecPerKm: paused || standing ? null : _currentPace(),
       avgPaceSecPerKm: dist >= 10 && moving > 0 ? moving / (dist / 1000) : null,
       hr: bpm,
       hrZone: bpm == null ? null : zoneOf(bpm, maxHr),
+      interval: isInterval ? _intervalSnapshot(now) : null,
+    );
+  }
+
+  IntervalSnapshot _intervalSnapshot(DateTime now) {
+    final t = _stepTarget, clock = _stepClock(now), meters = _dist - _stepDist;
+    return IntervalSnapshot(
+      kind: _stepKind,
+      rep: _stepRep,
+      reps: plan?.reps,
+      stepSec: max(0, clock.round()),
+      stepMeters: meters,
+      secondsLeft: t?.seconds == null ? null : max(0, (t!.seconds! - clock).round()),
+      metersLeft: t?.meters == null ? null : max(0.0, t!.meters! - meters),
+      planDone: _planDone,
     );
   }
 
@@ -332,18 +507,11 @@ class Recorder {
       distanceKm: double.parse((s.distanceM / 1000).toStringAsFixed(3)),
       avgHr: hrs.isEmpty ? null : (hrs.reduce((a, b) => a + b) / hrs.length).round(),
       maxHr: hrs.isEmpty ? null : hrs.reduce(max),
-      track: isTreadmill ? _treadmillTrack(s.elapsedSec) : _t.isEmpty ? null : _gpsTrack(),
+      track: _t.isEmpty ? null : _gpsTrack(isInterval ? _stepsUntil(end) : null),
+      planId: planId,
+      plan: plan,
     );
   }
 
-  Track _gpsTrack() => Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null, laps: _laps.isEmpty ? null : List.of(_laps));
-
-  /// Time (and heart rate when there was any), with the start and the end as points so laps can be measured. Null when there is nothing to keep.
-  Track? _treadmillTrack(int elapsedSec) {
-    final hasHr = _hrCol.any((h) => h != null);
-    if (!hasHr && _laps.isEmpty) return null;
-    final laps = _laps.isEmpty ? null : List.of(_laps);
-    if (laps == null) return Track(time: List.of(_t), hr: List.of(_hrCol));
-    return Track(time: [0, ..._t, elapsedSec], hr: hasHr ? [null, ..._hrCol, null] : null, laps: laps); // start and end points, so laps can be measured
-  }
+  Track _gpsTrack(List<StepMark>? steps) => Track(time: List.of(_t), distance: List.of(_d), lat: List.of(_lat), lon: List.of(_lon), altitude: _alt.any((a) => a != null) ? List.of(_alt) : null, hr: _hrCol.any((h) => h != null) ? List.of(_hrCol) : null, laps: _laps.isEmpty ? null : List.of(_laps), steps: steps);
 }

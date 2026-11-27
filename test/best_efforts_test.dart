@@ -129,19 +129,19 @@ void main() {
         Recording(source: 'file', type: type, start: DateTime.utc(2026, 11, 10, hour), elapsedSec: 300, externalId: id, distanceKm: 1.2, track: track(steady(4, 300)));
     Future<List<Effort>> efforts() => db.watchBestEfforts().first;
 
-    test('an outdoor Run gets efforts and a Treadmill run never does', () async {
+    test('a Run and an Interval run both get efforts', () async {
       final id = (await store.ingest(rec('run'))).id!;
-      await store.ingest(rec('treadmill', id: 'b', hour: 14));
+      final iv = (await store.ingest(rec('interval', id: 'b', hour: 14))).id!;
       final all = await efforts();
       expect({for (final e in all) e.distanceM}, {400, 1000});
-      expect({for (final e in all) e.cardioId}, {id});
+      expect({for (final e in all) e.cardioId}, {id, iv});
     });
 
-    test('editing the type to treadmill removes the efforts, and back restores them', () async {
+    test('an old treadmill row gets none, and editing a Run to another type removes its efforts', () async {
       final id = (await store.ingest(rec('run'))).id!;
       await store.edit(id, {'type': 'treadmill'});
       expect(await efforts(), isEmpty);
-      await store.edit(id, {'type': 'run'});
+      await store.edit(id, {'type': 'interval'});
       expect(await efforts(), isNotEmpty);
     });
 

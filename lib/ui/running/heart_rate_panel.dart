@@ -6,7 +6,7 @@ import '../../data/live_recorder.dart';
 /// Colour of a zone, 1 (easy) to 5 (max).
 Color zoneColor(int zone) => const [Colors.blueGrey, Colors.green, Colors.amber, Colors.orange, Colors.red][zone.clamp(1, 5) - 1];
 
-/// Live heart rate and zone during a recording, with the link's problem in words when there is one. Used by the outdoor and the treadmill view.
+/// Live heart rate and zone during a recording, with the link's problem in words when there is one. Used by the Run and the Interval run view.
 class LiveHeartRate extends StatelessWidget {
   const LiveHeartRate({super.key, required this.recorder, required this.snapshot});
 

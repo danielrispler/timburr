@@ -69,7 +69,7 @@ void main() {
       'workouts[0].exercises[0].sets[0].reps: must be a whole number >= 0',
       'workouts[0].exercises[0].sets[1]: give reps or durationSec, not both',
       'workouts[0].exercises[1].sets: must be a non-empty list',
-      'cardio[0].type: must be one of run, treadmill',
+      'cardio[0].type: must be one of run, interval',
       'cardio[0].distanceKm: must be a number > 0',
       'cardio[0].rpe: must be a whole number 1-10',
     ]);
@@ -92,9 +92,9 @@ void main() {
   test('other cardio types fail with a clear error', () {
     final d = _doc();
     d['cardio'][0]['type'] = 'padel';
-    expect(validateImport(d), ['cardio[0].type: must be one of run, treadmill']);
+    expect(validateImport(d), ['cardio[0].type: must be one of run, interval']);
     d['cardio'][0]['type'] = 'walk';
-    expect(validateImport(d), ['cardio[0].type: must be one of run, treadmill']);
+    expect(validateImport(d), ['cardio[0].type: must be one of run, interval']);
   });
 
   test('a name can match a library alias', () async {

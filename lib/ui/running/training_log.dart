@@ -23,7 +23,7 @@ String _time(int sec) {
 }
 
 /// The Training log on Progress: a month calendar to swipe, then that month's totals and weeks, and the weekly running streak.
-/// Each Run is a dot sized by distance (outdoor and treadmill in different colours); each Workout is a small dot.
+/// Each Run is a dot sized by distance (Runs and Interval runs in different colours); each Workout is a small dot.
 class TrainingLog extends StatefulWidget {
   const TrainingLog({super.key, required this.stores, required this.runs, this.now});
 
@@ -95,7 +95,7 @@ class _TrainingLogState extends State<TrainingLog> {
               const SizedBox(height: 4),
               Wrap(spacing: 16, children: [
                 _Legend(color: t.colorScheme.primary, size: 12, label: 'Run'),
-                _Legend(color: t.colorScheme.tertiary, size: 12, label: 'Treadmill'),
+                _Legend(color: t.colorScheme.tertiary, size: 12, label: 'Intervals'),
                 _Legend(color: t.colorScheme.onSurfaceVariant, size: 5, label: 'Workout'),
               ]),
               TileGroup(title: '${_monthNames[month.month - 1]} totals', children: [
@@ -140,7 +140,7 @@ class _TrainingLogState extends State<TrainingLog> {
           for (final r in log.runs)
             ListTile(
               leading: IconTile(activityIcon(r.type)),
-              title: Text(r.distanceKm == null ? 'Run' : '${r.type == 'treadmill' ? 'Treadmill run' : 'Run'} ${_km(r.distanceKm!)}'),
+              title: Text(r.distanceKm == null ? 'Run' : '${r.type == 'interval' ? 'Interval run' : 'Run'} ${_km(r.distanceKm!)}'),
               subtitle: Text(_time(r.durationSec)),
               onTap: () {
                 Navigator.pop(sheet);
@@ -221,7 +221,7 @@ class _MonthGrid extends StatelessWidget {
                       const SizedBox(height: 2),
                       if (entry != null)
                         Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, spacing: 2, runSpacing: 2, children: [
-                          for (final r in entry.runs) _Dot(r.type == 'treadmill' ? scheme.tertiary : scheme.primary, dotSize(r.distanceKm)),
+                          for (final r in entry.runs) _Dot(r.type == 'interval' ? scheme.tertiary : scheme.primary, dotSize(r.distanceKm)),
                           for (final _ in entry.workouts) _Dot(scheme.onSurfaceVariant, 5),
                         ]),
                     ]),

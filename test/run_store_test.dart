@@ -39,11 +39,6 @@ void main() {
     expect(run.elevationGainM, closeTo(9.9, 1.5));
   });
 
-  test('a Treadmill run never gets a route, even when the phone logged GPS on the treadmill', () async {
-    await store.ingest(Recording(source: 'file', type: 'treadmill', start: DateTime.utc(2026, 11, 10, 10), elapsedSec: 99, externalId: 't', distanceKm: 0.3, track: climb()));
-    expect((await only()).route, isNull);
-  });
-
   test('the source\'s own Moving time and elevation are kept', () async {
     await store.ingest(rec(moving: 95, gain: 42));
     final run = await only();
@@ -84,21 +79,9 @@ void main() {
       expect((c.distanceKm, c.durationSec, c.avgHr, c.source, c.externalId), (5.2, 1490, 150, 'recorded', 'r'));
     });
 
-    test('treadmill: time from the phone, distance and heart rate from the Fitbit until Daniel corrects it', () async {
-      await store.ingest(run(source: 'recorded', id: 'r', type: 'treadmill', km: 3.0, moving: 1000));
-      await store.ingest(run(source: 'health_connect', id: 'h', type: 'treadmill', km: 3.3, moving: 1010, hr: 150));
-      var c = await only();
-      expect((c.distanceKm, c.durationSec, c.avgHr), (3.3, 1000, 150));
-
-      await store.edit(c.id, {'distance_km': 3.1});
-      await store.ingest(run(source: 'health_connect', id: 'h2', type: 'treadmill', km: 3.4, startSec: 5));
-      c = await only();
-      expect(c.distanceKm, 3.1);
-    });
-
     test('an import never overwrites what is on an imported Run, only fills', () async {
       await store.ingest(run(source: 'file', id: 'f', km: 5.0, moving: 1500, hr: 150));
-      await store.ingest(run(source: 'health_connect', id: 'h', type: 'treadmill', km: 5.5, moving: 1400, hr: 140));
+      await store.ingest(run(source: 'health_connect', id: 'h', km: 5.5, moving: 1400, hr: 140));
       final c = await only();
       expect((c.type, c.distanceKm, c.durationSec, c.avgHr), ('run', 5.0, 1500, 150)); // the Fitbit's heart rate does not replace the file's
     });

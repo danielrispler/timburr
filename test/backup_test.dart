@@ -36,6 +36,8 @@ void main() {
     await d.save(d.shoes, {'id': 'shoe1', 'name': 'Pegasus', 'is_default': true});
     await d.save(d.cardio, {'id': 'c1', 'shoe_id': 'shoe1', 'type': 'run', 'started_at': DateTime.utc(2026, 10, 3), 'distance_km': 5.0, 'duration_sec': 1500, 'edited_fields': ['title'], 'route': 'abc', 'elapsed_sec': 1620});
     await d.save(d.cardio, {'id': 'c5', 'type': 'treadmill', 'started_at': DateTime.utc(2026, 10, 4), 'distance_km': 4.8, 'duration_sec': 1500, 'incline_pct': 1.5, 'steps': 6100, 'calories': 380, 'edited_fields': ['distance_km', 'incline_pct', 'steps', 'calories']});
+    await d.save(d.intervalPlans, {'id': 'p1', 'name': '6 × 400', 'structure': '{"name":"6 × 400","reps":6,"rep":{"m":400},"recovery":{"s":90}}'});
+    await d.save(d.cardio, {'id': 'c6', 'type': 'interval', 'started_at': DateTime.utc(2026, 10, 5), 'distance_km': 6.0, 'duration_sec': 1800, 'interval_plan_id': 'p1', 'interval_plan': '{"name":"6 × 400","reps":6,"rep":{"m":400},"recovery":{"s":90}}'});
     await d.save(d.cardioTracks, {'id': 't1', 'cardio_id': 'c1', 'points': 'H4sIAAAA'});
     await d.save(d.appSettings, {'id': 'settings1', 'max_hr': 190, 'birth_year': 1990, 'stride_m': 0.92});
     await d.save(d.goals, {'id': 'goals1', 'weekly_km': 30.0, 'yearly_km': 1500.0});

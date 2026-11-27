@@ -6,10 +6,11 @@ import '../../data/cardio.dart';
 import 'cardio_form.dart';
 
 /// Icon for a cardio type. Old rows of other types show as runs.
-IconData activityIcon(String type) => Icons.directions_run;
+IconData activityIcon(String type) => type == 'interval' ? Icons.speed : Icons.directions_run;
 
 String activityLabel(String type) => switch (type) {
-      'treadmill' => 'Treadmill run',
+      'interval' => 'Interval run',
+      'treadmill' => 'Treadmill run', // old rows only
       _ => type[0].toUpperCase() + type.substring(1),
     };
 

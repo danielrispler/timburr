@@ -29,7 +29,7 @@ void main() {
 
   group('month log', () {
     test('puts each Run and Workout on its own day, only for the month shown', () {
-      final r1 = run(DateTime(2026, 11, 3, 7), 5), r2 = run(DateTime(2026, 11, 3, 18), 3, type: 'treadmill');
+      final r1 = run(DateTime(2026, 11, 3, 7), 5), r2 = run(DateTime(2026, 11, 3, 18), 3, type: 'interval');
       final w = workout(DateTime(2026, 11, 3, 12)), w2 = workout(DateTime(2026, 11, 30, 23, 30));
       final log = monthLog([r1, r2, run(DateTime(2026, 10, 31, 23), 9), run(DateTime(2026, 12, 1), 9)],
           [w, w2, workout(DateTime(2026, 11, 5), deleted: now), workout(DateTime(2026, 12, 1))], DateTime(2026, 11, 15));
@@ -75,8 +75,8 @@ void main() {
       expect(weeklyStreak([run(DateTime(2026, 11, 15, 23, 59), 5), run(DateTime(2026, 11, 16, 0, 1), 5)], now), 2);
     });
 
-    test('treadmill Runs count; Runs after now and other types do not', () {
-      expect(weeklyStreak([run(DateTime(2026, 11, 18), 3, type: 'treadmill')], now), 1);
+    test('Interval runs count; Runs after now and other types do not', () {
+      expect(weeklyStreak([run(DateTime(2026, 11, 18), 3, type: 'interval')], now), 1);
       expect(weeklyStreak([run(DateTime(2026, 11, 18), 3, type: 'walk'), run(DateTime(2026, 11, 23), 3)], now), 0);
     });
   });

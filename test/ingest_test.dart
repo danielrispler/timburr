@@ -156,18 +156,18 @@ void main() {
       expect((await store.watchTrack(run.id).first)!.lat!.first, 32.0);
     });
 
-    test('treadmill: time from the phone, distance and heart rate from the Fitbit', () async {
-      await store.ingest(rec(source: 'recorded', id: 'r', type: 'treadmill', km: 1.9, moving: 1500, elapsed: 1500));
-      await store.ingest(rec(source: 'health_connect', id: 'h', type: 'run', km: 2.4, moving: 1400, elapsed: 1400, avgHr: 141));
+    test('Interval run: the Fitbit fills the heart rate but never makes it a plain Run', () async {
+      await store.ingest(rec(source: 'recorded', id: 'r', type: 'interval', km: 5.1, moving: 1500, elapsed: 1500));
+      await store.ingest(rec(source: 'health_connect', id: 'h', type: 'run', km: 4.8, moving: 1400, elapsed: 1400, avgHr: 151));
       final run = await only();
-      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
+      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('interval', 5.1, 1500, 151));
     });
 
-    test('treadmill: an imported file keeps its distance, the phone recording sets type and time', () async {
-      await store.ingest(rec(id: 'f', type: 'run', km: 2.4, moving: 1400, avgHr: 141));
-      await store.ingest(rec(source: 'recorded', id: 'r', type: 'treadmill', km: 1.9, moving: 1500));
+    test('Interval run: a recording over an imported Run makes it an Interval run with the phone\'s distance', () async {
+      await store.ingest(rec(id: 'f', type: 'run', km: 4.9, moving: 1400, avgHr: 141));
+      await store.ingest(rec(source: 'recorded', id: 'r', type: 'interval', km: 5.1, moving: 1500));
       final run = await only();
-      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('treadmill', 2.4, 1500, 141));
+      expect((run.type, run.distanceKm, run.durationSec, run.avgHr), ('interval', 5.1, 1500, 141));
     });
 
     test('two imports: the first one in stays and the second only fills', () async {
@@ -206,18 +206,18 @@ void main() {
     });
   });
 
-  test('24 Oct: a hand-typed treadmill Run keeps its 1.15 km and notes, and the overlapping file fills the heart rate', () async {
-    await store.save(type: 'treadmill', startedAt: at(17, 15), distanceKm: 1.15, durationSec: 1200, notes: 'Legs felt heavy');
+  test('24 Oct: a hand-typed Run keeps its 1.15 km and notes, and the overlapping file fills the heart rate', () async {
+    await store.save(type: 'run', startedAt: at(17, 15), distanceKm: 1.15, durationSec: 1200, notes: 'Legs felt heavy');
     final result = await store.ingest(rec(
-        type: 'treadmill', start: at(17, 17), elapsed: 813, moving: 813, km: 1.07, id: 'strava-24-oct', avgHr: 142, track: Track(time: [0, 400, 813], distance: [0, 500, 1070], hr: [120, 150, 140])));
+        start: at(17, 17), elapsed: 813, moving: 813, km: 1.07, id: 'strava-24-oct', avgHr: 142, track: Track(time: [0, 400, 813], distance: [0, 500, 1070], hr: [120, 150, 140])));
     expect(result.outcome, IngestOutcome.merged);
     final run = await only();
-    expect((run.distanceKm, run.durationSec, run.notes, run.type), (1.15, 1200, 'Legs felt heavy', 'treadmill'));
+    expect((run.distanceKm, run.durationSec, run.notes, run.type), (1.15, 1200, 'Legs felt heavy', 'run'));
     expect(run.avgHr, 142);
     expect(run.startedAt.toUtc(), at(17, 15));
     expect((await store.watchTrack(run.id).first)!.hr, [120, 150, 140]);
     // Importing the file again changes nothing.
-    expect((await store.ingest(rec(type: 'treadmill', start: at(17, 17), elapsed: 813, moving: 813, km: 1.07, id: 'strava-24-oct', avgHr: 142))).outcome, IngestOutcome.unchanged);
+    expect((await store.ingest(rec(start: at(17, 17), elapsed: 813, moving: 813, km: 1.07, id: 'strava-24-oct', avgHr: 142))).outcome, IngestOutcome.unchanged);
   });
 
   group('Health Connect', () {

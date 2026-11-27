@@ -180,6 +180,9 @@ class SyncEngine {
       });
 }
 
+/// Columns stored locally as JSON text: Postgres arrays and jsonb remotely.
+const _jsonColumns = {'muscles', 'alternative_ids', 'edited_fields', 'structure', 'interval_plan'};
+
 /// A raw local row as JSON in the Supabase wire shape, every column except local `dirty`.
 Map<String, Object?> rowToJson(TableInfo table, Map<String, Object?> raw) => {
       for (final c in table.$columns)
@@ -188,7 +191,7 @@ Map<String, Object?> rowToJson(TableInfo table, Map<String, Object?> raw) => {
             null => null,
             final v when c.type == DriftSqlType.dateTime => DateTime.parse(v as String).toUtc().toIso8601String(),
             final v when c.type == DriftSqlType.bool => v == 1,
-            final String v when c.name == 'muscles' || c.name == 'alternative_ids' || c.name == 'edited_fields' => jsonDecode(v),
+            final String v when _jsonColumns.contains(c.name) => jsonDecode(v),
             final v => v,
           },
     };
@@ -200,6 +203,7 @@ Map<String, Object?> rowFromJson(TableInfo table, Map<String, Object?> json) => 
           c.name: switch (json[c.name]) {
             String s when c.type == DriftSqlType.dateTime => DateTime.parse(s).toLocal(), // local writes store a local offset; match so text sort works
             List l => jsonEncode(l),
+            Map m => jsonEncode(m),
             num n when c.type == DriftSqlType.double => n.toDouble(),
             final v => v,
           },

@@ -88,51 +88,21 @@ void main() {
     expect((await runs()).single.updatedAt, before.updatedAt);
   });
 
-  test('treadmill: the Fitbit\'s distance replaces the phone\'s estimate, until Daniel corrects it', () async {
-    final id = await recorded(type: 'treadmill', km: 2.0);
-    await apply([session(type: hcRunning, start: at(10, 12), end: at(10, 30), distanceM: 2437)]);
-    var run = (await runs()).single;
-    expect((run.type, run.distanceKm, run.durationSec), ('treadmill', 2.437, 1740));
-
-    await store.edit(id, {'distance_km': 2.6});
-    await apply([session(id: 'hc-2', type: hcTreadmill, start: at(10, 5), end: at(10, 25), distanceM: 2500)]);
-    run = (await runs()).single;
-    expect(run.distanceKm, 2.6);
-  });
-
-  test('a Fitbit session never replaces what an imported file already has', () async {
-    await store.ingest(Recording(source: 'file', type: 'run', start: at(10), elapsedSec: 1800, movingSec: 1700, externalId: 'f', distanceKm: 5.0, avgHr: 150));
-    await apply([session(start: at(10, 10), end: at(10, 30), distanceM: 4400, activeKcal: 280)]);
+  test('a treadmill session is ignored: it fills no Run, even one it overlaps', () async {
+    final id = await recorded(km: 5.0);
+    await apply([session(type: hcTreadmill, start: at(10, 12), end: at(10, 30), distanceM: 2437)]);
     final run = (await runs()).single;
-    expect((run.distanceKm, run.avgHr), (5.0, 150));
-    expect((run.maxHr, run.calories), (180, 280)); // empty, so filled; active calories when there is no total
-  });
-
-  test('walks, strength sessions and other activities never touch a Run', () async {
-    await recorded();
-    final r = await apply([
-      session(id: 'w', type: 79, start: at(10, 5), end: at(10, 25)), // walking
-      session(id: 's', type: 70, start: at(10, 5), end: at(10, 25)), // strength training
-    ]);
-    expect(r.runs, 0);
-    expect((await runs()).single.avgHr, isNull);
-  });
-
-  test('a session without heart rate fills only what it has, and keeps the Run\'s track', () async {
-    final id = await recorded(track: gps(1800));
-    await apply([session(start: at(10, 15), end: at(10, 30), hr: false, totalKcal: 200)]);
-    final run = (await runs()).single;
-    expect((run.avgHr, run.maxHr, run.calories), (null, null, 200));
-    expect((await store.watchTrack(id).first)!.hr, isNull);
+    expect((run.id, run.distanceKm, run.avgHr), (id, 5.0, null));
   });
 
   group('the mapping into a recording', () {
-    test('a treadmill session is a Treadmill run; distance in km; samples outside the session are dropped', () {
-      final m = session(type: hcTreadmill, start: at(10), end: at(10, 1), distanceM: 1234.5678);
+    test('a running session is a Run; distance in km; samples outside the session are dropped; a treadmill session is none', () {
+      expect(runRecording(HcSession.fromMap(session(type: hcTreadmill, start: at(10), end: at(10, 1)))), isNull);
+      final m = session(start: at(10), end: at(10, 1), distanceM: 1234.5678);
       (m['hrTimes'] as List).add(at(10, 5).millisecondsSinceEpoch);
       (m['hrBpm'] as List).add(199);
       final r = runRecording(HcSession.fromMap(m))!;
-      expect((r.source, r.type, r.externalId, r.elapsedSec, r.distanceKm), ('health_connect', 'treadmill', 'hc-1', 60, 1.235));
+      expect((r.source, r.type, r.externalId, r.elapsedSec, r.distanceKm), ('health_connect', 'run', 'hc-1', 60, 1.235));
       expect(r.track!.time, [0, 30, 60]);
       expect(r.track!.hr, [140, 141, 142]);
       expect((r.avgHr, r.maxHr), (141, 142));

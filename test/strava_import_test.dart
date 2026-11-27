@@ -27,20 +27,20 @@ void main() {
         parseStravaTcx('2026-11-04T20_00_00+02_00_PT3S_ריצה.tcx', tcx([[for (var i = 0; i < 3; i++) (DateTime.utc(2026, 11, 4, 18, i).toIso8601String(), 0.0, null, null)]], id: 'zero')),
       ];
 
-  test('the preview counts new Runs, maps, treadmill, routeless and skipped files, and saves nothing', () async {
+  test('the preview counts new Runs, maps, routeless and skipped files (a treadmill file is skipped), and saves nothing', () async {
     final p = await previewStrava(store, files());
-    expect((p.newRuns, p.withMap, p.treadmill, p.noRoute, p.skipped), (3, 1, 1, 1, 1));
+    expect((p.newRuns, p.withMap, p.noRoute, p.skipped), (2, 1, 1, 2));
     expect((p.merged, p.alreadyImported), (0, 0));
     expect(await store.watchAll().first, isEmpty);
   });
 
   test('saving creates the Runs, and importing the same files again changes nothing', () async {
-    expect(await importStrava(store, files()), (created: 3, merged: 0));
-    expect(await store.watchAll().first, hasLength(3));
+    expect(await importStrava(store, files()), (created: 2, merged: 0));
+    expect(await store.watchAll().first, hasLength(2));
     final again = await previewStrava(store, files());
-    expect((again.newRuns, again.alreadyImported), (0, 3));
+    expect((again.newRuns, again.alreadyImported), (0, 2));
     expect(await importStrava(store, files()), (created: 0, merged: 0));
-    expect(await store.watchAll().first, hasLength(3));
+    expect(await store.watchAll().first, hasLength(2));
   });
 
   test('the preview of two overlapping files in one pick matches what Save does', () async {
@@ -58,6 +58,6 @@ void main() {
   test('a file that overlaps a Run already there is a merge, not a new Run', () async {
     await store.save(type: 'run', startedAt: DateTime.utc(2026, 11, 1, 18), distanceKm: 0.2, durationSec: 60);
     final p = await previewStrava(store, files());
-    expect((p.newRuns, p.merged), (2, 1));
+    expect((p.newRuns, p.merged), (1, 1));
   });
 }

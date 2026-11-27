@@ -19,8 +19,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <!-- Recording a treadmill run: no sensor, only a timer kept alive by a special-use foreground service (see the service's property below). -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <application
         android:label="timburr"
         android:name="${applicationName}"
@@ -89,14 +87,9 @@
             android:value="2" />
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="location|specialUse"
+            android:foregroundServiceType="location"
             android:stopWithTask="true"
-            android:exported="false">
-            <!-- A treadmill run has no location, step or health sensor to justify another type; the service keeps its timer, km voice cues and heart-rate link alive with the screen off. -->
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="treadmill_run_timer"/>
-        </service>
+            android:exported="false"/>
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
     </application>
     <!-- Required to query activities that can process text, see:

@@ -35,7 +35,7 @@ Turn my workout screenshot into JSON in this exact format (version 1). Output on
       "avgHr": 158, "inclinePct": null, "rpe": 7, "notes": "" }
   ]
 }
-Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is run or treadmill; rpe is 1-10. Use my exercise names below when they match.''';
+Rules: dates are local time. For bodyweight sets weightKg is the added weight (or null). Timed sets use "durationSec" instead of "reps". "routine", "notes", "supersetWithNext", "avgHr", "inclinePct" and "rpe" are optional. Cardio type is run or interval (an interval run); rpe is 1-10. Use my exercise names below when they match.''';
 
 /// Every problem in [data] as `path: message`; empty means valid v1.
 List<String> validateImport(Object? data) {

@@ -22,10 +22,23 @@ _Avoid_: backup exercise
 
 ## Running
 
-**Run**: an outdoor run or a treadmill run. Runs count toward running distance, time, weekly totals and goals. A Run exists only because Daniel recorded it, imported a file or typed it in. Recordings whose times overlap are one Run, wherever they came from.
+**Run**: an outdoor run. Daniel runs only outside, so Timburr has no treadmill runs. Runs count toward running distance, time, weekly totals and goals. A Run exists only because Daniel recorded it, imported a file or typed it in. Recordings whose times overlap are one Run, wherever they came from.
 _Avoid_: cardio, activity
 
-**Treadmill run**: a Run on a treadmill. It counts toward totals, but its distance comes from the treadmill or the watch, so it never sets a best effort.
+**Interval run**: a Run made of fast reps and easy recoveries, either guided by an Interval plan or switched by hand (a free Interval run). It counts like any other Run and keeps a copy of the plan name and steps it ran. A Run without intervals is just a Run.
+_Avoid_: speed work, workout
+
+**Interval plan**: a saved, named structure for an Interval run: an optional warm-up, a number of reps each followed by a recovery, and an optional cool-down.
+
+**Plan history**: every Interval run done with one Interval plan, newest first, compared by average rep pace and fastest rep. Editing the plan keeps its history. Deleting the plan removes its history, but not its Runs.
+
+**Step**: one part of an Interval plan: a warm-up, rep, recovery or cool-down. Each step is a distance or a time. A time step follows the clock, so standing still during a recovery doesn't make it longer.
+
+**Rep**: a fast step of an Interval run.
+_Avoid_: interval, lap, split
+
+**Recovery**: the easy step after a rep.
+_Avoid_: rest
 
 **Auto-detected run**: a running session the Fitbit noticed by itself, starting 10 to 20 minutes late and without a route. It never becomes a Run on its own: it only fills in the Run it overlaps.
 
@@ -36,7 +49,7 @@ _Avoid_: active time
 
 **Elapsed time**: the clock time from a Run's start to its end, pauses included.
 
-**Best effort**: the fastest time for a standard distance (400 m, 1 km, 1 mile, 5 km, 10 km, half marathon) within any part of one outdoor Run.
+**Best effort**: the fastest time for a standard distance (400 m, 1 km, 1 mile, 5 km, 10 km, half marathon) within any part of one Run.
 
 **PR**: the best result ever. For a Run distance, it's the fastest best effort. For an exercise, it's the heaviest weight, best estimated 1RM, best session volume, most reps or longest time.
 _Avoid_: personal best, record
@@ -45,14 +58,9 @@ _Avoid_: personal best, record
 
 **HR zone**: one of five equal bands of Max HR, from 50% to 100%. Zone 1 is the easiest.
 
-**Recording**: what Daniel captures live with the phone: GPS for an outdoor Run, time for a treadmill Run (its distance is an estimate), plus the heart rate band when connected. It is saved as it goes, and finishing it makes a Run. The same word covers what any source (file, Health Connect, live) hands to the Run store.
+**Recording**: what Daniel captures live with the phone: GPS for a Run, plus the heart rate band when connected. It is saved as it goes, and finishing it makes a Run. The same word covers what any source (file, Health Connect, live) hands to the Run store.
 
-**Lap**: a stretch of a Run between two presses of the Lap button (the first starts at the start, the last ends with the Run). An outdoor lap shows time and distance; a treadmill lap shows time only.
-
-**Treadmill pace**: Daniel's usual pace on the treadmill, the median pace of his latest treadmill Runs whose distance he corrected (6:00 per km until there are any). A live treadmill Recording turns Moving time into an estimated distance with it, since neither the phone (on the console) nor the band reports distance.
-_Avoid_: stride, step length
-
-**Treadmill data**: the form that ends a treadmill Recording (and the Run's edit form): distance, Moving time, incline, steps and calories as the treadmill showed them. Whatever Daniel types is an edited field.
+**Lap**: a stretch of a Run between two presses of the Lap button (the first starts at the start, the last ends with the Run). A lap shows time and distance. An Interval run has reps instead of laps.
 
 **HR band**: the Bluetooth heart rate band (the Fitbit Air) that streams live heart rate during a Recording. Daniel chooses it once on the recording setup screen and it is remembered; a Recording never picks one on its own.
 

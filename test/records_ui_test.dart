@@ -30,7 +30,7 @@ void main() {
           (await store.ingest(Recording(source: 'file', type: type, start: DateTime(2026, 11, day, 7), elapsedSec: 400, externalId: id, distanceKm: 0.4 * speed, track: track(speed)))).id!;
       final slow = await add('slow', 1, 3);
       final fast = await add('fast', 2, 4);
-      await add('tm', 3, 6, type: 'treadmill'); // faster than both, but never counts
+      await add('tm', 3, 6, type: 'treadmill'); // an old treadmill row: faster than both, but no longer a Run
       return (store, slow, fast);
     }))!;
   }
@@ -66,7 +66,7 @@ void main() {
     await tester.pump();
     expect(find.text('Personal records'), findsOneWidget);
     expect(find.text('Longest Run'), findsOneWidget);
-    expect(find.text('2.4 km'), findsOneWidget); // the treadmill run (6 m/s) is the longest Run; it only skips efforts
+    expect(find.text('1.6 km'), findsOneWidget); // the fast Run; the old treadmill row (2.4 km) is not a Run
     expect(find.text('Top 1 km'), findsOneWidget);
     expect(find.text('1. 4:10'), findsOneWidget);
     expect(find.text('2. 5:33'), findsOneWidget);

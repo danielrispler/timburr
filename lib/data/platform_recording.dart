@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -35,7 +36,7 @@ class GeolocatorSource implements PositionSource {
       ).map((p) => PositionSample(time: p.timestamp, lat: p.latitude, lon: p.longitude, altitude: p.altitude, accuracy: p.accuracy));
 }
 
-/// Android adapter for [RecordingService]: a foreground service (location type for GPS, special-use for a treadmill) with an ongoing notification and a wake lock,
+/// Android adapter for [RecordingService]: a foreground service (location type) with an ongoing notification and a wake lock,
 /// so recording continues with the screen off. It runs no task of its own; the recorder stays in the app's isolate.
 class ForegroundRecordingService implements RecordingService, RecordingNotification {
   bool _ready = false;
@@ -84,9 +85,9 @@ class ForegroundRecordingService implements RecordingService, RecordingNotificat
   }
 
   @override
-  Future<void> start({bool gps = true}) async {
+  Future<void> start() async {
     _init();
-    // A treadmill recording asks for nothing else, so the notification permission (Android 13+) is asked here. Declining it does not stop the recording.
+    // The notification permission (Android 13+) is asked here. Declining it does not stop the recording.
     if (await FlutterForegroundTask.checkNotificationPermission() != NotificationPermission.granted) {
       await FlutterForegroundTask.requestNotificationPermission();
     }
@@ -96,7 +97,7 @@ class ForegroundRecordingService implements RecordingService, RecordingNotificat
     await FlutterForegroundTask.startService(
       notificationButtons: _buttons,
       callback: recordingTaskCallback,
-      serviceTypes: [gps ? ForegroundServiceTypes.location : ForegroundServiceTypes.specialUse],
+      serviceTypes: [ForegroundServiceTypes.location],
       notificationTitle: 'Recording run',
       notificationText: 'Tap to return to Timburr',
     );
@@ -127,10 +128,15 @@ class _ButtonRelay extends TaskHandler {
   void onNotificationButtonPressed(String id) => FlutterForegroundTask.sendDataToMain(id);
 }
 
-/// Android adapter for [SpeechService]: the system text to speech, spoken over music (ducking is up to the system).
+/// Android adapter for [SpeechService]: the system text to speech, spoken over music (ducking is up to the system), and a short tone from
+/// MainActivity's `timburr/tone` channel (Android's ToneGenerator) for the interval countdown.
 class TtsSpeech implements SpeechService {
   final _tts = FlutterTts();
+  static const _tone = MethodChannel('timburr/tone');
 
   @override
   Future<void> speak(String text) => _tts.speak(text);
+
+  @override
+  Future<void> beep() => _tone.invokeMethod<void>('beep');
 }

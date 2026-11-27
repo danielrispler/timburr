@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timburr/data/cardio.dart';
 import 'package:timburr/data/db.dart';
+import 'package:timburr/data/intervals.dart';
 import 'package:timburr/data/live_recorder.dart';
 import 'package:timburr/data/recorder.dart';
 import 'package:timburr/data/run_analysis.dart';
@@ -14,6 +15,8 @@ class FakeSpeech implements SpeechService {
   final said = <String>[];
   @override
   Future<void> speak(String text) async => said.add(text);
+  @override
+  Future<void> beep() async => said.add('beep');
 }
 
 class FakeNotification implements RecordingNotification {
@@ -122,6 +125,32 @@ void main() {
         await pumpEventQueue();
       }
     }
+
+    test('an Interval run speaks its steps and beeps its countdown instead of km cues, and saves its steps', () async {
+      final rec = make();
+      await rec.start('interval', plan: const IntervalPlan(name: 'One', reps: 1, rep: StepTarget.meters(200), recovery: StepTarget.time(10)), planId: 'p1');
+      await run(0, 300);
+      expect(speech.said, [
+        'Rep 1 of 1, 200 meters.',
+        'Rep 1 done. 50 seconds. Pace 4 10 per kilometer. Recover, 10 seconds.',
+        'beep', 'beep', 'beep',
+        'Plan done. Cool-down.',
+      ]);
+      expect(rec.snapshot!.interval!.planDone, isTrue);
+      final id = (await rec.finish())!;
+      final c = await CardioStore(db).watch(id).first;
+      expect((c.type, c.intervalPlanId), ('interval', 'p1'));
+      expect([for (final m in (await CardioStore(db).watchTrack(id).first)!.steps!) m.kind], [StepKind.rep, StepKind.recovery, StepKind.cooldown]);
+    });
+
+    test('Next ends a step early', () async {
+      final rec = make();
+      await rec.start('interval', plan: const IntervalPlan(name: 'One', reps: 1, rep: StepTarget.meters(1000), recovery: StepTarget.time(60)));
+      await run(0, 20);
+      rec.next();
+      expect(rec.snapshot!.interval!.kind, StepKind.recovery);
+      await rec.discard();
+    });
 
     test('speaks once per km as it is crossed', () async {
       final rec = make();

@@ -1,3 +1,4 @@
+import 'intervals.dart';
 import 'run_analysis.dart';
 import 'track.dart';
 
@@ -27,10 +28,12 @@ class Recording {
     this.avgCadence,
     this.elevationGainM,
     this.notes,
+    this.planId,
+    this.plan,
   });
 
   final String source; // file, health_connect or recorded
-  final String type; // run or treadmill
+  final String type; // run or interval
   final DateTime start;
   final int elapsedSec; // start to end, pauses included
   final int? movingSec; // null when the source has none: [moving] then comes from the track
@@ -40,6 +43,8 @@ class Recording {
   final int? avgHr, maxHr, calories;
   final double? avgCadence, elevationGainM;
   final String? notes;
+  final String? planId; // an Interval run: the plan it was run to, null for a free one
+  final IntervalPlan? plan; // and a copy of that plan as it was
 
   /// The route stored on the Run for thumbnails: [simplifyRoute] of the track, null when there is no route.
   String? get route => hasRoute ? simplifyRoute(track!) : null;
@@ -52,12 +57,9 @@ class Recording {
 
   DateTime get end => start.add(Duration(seconds: elapsedSec));
 
-  /// True when the track has enough positioned points to draw a map, and the Run is not on a treadmill.
-  bool get hasRoute => drawsRoute(type) && track != null && positionedCount(track!.lat, track!.lon) >= minRoutePoints;
+  /// True when the track has enough positioned points to draw a map.
+  bool get hasRoute => track != null && positionedCount(track!.lat, track!.lon) >= minRoutePoints;
 }
-
-/// Whether a Run of [type] has a route to draw. GPS logged on a treadmill is noise, not a route.
-bool drawsRoute(String type) => type != 'treadmill';
 
 /// About [points] evenly spaced positions of [t] as `lat,lon;lat,lon;...` (5 decimals, about 1 m), first and last included. Null when [t] has no route.
 String? simplifyRoute(Track t, {int points = 200}) {

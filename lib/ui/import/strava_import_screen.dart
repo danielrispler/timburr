@@ -115,7 +115,6 @@ class _StravaImportScreenState extends State<StravaImportScreen> {
             TileGroup(title: '${p.files.length} files', children: [
               _count('New Runs', p.newRuns),
               _count('Runs with a map', p.withMap),
-              _count('Treadmill runs', p.treadmill),
               _count('Runs without a route', p.noRoute),
               if (p.merged > 0) _count('Fill into a Run you already have', p.merged),
               if (p.alreadyImported > 0) _count('Already imported', p.alreadyImported),
