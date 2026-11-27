@@ -363,7 +363,14 @@ class _Line extends StatelessWidget {
       : SeriesChart(title, points, leftReserved: 44);
 }
 
-void _openExercise(BuildContext context, Stores stores, CatalogEntry? e) {
+/// The headline best from [records]: e1RM for weighted, reps for bodyweight, seconds for timed.
+String fmtBest(String loadType, Map<String, double> best) => switch (loadType) {
+      'timed' => '${fmtNum(best['duration'] ?? 0)} s',
+      'bodyweight' => '${fmtNum(best['reps'] ?? 0)} reps',
+      _ => '${fmtNum(best['e1rm'] ?? 0)} kg',
+    };
+
+void openExercise(BuildContext context, Stores stores, CatalogEntry? e) {
   if (e == null) return;
   Navigator.of(context).push(
     MaterialPageRoute(
@@ -425,11 +432,7 @@ class _ExercisesState extends State<_Exercises> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(switch (loadType) {
-                          'timed' => '${fmtNum(best['duration'] ?? 0)} s',
-                          'bodyweight' => '${fmtNum(best['reps'] ?? 0)} reps',
-                          _ => '${fmtNum(best['e1rm'] ?? 0)} kg',
-                        }),
+                        Text(fmtBest(loadType, best)),
                         if (trend != null) ...[
                           const SizedBox(width: 8),
                           Icon(
@@ -441,7 +444,7 @@ class _ExercisesState extends State<_Exercises> {
                         ],
                       ],
                     ),
-                    onTap: () => _openExercise(context, widget.stores, e),
+                    onTap: () => openExercise(context, widget.stores, e),
                   );
                 }(),
             ],
@@ -468,7 +471,28 @@ class _Records extends StatelessWidget {
     (String?, String) key(String id) => (d.exercises[id]?.libraryId, d.exercises[id]?.name ?? '');
     final ids = sessions.keys.toList()..sort((a, b) => byMainLiftThenName(key(a), key(b)));
     bool isPopular(String id) => mainLiftRank(d.exercises[id]?.libraryId) < mainLifts.length;
+    Widget bests(String title, Iterable<String> group) => TileGroup(
+          title: title,
+          children: [
+            for (final id in group)
+              ListTile(
+                title: Text(d.exercises[id]?.name ?? '…'),
+                subtitle: Text(
+                  [
+                    for (final MapEntry(:key, :value) in records(loadType(id), [
+                      for (final (_, s) in sessions[id]!) s,
+                    ]).entries)
+                      '$key ${fmtNum(value)}',
+                  ].join(' · '),
+                ),
+                onTap: () => openExercise(context, stores, d.exercises[id]),
+              ),
+          ],
+        );
+    final popular = ids.where(isPopular), rest = ids.where((id) => !isPopular(id));
     return _page([
+      // Popular first, so the main lifts' bests are the first thing on the page.
+      if (popular.isNotEmpty) bests('Popular', popular),
       TileGroup(
         title: 'PRs in the last 30 days',
         children: [
@@ -483,7 +507,7 @@ class _Records extends StatelessWidget {
                 'bodyweight' => '${fmtNum(p.value)} reps',
                 _ => 'e1RM ${fmtNum(p.value)} kg',
               }),
-              onTap: () => _openExercise(context, stores, d.exercises[p.exerciseId]),
+              onTap: () => openExercise(context, stores, d.exercises[p.exerciseId]),
             ),
         ],
       ),
@@ -492,26 +516,7 @@ class _Records extends StatelessWidget {
           title: 'All-time bests',
           children: [ListTile(title: Text('No records yet'))],
         ),
-      for (final (title, group) in [('Popular', ids.where(isPopular)), ('All', ids.where((id) => !isPopular(id)))])
-        if (group.isNotEmpty)
-          TileGroup(
-            title: title,
-            children: [
-              for (final id in group)
-                ListTile(
-                  title: Text(d.exercises[id]?.name ?? '…'),
-                  subtitle: Text(
-                    [
-                      for (final MapEntry(:key, :value) in records(loadType(id), [
-                        for (final (_, s) in sessions[id]!) s,
-                      ]).entries)
-                        '$key ${fmtNum(value)}',
-                    ].join(' · '),
-                  ),
-                  onTap: () => _openExercise(context, stores, d.exercises[id]),
-                ),
-            ],
-          ),
+      if (rest.isNotEmpty) bests('All', rest),
     ]);
   }
 }
