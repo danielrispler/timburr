@@ -11,10 +11,10 @@ _Avoid_: routine (in the UI), template
 
 **Drop set**: a set done right after the set before it, at a lower weight and with no rest between. It belongs to that set.
 
-**Alternative**: one of the exercises a routine slot can hold, in order; the first is the default. Daniel can swap to any of them during a workout. The exercise he actually does is the one recorded.
+**Alternative**: one of the exercises a routine slot can hold, in order; the first is the default. Daniel can swap to any of them during a workout, or to any other exercise, which then joins the slot as an alternative. The exercise he actually does is the one recorded. Swapping never changes the default.
 _Avoid_: backup exercise
 
-**Machine**: a specific piece of equipment, such as the upstairs leg extension. Each machine Daniel uses is its own exercise, because weights on different machines can't be compared.
+**Machine**: a specific piece of equipment, such as the upstairs leg extension. It is not its own exercise: doing an exercise on another machine is the same exercise, with the machine written in that day's note. Its PRs and history mix machines.
 
 **Skipped exercise**: an exercise in a workout that Daniel didn't do that day. None of its sets count, and skipping it never changes the routine.
 

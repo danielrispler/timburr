@@ -388,6 +388,104 @@ void main() {
       expect([for (final s in (await routines.plan(r)).single.sets) s.weightKg], [null, null, null]);
     });
 
+    test('a swap, even one that splits done sets, is no change, and Update keeps the default', () async {
+      final r = await routines.create('Lower A');
+      final ext = await routines.add(r, lib('Leg extension'));
+      await routines.addAlternatives(ext, [lib('Sissy squat')]);
+      await routines.add(r, lib('Squat'));
+      final w = await store.start(routineId: r);
+      var items = await store.watchExercises(w).first;
+      await store.swap(items[1], await Catalog(db).rowIdFor(lib('Front squat')));
+      final first = (await store.watchSets(items[0].id).first).first;
+      await store.updateSet(first.copyWith(weightKg: const Value(50), done: true));
+      await store.swap(items[0], await Catalog(db).rowIdFor(lib('Leg press')));
+      expect(await order(w), [libraryRowId('Leg extension'), libraryRowId('Leg press'), libraryRowId('Front squat')]);
+      expect(await store.templateChanged(w), isFalse);
+
+      // A real change still asks; Update then keeps each slot's default and remembers the new picks.
+      await store.addSet((await store.watchExercises(w).first).last.id);
+      expect(await store.templateChanged(w), isTrue);
+      await store.updateTemplate(w);
+      final plan = await routines.plan(r);
+      expect([for (final p in plan) p.exerciseId], [libraryRowId('Leg extension'), libraryRowId('Squat')]);
+      expect([for (final p in plan) p.alternativeIds], [
+        [libraryRowId('Sissy squat'), libraryRowId('Leg press')],
+        [libraryRowId('Front squat')],
+      ]);
+      expect([for (final p in plan) p.sets.length], [3, 4]);
+    });
+
+    test('finish remembers a swap to a new exercise as an alternative of its slot; discard and added exercises save nothing', () async {
+      final r = await routines.create('Lower A');
+      final ext = await routines.add(r, lib('Leg extension'));
+      await routines.addAlternatives(ext, [lib('Sissy squat')]);
+      await routines.add(r, lib('Squat'));
+      Future<List<List<String>>> alternatives() async => [for (final p in await routines.plan(r)) p.alternativeIds];
+
+      final w = await store.start(routineId: r);
+      await store.addExercise(w, lib('Curl'));
+      var items = await store.watchExercises(w).first;
+      await store.swap(items[2], await Catalog(db).rowIdFor(lib('Hammer curl')));
+      await store.swap(items[0], await Catalog(db).rowIdFor(lib('Leg press')));
+      await store.finish(w);
+      expect(await alternatives(), [
+        [libraryRowId('Sissy squat'), libraryRowId('Leg press')],
+        [],
+      ]);
+      expect([for (final p in await routines.plan(r)) p.exerciseId], [libraryRowId('Leg extension'), libraryRowId('Squat')]);
+
+      final next = await store.start(routineId: r);
+      items = await store.watchExercises(next).first;
+      await store.swap(items[1], await Catalog(db).rowIdFor(lib('Hack squat')));
+      await store.discard(next);
+      expect((await alternatives()).last, isEmpty);
+    });
+
+    test('swapping a card already split, or the card split from it, keeps one slot', () async {
+      final r = await routines.create('Lower A');
+      await routines.add(r, lib('Leg extension'));
+      final w = await store.start(routineId: r);
+      Future<void> doFirstSet(WorkoutExercise e) async =>
+          store.updateSet((await store.watchSets(e.id).first).first.copyWith(weightKg: const Value(50), done: true));
+      final ext = (await store.watchExercises(w).first).single;
+      await doFirstSet(ext);
+      await store.swap(ext, await Catalog(db).rowIdFor(lib('Leg press')));
+      final press = (await store.watchExercises(w).first).last;
+      await doFirstSet(press);
+      await store.swap(press, await Catalog(db).rowIdFor(lib('Hack squat')));
+      await store.swap((await store.watchExercises(w).first).first, await Catalog(db).rowIdFor(lib('Sissy squat')));
+      expect(await order(w), [
+        libraryRowId('Leg extension'), libraryRowId('Sissy squat'), libraryRowId('Leg press'), libraryRowId('Hack squat')
+      ]);
+      expect(await store.templateChanged(w), isFalse);
+
+      await store.updateTemplate(w);
+      final plan = (await routines.plan(r)).single;
+      expect(plan.exerciseId, libraryRowId('Leg extension'));
+      expect(plan.alternativeIds.toSet(), {libraryRowId('Leg press'), libraryRowId('Hack squat'), libraryRowId('Sissy squat')});
+      expect(plan.sets, hasLength(3));
+    });
+
+    test('the same exercise twice in a row stays two slots', () async {
+      final r = await routines.create('Push');
+      await routines.add(r, lib('Bench'));
+      await routines.add(r, lib('Bench'));
+      final w = await store.start(routineId: r);
+      expect(await store.templateChanged(w), isFalse);
+      await store.updateTemplate(w);
+      expect(await routines.plan(r), hasLength(2));
+    });
+
+    test('a swap on a logged workout relabels the card: its sets were done on the new exercise', () async {
+      final r = await routines.create('Lower A');
+      await routines.add(r, lib('Leg extension'));
+      final w = await store.start(routineId: r, done: true);
+      await store.swap((await store.watchExercises(w).first).single, await Catalog(db).rowIdFor(lib('Leg press')));
+      final e = (await store.watchExercises(w).first).single;
+      expect(e.exerciseId, libraryRowId('Leg press'));
+      expect(await store.watchSets(e.id).first, hasLength(3));
+    });
+
     test('deleting a routine soft-deletes its exercises and sets', () async {
       final r = await routines.create('Push');
       await routines.add(r, lib('A'));
@@ -422,30 +520,67 @@ void main() {
   test('alternatives come from the routine; a swap trades places and takes last weights', () async {
     final routines = RoutineStore(db);
     final r = await routines.create('Lower A');
-    final re = await routines.add(r, lib('Ext down'));
-    await routines.addAlternatives(re, [lib('Ext up'), lib('Ext down'), lib('Ext gym'), lib('Ext up')]);
-    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Ext up'), libraryRowId('Ext gym')]);
+    final re = await routines.add(r, lib('Leg extension'));
+    await routines.addAlternatives(re, [lib('Leg press'), lib('Leg extension'), lib('Hack squat'), lib('Leg press')]);
+    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Leg press'), libraryRowId('Hack squat')]);
 
-    // Last time on the upstairs machine: 35 kg.
+    // Last time on the leg press: 35 kg.
     final old = await store.start();
-    await store.addExercise(old, lib('Ext up'));
+    await store.addExercise(old, lib('Leg press'));
     final oe = (await store.watchExercises(old).first).single;
     await store.updateSet((await store.addSet(oe.id)).copyWith(weightKg: const Value(35), reps: const Value(10), done: true));
     await store.finish(old);
 
     final w = await store.start(routineId: r);
     var e = (await store.watchExercises(w).first).single;
-    final first = (await store.watchSets(e.id).first).first;
-    await store.updateSet(first.copyWith(weightKg: const Value(50), done: true));
-    await store.swap(e, libraryRowId('Ext up'));
+    await store.swap(e, libraryRowId('Leg press'));
     e = (await store.watchExercises(w).first).single;
-    expect(e.exerciseId, libraryRowId('Ext up'));
-    expect(e.alternativeIds, [libraryRowId('Ext down'), libraryRowId('Ext gym')]);
-    // A done set keeps its weight; the rest take the upstairs machine's.
-    expect([for (final s in await store.watchSets(e.id).first) s.weightKg], [50.0, 35.0, 35.0]);
+    expect(e.exerciseId, libraryRowId('Leg press'));
+    expect(e.alternativeIds, [libraryRowId('Leg extension'), libraryRowId('Hack squat')]);
+    // The sets take the leg press's weights.
+    expect([for (final s in await store.watchSets(e.id).first) s.weightKg], [35.0, 35.0, 35.0]);
 
-    await routines.removeAlternative(re, libraryRowId('Ext up'));
-    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Ext gym')]);
+    await routines.removeAlternative(re, libraryRowId('Leg press'));
+    expect((await routines.watchExercises(r).first).single.alternativeIds, [libraryRowId('Hack squat')]);
+  });
+
+  test('a swap after done sets leaves them, with their drops, on the exercise done and moves the rest', () async {
+    final routines = RoutineStore(db);
+    final r = await routines.create('Lower A');
+    final re = await routines.add(r, lib('Leg extension'));
+    await routines.addAlternatives(re, [lib('Sissy squat')]);
+    final w = await store.start(routineId: r);
+    final ext = (await store.watchExercises(w).first).single;
+    final first = (await store.watchSets(ext.id).first).first;
+    await store.updateSet(first.copyWith(weightKg: const Value(50), reps: const Value(10), done: true));
+    await store.addDrop((await store.watchSets(ext.id).first).first);
+
+    await store.swap(ext, await Catalog(db).rowIdFor(lib('Leg press')));
+    final items = await store.watchExercises(w).first;
+    expect([for (final e in items) e.exerciseId], [libraryRowId('Leg extension'), libraryRowId('Leg press')]);
+    expect([for (final s in await store.watchSets(items[0].id).first) (s.setNumber, s.isDrop, s.done)],
+        [(1, false, true), (2, true, false)]);
+    expect([for (final s in await store.watchSets(items[1].id).first) (s.setNumber, s.done)], [(1, false), (2, false)]);
+    // Either can be swapped back to the other.
+    expect(items[0].alternativeIds, [libraryRowId('Sissy squat'), libraryRowId('Leg press')]);
+    expect(items[1].alternativeIds, [libraryRowId('Leg extension'), libraryRowId('Sissy squat')]);
+    expect(items.any((e) => e.supersetWithNext), isFalse);
+  });
+
+  test('a split inside a superset stays in the superset', () async {
+    final w = await store.start();
+    await store.addExercise(w, lib('Curl'));
+    await store.addExercise(w, lib('Pushdown'));
+    var items = await store.watchExercises(w).first;
+    await store.saveExercise(items[0].copyWith(supersetWithNext: true));
+    final s1 = await store.addSet(items[0].id);
+    await store.addSet(items[0].id);
+    await store.updateSet(s1.copyWith(weightKg: const Value(15), done: true));
+
+    await store.swap((await store.watchExercises(w).first).first, await Catalog(db).rowIdFor(lib('Hammer curl')));
+    items = await store.watchExercises(w).first;
+    expect(await order(w), [libraryRowId('Curl'), libraryRowId('Hammer curl'), libraryRowId('Pushdown')]);
+    expect(supersetGroups(items), hasLength(1));
   });
 
   test('a skipped exercise counts nowhere and stays in the routine', () async {
