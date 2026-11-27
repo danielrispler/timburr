@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/db.dart';
+import '../../data/records.dart';
 import '../../data/stats.dart';
 import '../backup/backup_screen.dart';
 import '../core/theme.dart';
@@ -75,9 +76,14 @@ class _Summary extends StatelessWidget {
     final monday = mondayOf(DateTime.now());
     final week = [for (final w in d.workouts) if (!w.startedAt.isBefore(monday)) w];
     final cardioSec = d.cardio.where((c) => !c.startedAt.isBefore(monday)).fold(0, (t, c) => t + c.durationSec);
+    final sessions = sessionsByExercise(d.rows);
+    final lifts = [
+      for (final id in sessions.keys)
+        if (mainLiftRank(d.exercises[id]?.libraryId) < mainLifts.length) id,
+    ]..sort((a, b) => mainLiftRank(d.exercises[a]?.libraryId).compareTo(mainLiftRank(d.exercises[b]?.libraryId)));
     final prs = last == null
         ? 0
-        : prEvents(sessionsByExercise(d.rows), (id) => d.exercises[id]?.loadType ?? 'weighted')
+        : prEvents(sessions, (id) => d.exercises[id]?.loadType ?? 'weighted')
             .where((p) => p.workout.id == last.id)
             .length;
     final (name: next, routineId: nextId) = nextInCycle(d.workouts, names);
@@ -112,6 +118,20 @@ class _Summary extends StatelessWidget {
           ]),
         ),
       ]),
+      if (lifts.isNotEmpty)
+        TileGroup(title: 'Estimated 1RM', children: [
+          for (final id in lifts)
+            () {
+              final e = d.exercises[id];
+              final loadType = e?.loadType ?? 'weighted';
+              return ListTile(
+                dense: true,
+                title: Text(e?.name ?? '…'),
+                trailing: Text(fmtBest(loadType, records(loadType, [for (final (_, sets) in sessions[id]!) sets]))),
+                onTap: () => openExercise(context, stores, e),
+              );
+            }(),
+        ]),
       if (last != null)
         TileGroup(title: 'Last workout', children: [
           ListTile(
