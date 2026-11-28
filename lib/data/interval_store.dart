@@ -86,6 +86,12 @@ class IntervalStore {
             for (final r in runs) HistoryEntry(r, (await _db.liveTrackRow(r.id).getSingleOrNull()).let((t) => t == null ? const <StepMark>[] : Track.decode(t.points).steps ?? const [])),
           ]);
 
+  /// Each Step's Last time in plan [planId], by Step id (see [lastTimes]).
+  Future<Map<String, LastTime>> lastTimesOf(String planId) async => lastTimes([
+        for (final e in await watchHistory(planId).first)
+          if (planOf(e.run) case final copy?) (copy, e.steps),
+      ]);
+
   /// Makes a plan named [name] of the steps Run [runId] ran (see [planFromSteps]) and puts the Run in its history. Returns the plan's id.
   Future<String> saveAsPlan(String runId, String name) async {
     final steps = (await _cardio.watchTrack(runId).first)?.steps ?? const [];

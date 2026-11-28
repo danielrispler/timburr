@@ -19,7 +19,7 @@ void feed(Recorder r, int from, int to, {double speed = 3, double startM = 0}) {
   }
 }
 
-const twoBy300 = IntervalPlan(name: '2 × 300', reps: 2, rep: StepTarget.meters(300), recovery: StepTarget.time(30));
+final twoBy300 = IntervalPlan.basic(name: '2 × 300', reps: 2, rep: StepTarget.meters(300), recovery: StepTarget.time(30));
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -33,9 +33,9 @@ void main() {
   tearDown(() => db.close());
 
   /// Records a planned Interval run starting [day] days after t0 and saves it through ingest. [speed] m/s.
-  Future<String> intervalRun(String? planId, {int day = 0, double speed = 3, IntervalPlan plan = twoBy300}) async {
+  Future<String> intervalRun(String? planId, {int day = 0, double speed = 3, IntervalPlan? plan}) async {
     final start = t0.add(Duration(days: day));
-    final r = Recorder.start('interval', start, 's$day$planId', plan: planId == null ? null : plan, planId: planId);
+    final r = Recorder.start('interval', start, 's$day$planId', plan: planId == null ? null : plan ?? twoBy300, planId: planId);
     for (var s = 0; s <= 280; s++) {
       r.position(PositionSample(time: start.add(Duration(seconds: s)), lat: 32.0 + s * speed / 111195, lon: 34.8, accuracy: 5));
       r.tick(start.add(Duration(seconds: s)));
@@ -92,11 +92,21 @@ void main() {
       expect(h.first.summary!.avgPaceSecPerKm, closeTo(1000 / 4, 1));
     });
 
+    test('Last time is each Step\'s pace in the newest Run of the plan', () async {
+      final p = await store.intervals.add(twoBy300);
+      await intervalRun(p, day: 1, speed: 3);
+      await intervalRun(p, day: 2, speed: 4);
+      final last = await store.intervals.lastTimesOf(p);
+      expect(last.keys, unorderedEquals(['rep', 'recovery']));
+      expect(last['rep']!.paceSecPerKm, closeTo(1000 / 4, 1));
+      expect(await store.intervals.lastTimesOf('none'), isEmpty);
+    });
+
     test('Save as plan makes a plan of a free Interval run, and the Run joins its history', () async {
       final id = await intervalRun(null);
       final p = await store.intervals.saveAsPlan(id, 'Free one');
       final plan = (await store.intervals.watchPlans().first).single.plan;
-      expect((plan.name, plan.warmup, plan.reps, plan.rep), ('Free one', const StepTarget.time(60), 1, const StepTarget.meters(300)));
+      expect((plan.name, plan.describe()), ('Free one', '1:00 warm-up · 1 × (300 m / 1:00) · 2:00 cool-down'));
       expect((await store.watch(id).first).intervalPlanId, p);
       expect([for (final e in await store.intervals.watchHistory(p).first) e.run.id], [id]);
     });

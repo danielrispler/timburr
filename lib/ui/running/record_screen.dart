@@ -64,6 +64,7 @@ class _RecordScreenState extends State<RecordScreen> {
   bool _checked = false;
   String? _problem;
   String? _planId; // the picked plan; null is Free
+  Map<String, LastTime> _lastTimes = const {}; // the running plan's Last times, by Step id
 
   LiveRecorder get rec => widget.recorder;
   bool get interval => widget.type == 'interval';
@@ -87,6 +88,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final ok = rec.active || await rec.hasPermission();
     if (ok && !rec.active) await rec.open();
     final last = interval && !rec.active ? await widget.cardio.intervals.lastUsed() : null;
+    if (rec.planId case final id?) await _loadLastTimes(id);
     if (mounted) {
       setState(() {
         _planId = last;
@@ -200,7 +202,13 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _start() async {
     final id = _planId;
     final plan = !interval || id == null ? null : (await widget.cardio.intervals.watchPlans().first).where((p) => p.id == id).firstOrNull;
+    if (plan != null) await _loadLastTimes(plan.id);
     await rec.start(widget.type, plan: plan?.plan, planId: plan?.id);
+  }
+
+  Future<void> _loadLastTimes(String planId) async {
+    final last = await widget.cardio.intervals.lastTimesOf(planId);
+    if (mounted) setState(() => _lastTimes = last);
   }
 
   Widget _live(BuildContext context, RunSnapshot s) {
@@ -215,7 +223,7 @@ class _RecordScreenState extends State<RecordScreen> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       Center(child: _GpsChip(s.gps)),
       const SizedBox(height: 16),
-      if (s.interval case final iv?) ...[_StepCard(iv), const SizedBox(height: 16)],
+      if (s.interval case final iv?) ...[_StepCard(iv, lastTime: iv.step == null ? null : _lastTimes[iv.step!.id]), const SizedBox(height: 16)],
       Center(child: Text(formatDuration(s.movingSec), style: theme.textTheme.displayLarge?.copyWith(fontSize: 88, fontFeatures: const [FontFeature.tabularFigures()]))),
       Center(
         child: Text(
@@ -288,11 +296,24 @@ class _GpsChip extends StatelessWidget {
   }
 }
 
-/// The step an Interval run is in: its name, what is left of it (or how long it has run), and the plan's progress.
+/// The step an Interval run is in: its name, what is left of it (or how long it has run), and the plan's progress, with its Target pace and
+/// Last time.
 class _StepCard extends StatelessWidget {
-  const _StepCard(this.s);
+  const _StepCard(this.s, {this.lastTime});
 
   final IntervalSnapshot s;
+  final LastTime? lastTime;
+
+  /// "Target 4:00 /km · last time 4:05 /km", or null with neither.
+  String? _paces() {
+    final step = s.planDone ? null : s.step;
+    if (step == null) return null;
+    final last = lastTime != null && lastTime!.fits(step) ? lastTime : null;
+    final parts = [if (step.pace != null) 'Target ${clock(step.pace!)} /km', if (last != null) 'last time ${formatPace(last.paceSecPerKm)} /km'];
+    if (parts.isEmpty) return null;
+    final line = parts.join(' · ');
+    return line[0].toUpperCase() + line.substring(1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -311,6 +332,7 @@ class _StepCard extends StatelessWidget {
         child: Column(children: [
           Text(s.planDone ? 'Plan done · $name' : name, style: theme.textTheme.headlineMedium),
           Text(left, style: theme.textTheme.displaySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
+          if (_paces() case final p?) Text(p, style: theme.textTheme.titleMedium),
         ]),
       ),
     );

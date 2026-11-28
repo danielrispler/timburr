@@ -28,11 +28,18 @@ _Avoid_: cardio, activity
 **Interval run**: a Run made of fast reps and easy recoveries, either guided by an Interval plan or switched by hand (a free Interval run). It counts like any other Run and keeps a copy of the plan name and steps it ran. A Run without intervals is just a Run.
 _Avoid_: speed work, workout
 
-**Interval plan**: a saved, named structure for an Interval run: an optional warm-up, a number of reps each followed by a recovery, and an optional cool-down.
+**Interval plan**: a saved, named list of Steps and Repeats for an Interval run, in running order.
+
+**Repeat**: a group of Steps in an Interval plan that runs a set number of times in a row. One pass through it is a round. A Repeat holds only Steps, never another Repeat.
+_Avoid_: block, set, loop
 
 **Plan history**: every Interval run done with one Interval plan, newest first, compared by average rep pace and fastest rep. Editing the plan keeps its history. Deleting the plan removes its history, but not its Runs.
 
-**Step**: one part of an Interval plan: a warm-up, rep, recovery or cool-down. Each step is a distance or a time. A time step follows the clock, so standing still during a recovery doesn't make it longer.
+**Step**: one part of an Interval plan: a warm-up, rep, recovery or cool-down. Each step is a distance, a time, or open (it lasts until Daniel presses Next). A time step follows the clock, so standing still during a recovery doesn't make it longer.
+
+**Target pace**: the pace Daniel means to run a Step at, set on the Step in its Interval plan.
+
+**Last time**: the pace Daniel actually ran a Step at in the newest Interval run of its plan that ran that Step, averaged over the Step's rounds. A Step whose kind or length has changed since has no Last time.
 
 **Rep**: a fast step of an Interval run.
 _Avoid_: interval, lap, split
