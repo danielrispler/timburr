@@ -32,7 +32,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Add step').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PopupMenuButton<String>).last); // the new step's menu
+    await tester.tap(find.byTooltip('More').last); // the new step's actions
     await tester.pumpAndSettle();
     await tester.tap(find.text('Move into repeat above'));
     await tester.pumpAndSettle();
@@ -47,11 +47,10 @@ void main() {
     final result = await open(tester, initial: plan);
     await tester.tap(find.text('1 km'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('No target'));
+    await tester.tap(find.text('Pace'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pace').last);
-    await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Pace (m:ss /km)'), '4:05');
+    await tester.enterText(find.widgetWithText(TextField, 'Pace'), '405'); // the colon comes by itself
+    expect(find.text('4:05'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('1 km · @ 4:05 /km'), findsOneWidget);
@@ -72,12 +71,50 @@ void main() {
       'c': const LastTime(StepKind.cooldown, StepTarget.time(600), 330), // the cool-down was 10:00 then: no Last time
     });
     expect(find.text('Last time 4:10 /km'), findsOneWidget);
-    await tester.tap(find.descendant(of: find.byType(AppBar), matching: find.byType(PopupMenuButton<String>)));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Use last time as targets'));
+    await tester.tap(find.byTooltip('Use last time as targets'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect([for (final s in result.single!.allSteps) s.pace], [250, null, null]);
+  });
+
+  testWidgets('swiping a Step left deletes it, and Undo brings it back where it was', (tester) async {
+    final plan = IntervalPlan(name: 'Three', items: [
+      const PlanStep('w', StepKind.warmup, null),
+      const PlanStep('r', StepKind.rep, StepTarget.meters(1000)),
+      const PlanStep('c', StepKind.cooldown, null),
+    ]);
+    final result = await open(tester, initial: plan);
+    await tester.drag(find.text('1 km'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('1 km'), findsNothing);
+    expect(find.text('Rep deleted'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect([for (final s in result.single!.allSteps) s.id], ['w', 'r', 'c']);
+  });
+
+  group('typing a time or pace', () {
+    String type(List<String> keys) {
+      var v = TextEditingValue.empty;
+      for (final text in keys) {
+        v = const ClockInputFormatter().formatEditUpdate(v, TextEditingValue(text: text));
+      }
+      return v.text;
+    }
+
+    test('fills in from the right, the colon put in by itself', () {
+      expect(type(['1']), '0:01');
+      expect(type(['1', '0:011', '0:113']), '1:13');
+      expect(type(['1', '0:010', '0:103', '1:030']), '10:30');
+    });
+
+    test('backspace takes the last digit; nothing left is empty; more than four digits are refused', () {
+      expect(const ClockInputFormatter().formatEditUpdate(const TextEditingValue(text: '1:30'), const TextEditingValue(text: '1:3')).text, '0:13');
+      expect(const ClockInputFormatter().formatEditUpdate(const TextEditingValue(text: '0:01'), const TextEditingValue(text: '0:0')).text, '');
+      expect(const ClockInputFormatter().formatEditUpdate(const TextEditingValue(text: '10:30'), const TextEditingValue(text: '10:305')).text, '10:30');
+    });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../data/cardio.dart';
 import '../../data/db.dart';
@@ -59,17 +60,14 @@ class PlanPicker extends StatelessWidget {
                 title: Text(p.plan.name),
                 subtitle: Text(p.plan.describe()),
                 onTap: () => onSelected(p.id),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (a) => switch (a) {
-                    'edit' => _edit(context, p),
-                    'history' => openPlanHistory(context, store, p),
-                    _ => _delete(context, p),
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'edit', child: Text('Edit')),
-                    PopupMenuItem(value: 'history', child: Text('History')),
-                    PopupMenuItem(value: 'delete', child: Text('Delete')),
-                  ],
+                trailing: IconButton(
+                  tooltip: 'More',
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => showActions(context, p.plan.name, [
+                    (icon: Icons.edit_outlined, label: 'Edit', onTap: () => _edit(context, p), danger: false),
+                    (icon: Icons.history, label: 'History', onTap: () => openPlanHistory(context, store, p), danger: false),
+                    (icon: Icons.delete_outline, label: 'Delete', onTap: () => _delete(context, p), danger: true),
+                  ]),
                 ),
               ),
             ListTile(
@@ -96,8 +94,60 @@ Color stepColor(StepKind k) => switch (k) {
       StepKind.cooldown => const Color(0xFF43A047),
     };
 
+/// Each step kind's icon.
+IconData stepIcon(StepKind k) => switch (k) {
+      StepKind.warmup => Icons.local_fire_department_outlined,
+      StepKind.rep => Icons.directions_run,
+      StepKind.recovery => Icons.directions_walk,
+      StepKind.cooldown => Icons.ac_unit,
+    };
+
+/// Text that reads on [background]: white on a dark colour, near-black on a light one.
+Color readableOn(Color background) => ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : Colors.black87;
+
 /// A Step's length and Target pace in one line: "400 m · @ 4:00 /km", "Until Next".
 String stepSummary(PlanStep s) => [s.target?.describe() ?? 'Until Next', if (s.pace != null) '@ ${clock(s.pace!)} /km'].join(' · ');
+
+/// Typing a time or a pace: digits only, filled in from the right with the colon put in by itself ("1" 0:01, "130" 1:30, "1030" 10:30).
+class ClockInputFormatter extends TextInputFormatter {
+  const ClockInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
+    if (digits.length > 4) return oldValue; // 99:59 at most
+    if (digits.isEmpty) return TextEditingValue.empty;
+    final p = digits.padLeft(3, '0');
+    final text = '${int.parse(p.substring(0, p.length - 2))}:${p.substring(p.length - 2)}';
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
+
+/// One choice of an actions sheet.
+typedef SheetAction = ({IconData icon, String label, VoidCallback onTap, bool danger});
+
+/// A bottom sheet of [actions], titled [title]: the app's menu for a row, in place of a popup menu.
+Future<void> showActions(BuildContext context, String title, List<SheetAction> actions) => showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 8), child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+            for (final a in actions)
+              ListTile(
+                leading: Icon(a.icon, color: a.danger ? scheme.error : null),
+                title: Text(a.label, style: a.danger ? TextStyle(color: scheme.error) : null),
+                onTap: () {
+                  Navigator.pop(context);
+                  a.onTap();
+                },
+              ),
+            const SizedBox(height: 8),
+          ]),
+        );
+      },
+    );
 
 /// The plan at a glance: a bar per step in running order, as wide as the step is long (a distance at its Target pace or 5:30 /km, an open step as
 /// two minutes) and as tall as it is hard.
@@ -114,13 +164,19 @@ class PlanOverview extends StatelessWidget {
           final t => (t.meters! * (s.pace ?? 330) / 1000).round(),
         };
     double height(StepKind k) => switch (k) { StepKind.rep => 1, StepKind.recovery => 0.4, _ => 0.6 };
-    return SizedBox(
-      height: 64,
+    return Container(
+      height: 88,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(20)),
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         for (final p in plan.steps)
           Expanded(
             flex: seconds(p.step).clamp(1, 1 << 20),
-            child: Container(height: 64 * height(p.kind), margin: const EdgeInsets.symmetric(horizontal: 1), color: stepColor(p.kind)),
+            child: Container(
+              height: 64 * height(p.kind),
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+              decoration: BoxDecoration(color: stepColor(p.kind), borderRadius: BorderRadius.circular(4)),
+            ),
           ),
       ]),
     );
@@ -128,7 +184,8 @@ class PlanOverview extends StatelessWidget {
 }
 
 /// New or edit Interval plan, laid out as Garmin's editor: the overview, then the Steps and Repeats with Add step and Add repeat at the
-/// bottom. Tapping a Step opens its page. [lastTimes] are the plan's Last times. Pops the plan, or nothing when backed out.
+/// bottom. Tapping a Step opens its page; swiping a Step or Repeat left deletes it, with Undo. [lastTimes] are the plan's Last times. Pops the
+/// plan, or nothing when backed out.
 class IntervalPlanEditor extends StatefulWidget {
   const IntervalPlanEditor({super.key, this.initial, this.lastTimes = const {}});
 
@@ -147,14 +204,22 @@ List<T> _moved<T>(List<T> list, int from, int to) {
 
 PlanStep _newStep(StepKind kind, StepTarget? target) => PlanStep(newPlanItemId(), kind, target);
 
+PlanStep _newRep() => _newStep(StepKind.rep, const StepTarget.meters(400));
+
+PlanRepeat _newRepeat(int times) => PlanRepeat(newPlanItemId(), times, [_newRep(), _newStep(StepKind.recovery, const StepTarget.time(90))]);
+
+/// The row being dragged: a little larger, with no box of its own behind it (each row is its own rounded card).
+Widget _lifted(Widget child, int index, Animation<double> animation) => AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) => Material(type: MaterialType.transparency, child: Transform.scale(scale: 1 + 0.03 * Curves.easeOut.transform(animation.value), child: child)),
+      child: child,
+    );
+
+Widget _handle(int index) => ReorderableDragStartListener(index: index, child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.drag_indicator)));
+
 class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
   late final _name = TextEditingController(text: widget.initial?.name ?? '');
-  late List<PlanItem> _items = widget.initial?.items ??
-      [
-        _newStep(StepKind.warmup, null),
-        PlanRepeat(newPlanItemId(), 6, [_newStep(StepKind.rep, const StepTarget.meters(400)), _newStep(StepKind.recovery, const StepTarget.time(90))]),
-        _newStep(StepKind.cooldown, null),
-      ];
+  late List<PlanItem> _items = widget.initial?.items ?? [_newStep(StepKind.warmup, null), _newRepeat(6), _newStep(StepKind.cooldown, null)];
   String? _nameError, _stepsError;
 
   @override
@@ -183,6 +248,19 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
             ?to,
       ]);
 
+  /// Deletes the Step or Repeat [id], with Undo.
+  void _delete(String id, String what) {
+    final before = _items;
+    if (_items.any((i) => i.id == id)) {
+      _set([for (final i in _items) if (i.id != id) i]);
+    } else {
+      _replace(id, null);
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$what deleted'), action: SnackBarAction(label: 'Undo', onPressed: () => _set(before))));
+  }
+
   PlanItem _fresh(PlanItem i) => switch (i) {
         PlanStep() => i.copy(id: newPlanItemId()),
         PlanRepeat() => PlanRepeat(newPlanItemId(), i.times, [for (final s in i.steps) s.copy(id: newPlanItemId())]),
@@ -191,7 +269,7 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
   Future<void> _open(PlanStep s) async {
     final r = await Navigator.of(context).push<Object>(MaterialPageRoute(builder: (_) => _StepPage(step: s, lastTime: _last)));
     if (r is PlanStep) _replace(s.id, r);
-    if (r == _StepPage.removed) _replace(s.id, null);
+    if (r == _StepPage.removed) _delete(s.id, stepLabel(s.kind));
   }
 
   void _useLastTimes() => _set([
@@ -213,33 +291,60 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
     if (_nameError == null && _stepsError == null) Navigator.pop(context, _plan);
   }
 
-  Widget _stepTile(PlanStep s, {required List<PopupMenuEntry<String>> moves, required void Function(String) onMove, required Widget handle}) {
+  /// Swiping left reveals this behind a row.
+  Widget _swipeBackground() {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      alignment: AlignmentDirectional.centerEnd,
+      padding: const EdgeInsetsDirectional.only(end: 24),
+      decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(28)),
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    );
+  }
+
+  Widget _stepTile(PlanStep s, {required List<SheetAction> moves, required VoidCallback duplicate, required Widget handle}) {
     final theme = Theme.of(context);
-    final last = _last(s);
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => _open(s),
-        child: IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Container(width: 6, color: stepColor(s.kind)),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 0, 10),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(stepLabel(s.kind), style: theme.textTheme.titleMedium),
-                  Text(stepSummary(s), style: theme.textTheme.bodyMedium),
-                  if (last != null) Text('Last time ${formatPace(last.paceSecPerKm)} /km', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+    final last = _last(s), color = stepColor(s.kind), label = stepLabel(s.kind);
+    return Dismissible(
+      key: ValueKey('dismiss-${s.id}'),
+      direction: DismissDirection.endToStart,
+      background: _swipeBackground(),
+      onDismissed: (_) => _delete(s.id, label),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _open(s),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 0, 10),
+            child: Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14)),
+                child: Icon(stepIcon(s.kind), color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: theme.textTheme.titleMedium),
+                  Text(stepSummary(s), style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  if (last != null) Text('Last time ${formatPace(last.paceSecPerKm)} /km', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
                 ]),
               ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: onMove,
-              itemBuilder: (_) => [const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')), ...moves, const PopupMenuItem(value: 'delete', child: Text('Delete'))],
-            ),
-            handle,
-          ]),
+              IconButton(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => showActions(context, label, [
+                  (icon: Icons.copy_outlined, label: 'Duplicate', onTap: duplicate, danger: false),
+                  ...moves,
+                  (icon: Icons.delete_outline, label: 'Delete', onTap: () => _delete(s.id, label), danger: true),
+                ]),
+              ),
+              handle,
+            ]),
+          ),
         ),
       ),
     );
@@ -247,74 +352,96 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
 
   Widget _topStep(int i, PlanStep s) => _stepTile(
         s,
-        handle: ReorderableDragStartListener(index: i, child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.drag_handle))),
-        moves: [if (i > 0 && _items[i - 1] is PlanRepeat) const PopupMenuItem(value: 'into', child: Text('Move into repeat above'))],
-        onMove: (a) => switch (a) {
-          'duplicate' => _set([..._items]..insert(i + 1, _fresh(s))),
-          'into' => _set([
-              for (final (j, it) in _items.indexed)
-                if (j == i - 1) (it as PlanRepeat).copy(steps: [...it.steps, s]) else if (j != i) it,
-            ]),
-          _ => _replace(s.id, null),
-        },
+        handle: _handle(i),
+        duplicate: () => _set([..._items]..insert(i + 1, _fresh(s))),
+        moves: [
+          if (i > 0 && _items[i - 1] is PlanRepeat)
+            (
+              icon: Icons.move_up,
+              label: 'Move into repeat above',
+              onTap: () => _set([
+                    for (final (j, it) in _items.indexed)
+                      if (j == i - 1) (it as PlanRepeat).copy(steps: [...it.steps, s]) else if (j != i) it,
+                  ]),
+              danger: false,
+            ),
+        ],
       );
 
   Widget _repeat(int i, PlanRepeat r) {
     final theme = Theme.of(context);
     void times(int n) => _set([..._items]..[i] = r.copy(times: n));
-    return Card(
-      key: ValueKey(r.id),
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      color: theme.colorScheme.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 0, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            const Icon(Icons.repeat),
-            const SizedBox(width: 8),
-            Text('Repeat', style: theme.textTheme.titleMedium),
-            const Spacer(),
-            IconButton(icon: const Icon(Icons.remove), onPressed: r.times > 1 ? () => times(r.times - 1) : null),
-            Text('× ${r.times}', style: theme.textTheme.titleMedium),
-            IconButton(icon: const Icon(Icons.add), onPressed: r.times < 99 ? () => times(r.times + 1) : null),
-            PopupMenuButton<String>(
-              onSelected: (a) => _set(a == 'duplicate' ? ([..._items]..insert(i + 1, _fresh(r))) : ([..._items]..removeAt(i))),
-              itemBuilder: (_) => const [PopupMenuItem(value: 'duplicate', child: Text('Duplicate')), PopupMenuItem(value: 'delete', child: Text('Delete'))],
-            ),
-            ReorderableDragStartListener(index: i, child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.drag_handle))),
-          ]),
-          ReorderableListView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            padding: const EdgeInsets.only(right: 8),
-            onReorderItem: (from, to) => _set([..._items]..[i] = r.copy(steps: _moved(r.steps, from, to))),
-            children: [
-              for (final (j, s) in r.steps.indexed)
-                KeyedSubtree(
-                  key: ValueKey(s.id),
-                  child: _stepTile(
-                    s,
-                    handle: ReorderableDragStartListener(index: j, child: const Padding(padding: EdgeInsets.all(12), child: Icon(Icons.drag_handle))),
-                    moves: const [PopupMenuItem(value: 'out', child: Text('Move out of repeat'))],
-                    onMove: (a) => switch (a) {
-                      'duplicate' => _set([..._items]..[i] = r.copy(steps: [...r.steps]..insert(j + 1, s.copy(id: newPlanItemId())))),
-                      'out' => _set([..._items]..[i] = r.copy(steps: [...r.steps]..removeAt(j))..insert(i + 1, s)),
-                      _ => _replace(s.id, null),
-                    },
+    return Dismissible(
+      key: ValueKey('dismiss-${r.id}'),
+      direction: DismissDirection.endToStart,
+      background: _swipeBackground(),
+      onDismissed: (_) => _delete(r.id, 'Repeat'),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        color: theme.colorScheme.surfaceContainerHigh,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 0, 4),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: theme.colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(14)),
+                child: Icon(Icons.repeat, color: theme.colorScheme.onSecondaryContainer),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: Text('Repeat', style: theme.textTheme.titleMedium)),
+              DecoratedBox(
+                decoration: BoxDecoration(color: theme.colorScheme.surfaceContainer, borderRadius: BorderRadius.circular(24)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(visualDensity: VisualDensity.compact, tooltip: 'Fewer rounds', icon: const Icon(Icons.remove), onPressed: r.times > 1 ? () => times(r.times - 1) : null),
+                  Text('× ${r.times}', style: theme.textTheme.titleMedium),
+                  IconButton(visualDensity: VisualDensity.compact, tooltip: 'More rounds', icon: const Icon(Icons.add), onPressed: r.times < 99 ? () => times(r.times + 1) : null),
+                ]),
+              ),
+              IconButton(
+                tooltip: 'More',
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => showActions(context, 'Repeat × ${r.times}', [
+                  (icon: Icons.copy_outlined, label: 'Duplicate', onTap: () => _set([..._items]..insert(i + 1, _fresh(r))), danger: false),
+                  (icon: Icons.delete_outline, label: 'Delete', onTap: () => _delete(r.id, 'Repeat'), danger: true),
+                ]),
+              ),
+              _handle(i),
+            ]),
+            const SizedBox(height: 6),
+            ReorderableListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              proxyDecorator: _lifted,
+              padding: const EdgeInsets.only(right: 12),
+              onReorderItem: (from, to) => _set([..._items]..[i] = r.copy(steps: _moved(r.steps, from, to))),
+              children: [
+                for (final (j, s) in r.steps.indexed)
+                  KeyedSubtree(
+                    key: ValueKey(s.id),
+                    child: _stepTile(
+                      s,
+                      handle: _handle(j),
+                      duplicate: () => _set([..._items]..[i] = r.copy(steps: [...r.steps]..insert(j + 1, s.copy(id: newPlanItemId())))),
+                      moves: [
+                        (icon: Icons.move_down, label: 'Move out of repeat', onTap: () => _set([..._items]..[i] = r.copy(steps: [...r.steps]..removeAt(j))..insert(i + 1, s)), danger: false),
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add step'),
-              onPressed: () => _set([..._items]..[i] = r.copy(steps: [...r.steps, _newStep(StepKind.rep, const StepTarget.meters(400))])),
+              ],
             ),
-          ),
-        ]),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Add step'),
+                onPressed: () => _set([..._items]..[i] = r.copy(steps: [...r.steps, _newRep()])),
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -326,42 +453,30 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
       appBar: AppBar(
         title: Text(widget.initial == null ? 'New plan' : 'Edit plan'),
         actions: [
-          if (hasLast)
-            PopupMenuButton<String>(
-              onSelected: (_) => _useLastTimes(),
-              itemBuilder: (_) => const [PopupMenuItem(value: 'last', child: Text('Use last time as targets'))],
-            ),
+          if (hasLast) IconButton(tooltip: 'Use last time as targets', icon: const Icon(Icons.history), onPressed: _useLastTimes),
           TextButton(onPressed: _save, child: const Text('Save')),
+          const SizedBox(width: 8),
         ],
       ),
       bottomNavigationBar: BottomAction(children: [
-        Row(children: [
-          Expanded(
-            child: FilledButton.icon(
-              icon: const Icon(Icons.repeat),
-              label: const Text('Add repeat'),
-              onPressed: () => _set([
-                ..._items,
-                PlanRepeat(newPlanItemId(), 2, [_newStep(StepKind.rep, const StepTarget.meters(400)), _newStep(StepKind.recovery, const StepTarget.time(90))]),
-              ]),
-            ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Row(children: [
+              Expanded(child: FilledButton.tonalIcon(icon: const Icon(Icons.repeat), label: const Text('Add repeat'), onPressed: () => _set([..._items, _newRepeat(2)]))),
+              const SizedBox(width: 12),
+              Expanded(child: FilledButton.icon(icon: const Icon(Icons.add), label: const Text('Add step'), onPressed: () => _set([..._items, _newRep()]))),
+            ]),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('Add step'),
-              onPressed: () => _set([..._items, _newStep(StepKind.rep, const StepTarget.meters(400))]),
-            ),
-          ),
-        ]),
+        ),
       ]),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: ReorderableListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             buildDefaultDragHandles: false,
+            proxyDecorator: _lifted,
             header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               TextField(controller: _name, decoration: InputDecoration(labelText: 'Name', hintText: '6 × 400 m', errorText: _nameError)),
               const SizedBox(height: 16),
@@ -374,7 +489,7 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
               for (final (i, item) in _items.indexed)
                 switch (item) {
                   PlanStep() => KeyedSubtree(key: ValueKey(item.id), child: _topStep(i, item)),
-                  PlanRepeat() => _repeat(i, item),
+                  PlanRepeat() => KeyedSubtree(key: ValueKey(item.id), child: _repeat(i, item)),
                 },
             ],
           ),
@@ -384,8 +499,8 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
   }
 }
 
-/// One Step's page: its type, its duration (a distance, a time, or until Next) and its target (none, or a pace), with its Last time. Going back
-/// keeps the changes when they are valid; Delete deletes the Step. Pops the Step, [removed], or nothing.
+/// One Step's page: its type, its duration (a distance, a time, or until Next) and its Target pace, with its Last time. Going back keeps the
+/// changes when they are valid; Delete deletes the Step. Pops the Step, [removed], or nothing.
 class _StepPage extends StatefulWidget {
   const _StepPage({required this.step, required this.lastTime});
 
@@ -398,30 +513,35 @@ class _StepPage extends StatefulWidget {
   State<_StepPage> createState() => _StepPageState();
 }
 
+enum _Length { distance, time, open }
+
 class _StepPageState extends State<_StepPage> {
   late StepKind _kind = widget.step.kind;
-  late String _duration = switch (widget.step.target) { null => 'open', final t when t.isTime => 's', _ => 'm' };
-  late final _length = TextEditingController(text: switch (widget.step.target) { null => '', final t when t.isTime => clock(t.seconds!), final t => '${t.meters}' });
+  late _Length _length = switch (widget.step.target) { null => _Length.open, final t when t.isTime => _Length.time, _ => _Length.distance };
+  late final _size = TextEditingController(text: switch (widget.step.target) { null => '', final t when t.isTime => clock(t.seconds!), final t => '${t.meters}' });
   late bool _hasPace = widget.step.pace != null;
   late final _pace = TextEditingController(text: widget.step.pace == null ? '' : clock(widget.step.pace!));
-  String? _lengthError, _paceError;
+  String? _sizeError, _paceError;
 
   @override
   void dispose() {
-    _length.dispose();
+    _size.dispose();
     _pace.dispose();
     super.dispose();
   }
 
   /// The length as entered, or an error message.
-  (StepTarget?, String?) _readLength() {
-    if (_duration == 'open') return (null, null);
-    if (_duration == 'm') {
-      final m = int.tryParse(_length.text.trim());
-      return m == null || m <= 0 || m > 100000 ? (null, 'Enter meters, like 400') : (StepTarget.meters(m), null);
+  (StepTarget?, String?) _readSize() {
+    switch (_length) {
+      case _Length.open:
+        return (null, null);
+      case _Length.distance:
+        final m = int.tryParse(_size.text.trim());
+        return m == null || m <= 0 || m > 100000 ? (null, 'Enter meters, like 400') : (StepTarget.meters(m), null);
+      case _Length.time:
+        final s = parseDuration(_size.text);
+        return s == null || s <= 0 || s > 86400 ? (null, 'Enter a time like 1:30') : (StepTarget.time(s), null);
     }
-    final s = parseDuration(_length.text);
-    return s == null || s <= 0 || s > 86400 ? (null, 'Enter a time like 1:30') : (StepTarget.time(s), null);
   }
 
   /// The Target pace in seconds per km, or an error message.
@@ -431,28 +551,21 @@ class _StepPageState extends State<_StepPage> {
     return s == null || !isTargetPace(s) ? (null, 'Enter a pace like 4:30') : (s, null);
   }
 
-  PlanStep? _read() {
-    final (target, lengthError) = _readLength();
-    final (pace, paceError) = _readPace();
-    if (lengthError != null || paceError != null) return null;
-    return PlanStep(widget.step.id, _kind, target, pace: pace);
-  }
-
   void _done() {
-    final (_, lengthError) = _readLength();
-    final (_, paceError) = _readPace();
+    final (target, sizeError) = _readSize();
+    final (pace, paceError) = _readPace();
     setState(() {
-      _lengthError = lengthError;
+      _sizeError = sizeError;
       _paceError = paceError;
     });
-    if (lengthError == null && paceError == null) Navigator.pop(context, _read());
+    if (sizeError == null && paceError == null) Navigator.pop(context, PlanStep(widget.step.id, _kind, target, pace: pace));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final now = _read();
-    final last = now == null ? null : widget.lastTime(now);
+    final (target, sizeError) = _readSize();
+    final last = sizeError == null ? widget.lastTime(PlanStep(widget.step.id, _kind, target)) : null;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -461,51 +574,68 @@ class _StepPageState extends State<_StepPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(stepLabel(_kind)),
-          actions: [TextButton(onPressed: () => Navigator.pop(context, _StepPage.removed), child: const Text('Delete'))],
+          actions: [
+            IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => Navigator.pop(context, _StepPage.removed)),
+            const SizedBox(width: 8),
+          ],
         ),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
-            child: ListView(padding: const EdgeInsets.all(16), children: [
-              const SectionTitle('Step'),
-              DropdownButtonFormField<StepKind>(
-                initialValue: _kind,
-                decoration: const InputDecoration(labelText: 'Step type'),
-                items: [for (final k in StepKind.values) DropdownMenuItem(value: k, child: Text(stepLabel(k)))],
-                onChanged: (k) => setState(() => _kind = k!),
-              ),
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
+              const SectionTitle('Step type'),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final k in StepKind.values)
+                  ChoiceChip(
+                    avatar: Icon(stepIcon(k), color: stepColor(k)),
+                    label: Text(stepLabel(k)),
+                    selected: _kind == k,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _kind = k),
+                  ),
+              ]),
               const SectionTitle('Duration'),
-              DropdownButtonFormField<String>(
-                initialValue: _duration,
-                decoration: const InputDecoration(labelText: 'Duration type'),
-                items: const [
-                  DropdownMenuItem(value: 'm', child: Text('Distance')),
-                  DropdownMenuItem(value: 's', child: Text('Time')),
-                  DropdownMenuItem(value: 'open', child: Text('Until Next')),
+              SegmentedButton<_Length>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: _Length.distance, label: Text('Distance')),
+                  ButtonSegment(value: _Length.time, label: Text('Time')),
+                  ButtonSegment(value: _Length.open, label: Text('Until Next')),
                 ],
-                onChanged: (d) => setState(() {
-                  _duration = d!;
-                  _length.clear();
-                  _lengthError = null;
+                selected: {_length},
+                onSelectionChanged: (s) => setState(() {
+                  _length = s.single;
+                  _size.clear();
+                  _sizeError = null;
                 }),
               ),
-              if (_duration != 'open') ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _length,
-                  keyboardType: _duration == 'm' ? TextInputType.number : TextInputType.datetime,
-                  decoration: InputDecoration(labelText: _duration == 'm' ? 'Meters' : 'Time (m:ss)', hintText: _duration == 'm' ? '400' : '1:30', errorText: _lengthError),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ] else
-                const Padding(padding: EdgeInsets.only(top: 8), child: Text('The step lasts until you press Next.')),
-              const SectionTitle('Target'),
-              DropdownButtonFormField<bool>(
-                initialValue: _hasPace,
-                decoration: const InputDecoration(labelText: 'Target type'),
-                items: const [DropdownMenuItem(value: false, child: Text('No target')), DropdownMenuItem(value: true, child: Text('Pace'))],
-                onChanged: (v) => setState(() {
-                  _hasPace = v!;
+              const SizedBox(height: 12),
+              switch (_length) {
+                _Length.open => Text('The step lasts until you press Next.', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                _Length.distance => TextField(
+                    key: const ValueKey('distance'),
+                    controller: _size,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(labelText: 'Distance', hintText: '400', suffixText: 'm', errorText: _sizeError),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                _Length.time => TextField(
+                    key: const ValueKey('time'),
+                    controller: _size,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: const [ClockInputFormatter()],
+                    decoration: InputDecoration(labelText: 'Time', hintText: '1:30', suffixText: 'min:sec', errorText: _sizeError),
+                    onChanged: (_) => setState(() {}),
+                  ),
+              },
+              const SectionTitle('Target pace'),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [ButtonSegment(value: false, label: Text('None')), ButtonSegment(value: true, label: Text('Pace'))],
+                selected: {_hasPace},
+                onSelectionChanged: (s) => setState(() {
+                  _hasPace = s.single;
                   _paceError = null;
                 }),
               ),
@@ -513,14 +643,17 @@ class _StepPageState extends State<_StepPage> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _pace,
-                  keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(labelText: 'Pace (m:ss /km)', hintText: last == null ? '4:30' : formatPace(last.paceSecPerKm), errorText: _paceError),
-                  onChanged: (_) => setState(() {}),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: const [ClockInputFormatter()],
+                  decoration: InputDecoration(labelText: 'Pace', hintText: last == null ? '4:30' : formatPace(last.paceSecPerKm), suffixText: '/km', errorText: _paceError),
                 ),
               ],
               if (last != null) ...[
-                const SizedBox(height: 16),
-                Text('Last time ${formatPace(last.paceSecPerKm)} /km', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 20),
+                Card(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  child: ListTile(leading: const Icon(Icons.history), title: Text('Last time ${formatPace(last.paceSecPerKm)} /km')),
+                ),
               ],
             ]),
           ),

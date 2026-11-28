@@ -324,15 +324,19 @@ class _StepCard extends StatelessWidget {
         : s.metersLeft != null
             ? '${s.metersLeft!.round()} m left'
             : '${clock(s.stepSec)} · ${distanceLabel(s.stepMeters)}';
-    final fast = s.kind == StepKind.rep;
+    final bg = s.planDone ? theme.colorScheme.surfaceContainerHighest : stepColor(s.kind), fg = s.planDone ? theme.colorScheme.onSurface : readableOn(bg);
     return Card(
-      color: fast ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+      color: bg,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(children: [
-          Text(s.planDone ? 'Plan done · $name' : name, style: theme.textTheme.headlineMedium),
-          Text(left, style: theme.textTheme.displaySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
-          if (_paces() case final p?) Text(p, style: theme.textTheme.titleMedium),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(stepIcon(s.kind), color: fg),
+            const SizedBox(width: 8),
+            Flexible(child: Text(s.planDone ? 'Plan done · $name' : name, style: theme.textTheme.headlineMedium?.copyWith(color: fg))),
+          ]),
+          Text(left, style: theme.textTheme.displaySmall?.copyWith(color: fg, fontWeight: FontWeight.w500, fontFeatures: const [FontFeature.tabularFigures()])),
+          if (_paces() case final p?) Text(p, style: theme.textTheme.titleMedium?.copyWith(color: fg)),
         ]),
       ),
     );
