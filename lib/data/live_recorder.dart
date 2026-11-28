@@ -117,6 +117,7 @@ class LiveRecorder extends ChangeNotifier {
 
   /// The plan of the Interval run in progress; null for a free one or a Run.
   IntervalPlan? get plan => _rec?.plan;
+  String? get planId => _rec?.planId;
   int get lapCount => _rec?.laps.length ?? 0;
 
   /// The recording's numbers now, null when nothing is being recorded.

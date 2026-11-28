@@ -21,7 +21,7 @@ List<(StepKind, int, int, int)> shape(List<StepMark> marks) => [for (final m in 
 
 List<String> said(Recorder r) => [for (final c in r.voiceCues) c.text ?? 'beep'];
 
-const twoBy300 = IntervalPlan(name: '2 × 300', reps: 2, rep: StepTarget.meters(300), recovery: StepTarget.time(30));
+final twoBy300 = IntervalPlan.basic(name: '2 × 300', reps: 2, rep: StepTarget.meters(300), recovery: StepTarget.time(30));
 
 void main() {
   group('Planned Interval run', () {
@@ -74,7 +74,7 @@ void main() {
     });
 
     test('Pause stops a time step; standing still does not', () {
-      const plan = IntervalPlan(name: 't', reps: 1, rep: StepTarget.time(60), recovery: StepTarget.time(60));
+      final plan = IntervalPlan.basic(name: 't', reps: 1, rep: StepTarget.time(60), recovery: StepTarget.time(60));
       final r = Recorder.start('interval', t0, 's1', plan: plan);
       feed(r, 0, 20);
       r.pause(at(20));
@@ -111,6 +111,40 @@ void main() {
       final again = Recorder.replay(r.events);
       expect(shape(again.finish(at(200)).track!.steps!), shape(r.finish(at(200)).track!.steps!));
       expect(again.finish(at(200)).planId, 'p1');
+    });
+  });
+
+  group('Steps and Repeats', () {
+    PlanStep step(String id, StepKind k, StepTarget? t, {int? pace}) => PlanStep(id, k, t, pace: pace);
+
+    test('an open step lasts until Next', () {
+      final plan = IntervalPlan(name: 'o', items: [step('w', StepKind.warmup, null), step('r', StepKind.rep, const StepTarget.meters(300))]);
+      final r = Recorder.start('interval', t0, 's1', plan: plan);
+      feed(r, 0, 200);
+      expect(r.snapshot(at(200)).interval!.kind, StepKind.warmup);
+      expect(r.snapshot(at(200)).interval!.secondsLeft, isNull);
+      r.next(at(200));
+      feed(r, 201, 320, startM: 603);
+      expect(shape(r.finish(at(320)).track!.steps!).take(2), [(StepKind.warmup, 0, 200, 200), (StepKind.rep, 200, 300, 100)]);
+    });
+
+    test('reps are counted across the whole plan, whatever Repeat they are in', () {
+      final plan = IntervalPlan(name: 'mix', items: [
+        PlanRepeat('x', 2, [step('a', StepKind.rep, const StepTarget.time(10)), step('b', StepKind.recovery, const StepTarget.time(10))]),
+        step('c', StepKind.rep, const StepTarget.time(10)),
+      ]);
+      final r = Recorder.start('interval', t0, 's1', plan: plan);
+      feed(r, 0, 45);
+      expect(said(r).where((t) => t.contains(' of ')).map((t) => RegExp(r'Rep \d of \d').firstMatch(t)![0]), ['Rep 1 of 3', 'Rep 2 of 3', 'Rep 3 of 3']);
+      expect(r.snapshot(at(45)).interval!.step!.id, 'c');
+    });
+
+    test('the voice gives a rep\'s Target pace, and its result against it', () {
+      final plan = IntervalPlan(name: 'p', items: [step('r', StepKind.rep, const StepTarget.meters(300), pace: 300), step('c', StepKind.cooldown, null)]);
+      final r = Recorder.start('interval', t0, 's1', plan: plan);
+      feed(r, 0, 110);
+      expect(said(r).take(2), ['Rep 1 of 1, 300 meters, at 5 00 per kilometer.', 'Rep 1 done. 1 minute 40 seconds. Pace 5 33 per kilometer. 33 seconds slow. Cool-down.']);
+      expect(r.snapshot(at(110)).interval!.step!.pace, isNull);
     });
   });
 

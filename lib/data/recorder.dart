@@ -41,9 +41,19 @@ String kmCueText(KmCue c) {
   return 'Kilometer ${c.km}. Time ${mins > 0 ? '$mins minute${mins == 1 ? '' : 's'} ' : ''}$secs second${secs == 1 ? '' : 's'}. ${_spokenPace(c.paceSecPerKm)}.';
 }
 
-String _spokenPace(double secPerKm) {
+String _spokenPace(double secPerKm) => 'Pace ${_paceWords(secPerKm)}';
+
+/// "4 05 per kilometer".
+String _paceWords(num secPerKm) {
   final p = secPerKm.round();
-  return 'Pace ${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer';
+  return '${p ~/ 60} ${(p % 60).toString().padLeft(2, '0')} per kilometer';
+}
+
+/// A rep's pace against its Target pace: "On target.", "5 seconds slow.", "1 second fast."
+String _againstTarget(double pace, int target) {
+  final d = (pace - target).round();
+  if (d == 0) return 'On target.';
+  return '${d.abs()} second${d.abs() == 1 ? '' : 's'} ${d > 0 ? 'slow' : 'fast'}.';
 }
 
 /// "1 minute 40 seconds", "1 minute", "30 seconds".
@@ -71,10 +81,12 @@ class VoiceCue {
 }
 
 /// The step an Interval run is in, for the recording screen. [reps] is null on a free Interval run; what is left is null on a step with no target.
+/// [step] is the plan's Step it runs, null on a free Interval run and after the plan.
 class IntervalSnapshot {
-  const IntervalSnapshot({required this.kind, this.rep, this.reps, required this.stepSec, required this.stepMeters, this.secondsLeft, this.metersLeft, required this.planDone});
+  const IntervalSnapshot({required this.kind, this.rep, this.reps, this.step, required this.stepSec, required this.stepMeters, this.secondsLeft, this.metersLeft, required this.planDone});
   final StepKind kind;
   final int? rep, reps;
+  final PlanStep? step;
   final int stepSec;
   final double stepMeters;
   final int? secondsLeft;
@@ -183,8 +195,9 @@ class Recorder {
   final _marks = <StepMark>[];
   final _voice = <VoiceCue>[];
   StepKind _stepKind = StepKind.warmup;
-  StepTarget? _stepTarget; // null: the step lasts until Next (free) or Finish (after the plan)
+  StepTarget? _stepTarget; // null: the step lasts until Next (open or free) or Finish (after the plan)
   int? _stepRep;
+  PlannedStep? _planned; // the plan's step being run
   int _stepIndex = 0; // planned: the step's index in plan.steps
   int _freeReps = 0;
   DateTime _stepAt = DateTime.utc(0);
@@ -334,10 +347,11 @@ class Recorder {
     final p = plan;
     if (p == null) return _openStep(StepKind.warmup, null, null, at);
     final first = p.steps.first;
-    _openStep(first.kind, first.target, first.rep, at);
+    _openStep(first.kind, first.target, first.rep, at, planned: first);
   }
 
-  void _openStep(StepKind kind, StepTarget? target, int? rep, DateTime at, {String? said}) {
+  void _openStep(StepKind kind, StepTarget? target, int? rep, DateTime at, {String? said, PlannedStep? planned}) {
+    _planned = planned;
     _stepKind = kind;
     _stepTarget = target;
     _stepRep = rep;
@@ -345,7 +359,8 @@ class Recorder {
     _stepDist = _distAtStepStart ?? _dist;
     _stepPausedBase = _pausedSec;
     _beeps = 0;
-    final size = target == null ? '' : ', ${_spokenTarget(target)}';
+    final pace = planned?.step.pace;
+    final size = '${target == null ? '' : ', ${_spokenTarget(target)}'}${pace == null ? '' : ', at ${_paceWords(pace)}'}';
     final name = switch (kind) {
       StepKind.warmup => 'Warm-up$size.',
       StepKind.rep => plan == null ? 'Rep $rep.' : 'Rep $rep of ${plan!.reps}$size.',
@@ -371,8 +386,9 @@ class Recorder {
     }
     final mark = _markAt(at, dist, _stepKind);
     _marks.add(mark);
+    final pace = mark.paceSecPerKm, target = _planned?.step.pace;
     final result = _stepKind == StepKind.rep
-        ? 'Rep $_stepRep done. ${_spokenTime(mark.sec)}.${mark.paceSecPerKm == null ? '' : ' ${_spokenPace(mark.paceSecPerKm!)}.'}'
+        ? 'Rep $_stepRep done. ${_spokenTime(mark.sec)}.${pace == null ? '' : ' ${_spokenPace(pace)}.'}${pace == null || target == null ? '' : ' ${_againstTarget(pace, target)}'}'
         : null;
     _distAtStepStart = dist;
     if (p == null) {
@@ -384,7 +400,7 @@ class Recorder {
       }
     } else if (++_stepIndex < p.steps.length) {
       final s = p.steps[_stepIndex];
-      _openStep(s.kind, s.target, s.rep, at, said: result);
+      _openStep(s.kind, s.target, s.rep, at, said: result, planned: s);
     } else {
       _planDone = true;
       _openStep(StepKind.cooldown, null, null, at, said: [?result, 'Plan done.'].join(' '));
@@ -473,6 +489,7 @@ class Recorder {
       kind: _stepKind,
       rep: _stepRep,
       reps: plan?.reps,
+      step: _planned?.step,
       stepSec: max(0, clock.round()),
       stepMeters: meters,
       secondsLeft: t?.seconds == null ? null : max(0, (t!.seconds! - clock).round()),
