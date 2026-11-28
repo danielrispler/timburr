@@ -93,9 +93,19 @@ void main() {
       expect(l.fits(k.copy(kind: StepKind.warmup)), isFalse);
     });
 
-    test('skips marks that do not match the plan\'s step', () {
-      final freeSaved = [m(StepKind.rep, 240, 1000), m(StepKind.cooldown, 300, 1000)]; // a free run saved as a plan with a recovery after the rep
-      expect(lastTimes([(twoK, freeSaved)]).keys, ['k']);
+    test('a free run saved as a plan gives every Step a Last time, though the plan has a recovery after the last rep', () {
+      final free = [m(StepKind.warmup, 300, 1000), m(StepKind.rep, 240, 1000), m(StepKind.recovery, 60, 150), m(StepKind.rep, 260, 1000), m(StepKind.cooldown, 300, 900)];
+      final plan = planFromSteps(free, name: 'saved');
+      expect(lastTimes([(plan, free)]).keys, unorderedEquals(['warmup', 'rep', 'recovery', 'cooldown']));
+      expect(lastTimes([(plan, free)])['cooldown']!.paceSecPerKm, closeTo(333.3, 0.1));
+    });
+
+    test('and so does one whose warm-up rounded to nothing, so its plan has none', () {
+      final free = [m(StepKind.warmup, 2, 5), m(StepKind.rep, 240, 1000), m(StepKind.recovery, 60, 150), m(StepKind.rep, 260, 1000), m(StepKind.cooldown, 300, 900)];
+      final plan = planFromSteps(free, name: 'saved');
+      expect(plan.allSteps.first.kind, StepKind.rep);
+      expect(lastTimes([(plan, free)]).keys, unorderedEquals(['rep', 'recovery', 'cooldown']));
+      expect(lastTimes([(plan, free)])['rep']!.paceSecPerKm, 250);
     });
   });
 

@@ -10,14 +10,6 @@ import '../cardio/run_page.dart';
 import '../core/series_chart.dart';
 import '../core/theme.dart';
 
-/// "Warm-up", "Rep 3", "Recovery", "Cool-down".
-String stepLabel(StepKind kind, {int? rep}) => switch (kind) {
-      StepKind.warmup => 'Warm-up',
-      StepKind.rep => rep == null ? 'Rep' : 'Rep $rep',
-      StepKind.recovery => 'Recovery',
-      StepKind.cooldown => 'Cool-down',
-    };
-
 /// The setup screen's choice of plan: each saved plan (with Edit, History and Delete), Free, and New plan. [selected] null is Free.
 class PlanPicker extends StatelessWidget {
   const PlanPicker({super.key, required this.store, required this.selected, required this.onSelected});
@@ -135,7 +127,7 @@ class PlanOverview extends StatelessWidget {
   }
 }
 
-/// New or edit Interval plan, laid out as Garmin's workout editor: the overview, then the Steps and Repeats with Add step and Add repeat at the
+/// New or edit Interval plan, laid out as Garmin's editor: the overview, then the Steps and Repeats with Add step and Add repeat at the
 /// bottom. Tapping a Step opens its page. [lastTimes] are the plan's Last times. Pops the plan, or nothing when backed out.
 class IntervalPlanEditor extends StatefulWidget {
   const IntervalPlanEditor({super.key, this.initial, this.lastTimes = const {}});
@@ -210,7 +202,8 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
           },
       ]);
 
-  PlanStep _withLast(PlanStep s) => switch (_last(s)) { final l? => s.copy(pace: () => l.paceSecPerKm.round()), null => s };
+  /// [s] with its Last time as its Target pace, when it has one a Target pace can be (a walked recovery can be slower than 20:00 /km).
+  PlanStep _withLast(PlanStep s) => switch (_last(s)?.paceSecPerKm.round()) { final p? when isTargetPace(p) => s.copy(pace: () => p), _ => s };
 
   void _save() {
     setState(() {
@@ -392,7 +385,7 @@ class _IntervalPlanEditorState extends State<IntervalPlanEditor> {
 }
 
 /// One Step's page: its type, its duration (a distance, a time, or until Next) and its target (none, or a pace), with its Last time. Going back
-/// keeps the changes when they are valid; Remove deletes the Step. Pops the Step, [removed], or nothing.
+/// keeps the changes when they are valid; Delete deletes the Step. Pops the Step, [removed], or nothing.
 class _StepPage extends StatefulWidget {
   const _StepPage({required this.step, required this.lastTime});
 
@@ -435,7 +428,7 @@ class _StepPageState extends State<_StepPage> {
   (int?, String?) _readPace() {
     if (!_hasPace) return (null, null);
     final s = parseDuration(_pace.text);
-    return s == null || s < 120 || s > 1200 ? (null, 'Enter a pace like 4:30') : (s, null);
+    return s == null || !isTargetPace(s) ? (null, 'Enter a pace like 4:30') : (s, null);
   }
 
   PlanStep? _read() {
@@ -468,7 +461,7 @@ class _StepPageState extends State<_StepPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(stepLabel(_kind)),
-          actions: [TextButton(onPressed: () => Navigator.pop(context, _StepPage.removed), child: const Text('Remove'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context, _StepPage.removed), child: const Text('Delete'))],
         ),
         body: Center(
           child: ConstrainedBox(

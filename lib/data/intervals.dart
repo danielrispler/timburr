@@ -2,7 +2,8 @@
 library;
 
 import 'dart:convert';
-import 'dart:math';
+
+import 'package:uuid/uuid.dart';
 
 /// The parts of an Interval run, in the words of the glossary.
 enum StepKind { warmup, rep, recovery, cooldown }
@@ -46,7 +47,7 @@ String distanceLabel(num meters) {
 String clock(int sec) => '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 
 /// A new id for a Step or Repeat, unique within its plan.
-String newPlanItemId() => List.generate(8, (_) => Random().nextInt(16).toRadixString(16)).join();
+String newPlanItemId() => const Uuid().v4();
 
 /// One Step or Repeat of an Interval plan. [id] stays with it through edits, so a Step keeps its Last time when it moves.
 sealed class PlanItem {
@@ -165,7 +166,7 @@ class IntervalPlan {
     String step(PlanStep s, {bool bare = false}) {
       final size = s.target?.describe() ?? 'open';
       if (bare && (s.kind == StepKind.rep || s.kind == StepKind.recovery)) return size;
-      return '$size ${stepWord(s.kind)}';
+      return '$size ${stepLabel(s.kind).toLowerCase()}';
     }
 
     return [
@@ -185,13 +186,16 @@ class IntervalPlan {
   int get hashCode => jsonEncode(toJson()).hashCode;
 }
 
-/// "warm-up", "rep", "recovery", "cool-down".
-String stepWord(StepKind k) => switch (k) {
-      StepKind.warmup => 'warm-up',
-      StepKind.rep => 'rep',
-      StepKind.recovery => 'recovery',
-      StepKind.cooldown => 'cool-down',
+/// "Warm-up", "Rep 3", "Recovery", "Cool-down".
+String stepLabel(StepKind kind, {int? rep}) => switch (kind) {
+      StepKind.warmup => 'Warm-up',
+      StepKind.rep => rep == null ? 'Rep' : 'Rep $rep',
+      StepKind.recovery => 'Recovery',
+      StepKind.cooldown => 'Cool-down',
     };
+
+/// The Target paces a Step can have, in seconds per km: 2:00 to 20:00.
+bool isTargetPace(int secPerKm) => secPerKm >= 120 && secPerKm <= 1200;
 
 /// A Step's Last time: the pace it was run at, and the kind and length it had then.
 class LastTime {
@@ -207,15 +211,26 @@ class LastTime {
 /// Each Step's Last time, by Step id, from the Interval runs of one plan, newest first: each Run's copy of the plan and its steps as run.
 /// A Step's Last time comes from the newest Run that ran it, averaged over its rounds (all its time over all its distance). The step a Run was
 /// finished in counts only when it is the plan's last step and a cool-down, which runs until Finish anyway.
+///
+/// The steps as run are matched to the plan's steps in order, each to the next planned step of its kind. A planned Run matches one to one;
+/// a free Run saved as a plan does too where the plan differs from it (a recovery after the last rep, no warm-up when it rounded to 0 s).
 Map<String, LastTime> lastTimes(Iterable<(IntervalPlan, List<StepMark>)> newestFirst) {
   final out = <String, LastTime>{};
   for (final (plan, marks) in newestFirst) {
     final planned = plan.steps;
     final sec = <String, int>{}, meters = <String, double>{}, step = <String, PlanStep>{};
-    for (var i = 0; i < planned.length && i < marks.length; i++) {
-      final s = planned[i].step, m = marks[i];
-      final whole = i < marks.length - 1 || (i == planned.length - 1 && s.kind == StepKind.cooldown);
-      if (!whole || m.kind != s.kind || out.containsKey(s.id)) continue;
+    var next = 0; // the first planned step not yet matched
+    for (var i = 0; i < marks.length; i++) {
+      final m = marks[i];
+      var j = next;
+      while (j < planned.length && planned[j].kind != m.kind) {
+        j++;
+      }
+      if (j == planned.length) continue; // nothing left of its kind: a step after the plan, or one the plan does not have
+      next = j + 1;
+      final s = planned[j].step;
+      final whole = i < marks.length - 1 || (j == planned.length - 1 && s.kind == StepKind.cooldown);
+      if (!whole || out.containsKey(s.id)) continue;
       sec[s.id] = (sec[s.id] ?? 0) + m.sec;
       meters[s.id] = (meters[s.id] ?? 0) + m.meters;
       step[s.id] = s;

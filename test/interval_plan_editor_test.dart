@@ -60,12 +60,14 @@ void main() {
     expect(result.single!.allSteps.single.pace, 245);
   });
 
-  testWidgets('Last time shows on a Step that is unchanged since, and Use last time as targets copies it', (tester) async {
+  testWidgets('Last time shows on a Step that is unchanged since, and Use last time as targets copies it when it can be a Target pace', (tester) async {
     final plan = IntervalPlan(name: 'Two', items: [
       const PlanStep('r', StepKind.rep, StepTarget.meters(1000)),
+      const PlanStep('w', StepKind.recovery, StepTarget.time(60)),
       const PlanStep('c', StepKind.cooldown, StepTarget.time(300)),
     ]);
     final result = await open(tester, initial: plan, lastTimes: {
+      'w': const LastTime(StepKind.recovery, StepTarget.time(60), 1500), // walked: 25:00 /km is no Target pace
       'r': const LastTime(StepKind.rep, StepTarget.meters(1000), 250.4),
       'c': const LastTime(StepKind.cooldown, StepTarget.time(600), 330), // the cool-down was 10:00 then: no Last time
     });
@@ -76,6 +78,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect([for (final s in result.single!.allSteps) s.pace], [250, null]);
+    expect([for (final s in result.single!.allSteps) s.pace], [250, null, null]);
   });
 }
