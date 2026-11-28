@@ -23,6 +23,15 @@ void main() {
     await tester.pump(const Duration(seconds: 1)); // drift closes its stream with a zero timer
   }
 
+  /// A test still ends with close(tester), before Flutter checks for pending timers. A failed expect skips it, and a drift stream left
+  /// mounted makes db.close wait forever, so close again in a tear-down. Tear-downs run last first, so it runs before db.close.
+  AppDb open(WidgetTester tester) {
+    final db = AppDb(NativeDatabase.memory());
+    addTearDown(db.close);
+    addTearDown(() => close(tester));
+    return db;
+  }
+
   Future<(CardioStore, String, String)> seed(WidgetTester tester, AppDb db) async {
     final store = CardioStore(db);
     return (await tester.runAsync(() async {
@@ -31,13 +40,13 @@ void main() {
       final slow = await add('slow', 1, 3);
       final fast = await add('fast', 2, 4);
       await add('tm', 3, 6, type: 'treadmill'); // an old treadmill row: faster than both, but no longer a Run
+      await store.dropTreadmillRuns(); // as the app does at start
       return (store, slow, fast);
     }))!;
   }
 
   testWidgets('the Run page shows its efforts, with the PR badge only on the fastest ever', (tester) async {
-    final db = AppDb(NativeDatabase.memory());
-    addTearDown(db.close);
+    final db = open(tester);
     final (store, slow, fast) = await seed(tester, db);
     Future<void> show(String id) async {
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: RunBestEfforts(store: store, runId: id)))));
@@ -56,8 +65,7 @@ void main() {
   });
 
   testWidgets('Records lists each PR and the longest Run, and the top efforts per distance', (tester) async {
-    final db = AppDb(NativeDatabase.memory());
-    addTearDown(db.close);
+    final db = open(tester);
     final (store, _, _) = await seed(tester, db);
     final stores = (routines: RoutineStore(db), workouts: WorkoutStore(db), cardio: store, catalog: Catalog(db));
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: RunningRecords(stores: stores, runs: store.watchAll()))));

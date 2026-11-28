@@ -128,6 +128,7 @@ void main() {
 
     test('an Interval run speaks its steps and beeps its countdown instead of km cues, and saves its steps', () async {
       final rec = make();
+      await db.save(db.intervalPlans, {'id': 'p1', 'name': 'One', 'structure': '{}'}); // the plan the Run points at
       await rec.start('interval', plan: const IntervalPlan(name: 'One', reps: 1, rep: StepTarget.meters(200), recovery: StepTarget.time(10)), planId: 'p1');
       await run(0, 300);
       expect(speech.said, [
