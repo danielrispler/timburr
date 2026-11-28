@@ -123,10 +123,12 @@ void main() {
       await run('c', route: null);
       await run('d', type: 'interval', route: '32.0,34.8;32.1,34.9');
       await run('e', route: '32.0,34.8;32.1,34.9', deleted: DateTime(2026, 11, 2));
+      await run('f', type: 'treadmill', route: '32.0,34.8;32.1,34.9'); // an old treadmill row: not a Run
       final routes = heatmapRoutes(await store.watchAll().first);
-      expect(routes, hasLength(1));
-      expect(routes.single.first, (32.0, 34.8));
-      expect(routes.single, hasLength(3));
+      expect(routes, unorderedEquals([
+        [(32.0, 34.8), (32.001, 34.801), (32.002, 34.802)],
+        [(32.0, 34.8), (32.1, 34.9)], // the Interval run counts
+      ]));
     });
 
     test('hundreds of Runs turn into routes quickly', () async {
